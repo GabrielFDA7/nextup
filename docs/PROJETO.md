@@ -482,6 +482,11 @@ que nenhum teste de API alcança:
 O CI ganhou um **segundo job** para eles, separado porque baixa um navegador e não faz
 sentido repetir isso em três versões do Python. A suíte rápida continua em ~7s.
 
+> **Pendência assumida (12/09/2026):** a interface foi aprovada quanto ao funcionamento,
+> mas ainda não passou por refino visual. Gabriel: *"Ficou maneiro e parece funcional. Só
+> precisamos deixar bonito agora, mas isso é um trabalho para depois."* Fazer antes de
+> divulgar o link — é a primeira coisa que um recrutador vê.
+
 ### Fase 5 — Produção
 Docker, CI no GitHub Actions, deploy público, README com GIF de demonstração.
 **Entrega:** link que qualquer pessoa — ou recrutador — abre e usa.

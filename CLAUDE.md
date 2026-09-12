@@ -72,6 +72,10 @@ demonstração. Pontos já preparados: `/api/health` existe para o healthcheck d
 contêiner, `NEXTUP_WEB_DIR` permite apontar a pasta do frontend no contêiner, e
 `NEXTUP_CORS_ORIGINS` deve deixar de ser `*` quando houver domínio próprio.
 
+**Pendência combinada com o Gabriel (12/09/2026):** a interface funciona e foi aprovada,
+mas **falta refino visual** — ele pediu explicitamente para "deixar bonito" depois. Fazer
+antes de divulgar o link publicamente.
+
 **Duas lições dos dados reais, que valem para as próximas fases:**
 1. `OPERATING` **não** garante tempo de fila — 9 das 35 atrações do Magic Kingdom
    estavam abertas sem fila medida. Use sempre `is_rankable`.

@@ -161,6 +161,326 @@ instalar as dependências, rodar `pytest` e `ruff`, e então iniciar a Fase 1.
 
 ---
 
+## Sessão 003 — 12/09/2026
+
+> Sessão na **máquina pessoal**, a primeira fora da máquina corporativa. Começou com o
+> ambiente local inexistente e terminou com as **Fases 1 a 4 concluídas**: modelos,
+> cache, cliente HTTP, CLI, motor de recomendação, API FastAPI e interface web.
+> 194 testes, CI verde em 4 jobs.
+
+### Prompt #004
+**Data:** 12/09/2026
+**Contexto:** Abertura da sessão. Repositório clonado na máquina pessoal, sem `.venv`.
+
+```
+Muito bem, espero que você tenha o contexto do projeto.
+Baseado nisso, qual seria o próximo passo para continuarmos o nosso progresso? Acredito que a fase 0 ainda não esteja totalmente concluída, possívelmente será necessário instalar dependências desse lado de cá para seguirmos.
+A .venv ainda não foi iniciada.
+
+Analise e me retorne
+```
+
+**O que resultou:**
+- Diagnóstico: só havia **Python 3.14** instalado, versão que o CI não testa. Decisão do
+  Gabriel: instalar o **3.13**, versão mais alta validada pelo CI, para evitar
+  "passa aqui, falha lá".
+- `winget install Python.Python.3.13`, `.venv` criada, `pip install -e ".[dev]"`.
+- **Primeira execução local da qualidade na história do projeto:** 17 testes passando,
+  `ruff check` e `ruff format --check` limpos.
+
+---
+
+### Prompt #005
+**Data:** 12/09/2026
+**Contexto:** Ambiente pronto; `CLAUDE.md` ainda dizia que o `ruff` nunca rodara local.
+
+```
+Atualize o claude.md primeiro e ainda crie para mim um resumo pelo chat do que foi feito até agora, explicando cada termo para que eu possa aprender ainda mais. Após isso, começaremos a parte 1 pelo pydantic.
+```
+
+**O que resultou:**
+- `CLAUDE.md` e `docs/PROJETO.md` atualizados; decisão do Python 3.13 na seção 10.
+- Aula sobre venv, editable install, extras `[dev]`, lint e `winget`.
+- Início da Fase 1 pelos modelos `pydantic`.
+
+---
+
+### Prompt #006
+**Data:** 12/09/2026
+**Contexto:** Após a primeira aula, sobre as ferramentas de qualidade do projeto.
+
+```
+como funcionam o pytest e o ruff?
+```
+
+**O que resultou:** aula sobre descoberta automática de testes, reescrita de `assert`,
+`pytest.approx`, fixtures, e a diferença entre `ruff check` (lint via AST) e
+`ruff format` (formatação). Tabela das famílias de regras `E/W/F/I/N/UP/B/SIM/RUF` e as
+ferramentas que cada uma substitui.
+
+---
+
+### Prompt #007
+**Data:** 12/09/2026
+**Contexto:** Antes de iniciar os modelos, dúvida sobre estratégia de teste.
+
+```
+Bora para a próxima fase, mas antes quero tirar uma dúvida.
+Iremos fazer um test_*.py para cada script que escrevermos?
+```
+
+**O que resultou:** esclarecido que **não é 1:1**. Um arquivo de teste nasce quando o
+módulo tem uma decisão ou cálculo que pode dar errado de forma não óbvia. `__init__.py`
+e constantes puras não ganham teste próprio; teste que só repete o código não prova nada.
+
+---
+
+### Prompt #008
+**Data:** 12/09/2026
+**Contexto:** Escolha entre começar pelo `Destination` ou pelo `Attraction`.
+
+```
+Podemos seguir assim, mas lembre que estou aprendendo, preciso de aulas e explicações para que eu entenda os termos e como eles funcionam dentro do nosso código, e outra, quero que você explique como se estivesse explicando para um completo leigo, de forma que todos consigam entender as explicações.
+```
+
+**O que resultou:**
+- Preferência registrada na memória do assistente: explicar com analogia do mundo real,
+  em linguagem de leigo, antes do código.
+- `models/destination.py` + fixture real da API + 11 testes.
+
+---
+
+### Prompt #009
+**Data:** 12/09/2026
+**Contexto:** Três alterações pendentes sem commit.
+
+```
+Entendi, mas quando iremos fazer commits? A cada fase ou de outra forma?
+```
+
+**O que resultou:** estabelecida a régua — **um commit por ideia completa**, não por fase
+(a Fase 0 sozinha gerou 8 commits). Teste vai junto do código que ele testa, para todo
+commit deixar o repositório verde e o `git bisect` funcionar.
+
+---
+
+### Prompt #010
+**Data:** 12/09/2026
+**Contexto:** Proposta de três commits temáticos, dois deles no mesmo arquivo.
+
+```
+Faça
+```
+
+**O que resultou:**
+- Três commits criados.
+- **Erro cometido e corrigido:** a tentativa de dividir `docs/PROJETO.md` com um patch de
+  contexto zero inseriu uma linha no lugar errado. Pego na revisão do `git diff --cached`
+  antes do commit. Lição registrada: sempre revisar o que está preparado, não só os nomes
+  dos arquivos.
+
+---
+
+### Prompt #011
+**Data:** 12/09/2026
+**Contexto:** Commits locais, ainda não enviados.
+
+```
+vamos fazer o push e depois seguir para o Attraction
+```
+
+**O que resultou:** push feito, CI verde. `models/attraction.py` com `EntityType`
+(enum com `_missing_` → `UNKNOWN`), `Location` com faixa validada e
+`ParkCatalog.attractions()`. 16 testes.
+
+---
+
+### Prompt #012
+**Data:** 12/09/2026
+**Contexto:** `gh` recém-instalado, sem autenticação.
+
+```
+Consegue analisar meu terminal?
+```
+
+**O que resultou:** esclarecido o limite — o assistente não enxerga a janela do terminal
+do Gabriel, só executa comandos e lê a saída. O que fica em disco (arquivos, credenciais,
+programas instalados) é compartilhado; o histórico de comandos dele, não.
+
+---
+
+### Prompt #013
+**Data:** 12/09/2026
+**Contexto:** Gabriel colou dois erros do PowerShell: `Activate.ps1` bloqueado por
+política de execução, e `gh` não reconhecido.
+
+```
+(saída do terminal com PSSecurityException e CommandNotFoundException)
+
+Quando tentei rodar o gh auth login por mim mesmo, tive esse erro:
+
+Como concertamos
+```
+
+**O que resultou:**
+- Diagnóstico: política de execução em `Restricted` (padrão de fábrica) e PATH do terminal
+  desatualizado.
+- Decisão do Gabriel: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+
+---
+
+### Prompt #014
+**Data:** 12/09/2026
+**Contexto:** venv passou a ativar, mas `gh` seguia não reconhecido.
+
+```
+(saída do terminal)
+
+Comecei a rodar os comandos que você havia indicado, a venv ativou, porém gh ainda não é reconhecido pelo cmdlet
+```
+
+**O que resultou:** causa identificada — **o terminal integrado do VS Code herda o PATH do
+VS Code**, que foi carregado antes da instalação. Abrir terminal novo não bastava; era
+preciso reiniciar o editor. Também corrigida uma orientação anterior do assistente, cujo
+comando teria desativado o venv ao reconstruir o PATH.
+
+---
+
+### Prompt #015
+**Data:** 12/09/2026
+**Contexto:** Problemas de ambiente resolvidos.
+
+```
+Prontinho, consegui fazer todos os processos e entendi que o VS code só atualizaria o path se fosse reiniciado. Agora estou logado no GitHub CLI
+```
+
+**O que resultou:** `gh` autenticado, passando a permitir consulta do CI pelo terminal.
+Implementados `models/live.py` (`LiveStatus`, `is_rankable`) e `clients/cache.py`
+(TTL com relógio injetável).
+
+---
+
+### Prompt #016
+**Data:** 12/09/2026
+**Contexto:** Cache pronto; faltava o cliente HTTP para fechar a Fase 1.
+
+```
+Vam bora!
+```
+
+**O que resultou:**
+- `clients/themeparks.py` — assíncrono, cache, backoff exponencial, erros próprios.
+- **Bug encontrado por teste:** o cache guardava o JSON cru **antes** de validar, então uma
+  resposta malformada ficava memorizada por 24h. Corrigido guardando o modelo validado.
+- **Falha de desenho encontrada ao otimizar os testes:** o `User-Agent` só era enviado
+  quando o cliente criava a própria conexão — a Fase 3 teria perdido a identificação com
+  a API sem ninguém notar. Cabeçalho e timeout passaram a ir por requisição.
+
+---
+
+### Prompt #017
+**Data:** 12/09/2026
+**Contexto:** Cliente pronto; faltava a entrega da Fase 1.
+
+```
+Seguimos
+```
+
+**O que resultou:**
+- `cli.py` — comando `nextup`, que o `pyproject.toml` declarava desde a Fase 0 sem o
+  módulo existir.
+- **Fase 1 concluída.** Bug de contagem encontrado só ao rodar contra a API real:
+  `--limit 6` exibia "6 de 35" em vez de "26 de 35".
+
+---
+
+### Prompt #018
+**Data:** 12/09/2026
+**Contexto:** Fase 1 fechada; Fase 2 é o coração do projeto.
+
+```
+Vamos continuar, estou animado com o projeto.
+```
+
+**O que resultou:**
+- `core/recommender.py` — ranking por `custo_total = caminhada + fila`.
+- `tests/test_arquitetura.py` — a regra do `CLAUDE.md` virou teste executável, validado
+  com uma violação proposital.
+- `cli.py --lat/--lon`. **Fase 2 concluída.**
+
+---
+
+### Prompt #019
+**Data:** 12/09/2026
+**Contexto:** Motor pronto; faltava expor por HTTP.
+
+```
+Seguimos
+```
+
+**O que resultou:**
+- `api/` com FastAPI: `health`, `destinations`, `parks/{id}/recommendations`.
+- Schemas separados dos modelos internos; cliente único no `lifespan`; erros do projeto
+  mapeados para 404/502/503.
+- **O mesmo bug de contagem reapareceu** — e o primeiro teste escrito para ele
+  **afirmava o comportamento errado**, por ter sido escrito olhando o código em vez da
+  expectativa. **Fase 3 concluída.**
+
+---
+
+### Prompt #020
+**Data:** 12/09/2026
+**Contexto:** API pronta; faltava a interface.
+
+```
+Seguimos!
+```
+
+**O que resultou:**
+- `web/` — HTML, CSS e JS puro, servido pelo próprio FastAPI. Geolocation, mapa Leaflet,
+  seletor com 198 parques, e **toque no mapa define a posição** (saída para quem nega
+  o GPS).
+- Decisão do Gabriel: **instalar Playwright** para testar a interface de verdade.
+  21 testes E2E em Chromium, incluindo proteção contra XSS e ausência de rolagem lateral.
+- CI ganhou segundo job; actions atualizadas para `@v7`. **Fase 4 concluída.**
+
+---
+
+### Prompt #021
+**Data:** 12/09/2026
+**Contexto:** Interface pronta e testada, mas o Gabriel ainda não a tinha visto.
+
+```
+Quero ver o site, como faço?
+```
+
+**O que resultou:** servidor no ar em `http://127.0.0.1:8000`, com roteiro do que testar —
+incluindo o aviso de que, estando no Brasil, o GPS real daria distâncias absurdas e o
+caminho realista é tocar no mapa.
+
+---
+
+### Prompt #022
+**Data:** 12/09/2026
+**Contexto:** Encerramento da sessão.
+
+```
+Ficou maneiro e parece funcional.
+
+Só precisamos deixar bonito agora, mas isso é um trabalho para depois.
+Fim da sessão.
+```
+
+**O que resultou:**
+- Aprovação da interface quanto à **funcionalidade**; refinamento **visual** fica como
+  tarefa futura, registrada na seção 7 do `docs/PROJETO.md`.
+- Servidor encerrado, prompts registrados, sessão fechada com a árvore limpa.
+
+**Pendente para a próxima sessão:** Fase 5 — Docker, deploy público e README com
+demonstração. Refino visual da interface em algum momento antes de divulgar o link.
+
+---
+
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 
