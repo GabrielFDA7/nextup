@@ -464,6 +464,9 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **Alias** | Apelido de campo: a API manda `entityType`, nosso código lê `entity_type` |
 | **camelCase / snake_case** | Convenções de nome: `waitTime` (padrão da API) vs. `wait_time` (padrão do Python) |
 | **Degradação graciosa** | Perder uma parte do resultado em vez de falhar inteiro quando um dado vem ruim |
+| **Propriedade (`@property`)** | Método que se lê como se fosse um campo: `item.is_rankable`, sem parênteses |
+| **Fila standby** | A fila comum, de quem não pagou para furar (no Disney, o oposto do Lightning Lane) |
+| **Índice (dicionário)** | Estrutura que acha um item pela chave de uma vez, em vez de varrer a lista toda |
 
 ---
 
