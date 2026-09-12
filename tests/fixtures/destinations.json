@@ -1,0 +1,72 @@
+{
+  "destinations": [
+    {
+      "id": "643e837e-b244-4663-8d3a-148c26ecba9c",
+      "name": "SeaWorld Parks and Resorts Orlando",
+      "slug": "seaworldorlandoresort",
+      "externalId": "seaworldorlandoresort",
+      "parks": [
+        {
+          "id": "27d64dee-d85e-48dc-ad6d-8077445cd946",
+          "name": "SeaWorld Orlando"
+        },
+        {
+          "id": "9e2867f8-68eb-454f-b367-0ed0fd72d72a",
+          "name": "Aquatica Orlando"
+        },
+        {
+          "id": "91f5c7f3-373b-42e1-9f24-f769e4a3f7da",
+          "name": "Discovery Cove Orlando"
+        }
+      ]
+    },
+    {
+      "id": "bfc89fd6-314d-44b4-b89e-df1a89cf991e",
+      "name": "Disneyland Resort",
+      "slug": "disneylandresort",
+      "externalId": "80008297;entityType=destination",
+      "parks": [
+        {
+          "id": "832fcd51-ea19-4e77-85c7-75d5843b127c",
+          "name": "Disney California Adventure Park"
+        },
+        {
+          "id": "7340550b-c14d-4def-80bb-acdb51d49a66",
+          "name": "Disneyland Park"
+        }
+      ]
+    },
+    {
+      "id": "e957da41-3552-4cf6-b636-5babc5cbc4e5",
+      "name": "Walt Disney World® Resort",
+      "slug": "waltdisneyworldresort",
+      "externalId": "80007798;entityType=destination",
+      "parks": [
+        {
+          "id": "75ea578a-adc8-4116-a54d-dccb60765ef9",
+          "name": "Magic Kingdom Park"
+        },
+        {
+          "id": "288747d1-8b4f-4a64-867e-ea7c9b27bad8",
+          "name": "Disney's Hollywood Studios"
+        },
+        {
+          "id": "1c84a229-8862-4648-9c71-378ddd2c7693",
+          "name": "Disney's Animal Kingdom Theme Park"
+        },
+        {
+          "id": "b070cbc5-feaa-4b87-a8c1-f94cca037a18",
+          "name": "Disney's Typhoon Lagoon Water Park"
+        },
+        {
+          "id": "47f90d2c-e191-4239-a466-5892ef59a88b",
+          "name": "EPCOT"
+        },
+        {
+          "id": "ead53ea5-22e5-4095-9a83-8c29300d7c63",
+          "name": "Disney's Blizzard Beach Water Park"
+        }
+      ]
+    }
+  ]
+}
