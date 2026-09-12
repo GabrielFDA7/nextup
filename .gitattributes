@@ -1,0 +1,22 @@
+# Normalização de quebras de linha.
+#
+# Windows termina linhas com CRLF e Linux com LF. Sem isso, um arquivo editado
+# no Windows aparece como "todas as linhas alteradas" no diff, e o CI (que roda
+# em Ubuntu) pode reclamar de formatação.
+#
+# `text=auto` faz o Git guardar tudo em LF no repositório e converter para o
+# padrão da máquina ao trabalhar localmente.
+
+* text=auto
+
+# Arquivos que precisam de LF mesmo no Windows, por rodarem em Linux.
+*.sh        text eol=lf
+Dockerfile  text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+
+# Binários: o Git não deve tentar converter nada.
+*.png       binary
+*.jpg       binary
+*.gif       binary
+*.ico       binary
