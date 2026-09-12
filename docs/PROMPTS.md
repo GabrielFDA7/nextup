@@ -130,6 +130,37 @@ na máquina pessoal e criar o venv; iniciar a Fase 1 (cliente da API com cache).
 
 ---
 
+### Prompt #003
+**Data:** 12/09/2026
+**Contexto:** Fase 0 concluída e enviada ao GitHub. Gabriel vai trocar da máquina
+corporativa para a máquina pessoal e continuar de lá.
+
+```
+O push foi feito, agora irei continuar a partir do outro computador. Você deixou instruções para continuarmos de onde paramos aqui por lá?
+```
+
+**O que resultou:**
+
+- **Push confirmado:** `main` e `origin/main` no mesmo commit, em
+  `github.com/GabrielFDA7/nextup`.
+- **Lacuna identificada e corrigida.** A memória do assistente é local da máquina
+  (`C:\Users\500557\.claude\`) e **não viaja com o repositório**. Sem intervenção, a sessão
+  na máquina nova começaria sem saber das convenções combinadas nem de onde paramos.
+- **Criado `CLAUDE.md` na raiz** — lido automaticamente pelo Claude Code ao abrir o
+  projeto. Reúne: resumo do projeto e a decisão de produto central, como trabalhar com o
+  Gabriel (ensinar durante a construção, português, nível intermediário), estado atual e
+  próximo passo, a regra de dependência unidirecional das camadas, convenções de código,
+  testes, commits e documentação, setup do ambiente e referência rápida da API.
+
+**Decisão registrada:** a continuidade entre máquinas e sessões passa a depender de
+arquivos versionados (`CLAUDE.md`, `PROJETO.md`, `PROMPTS.md`), nunca da memória local do
+assistente.
+
+**Pendente ao fim da sessão:** na máquina pessoal — clonar o repositório, criar o venv,
+instalar as dependências, rodar `pytest` e `ruff`, e então iniciar a Fase 1.
+
+---
+
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 
