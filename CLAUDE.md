@@ -38,8 +38,9 @@ documentação de decisões **fazem parte da entrega** — não são extras opci
 
 ## Estado atual
 
-**Fases 0 a 3 concluídas** (12/09/2026). Fases 4 a 6 descritas em `docs/PROJETO.md`,
-seção 7. **173 testes passando** em ~6s, CI verde em Python 3.11, 3.12 e 3.13.
+**Fases 0 a 4 concluídas** (12/09/2026). Fases 5 e 6 descritas em `docs/PROJETO.md`,
+seção 7. **194 testes passando**: 173 na suíte rápida (~7s) e 21 de interface em
+navegador (~50s). CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
 
 Já existe e funciona:
 - Estrutura completa em `src/nextup/` com as 4 camadas
@@ -53,18 +54,23 @@ Já existe e funciona:
   `nextup --parks` lista os IDs de parque
 - `api/` — FastAPI com 3 rotas sob `/api`: `health`, `destinations` e
   `parks/{id}/recommendations?lat&lon&limit`. Docs automáticas em `/docs`
+- `web/` — interface em HTML/CSS/JS puro, servida pelo próprio FastAPI. Geolocation,
+  mapa Leaflet, e **tocar no mapa define a posição** (saída para quem nega o GPS)
 - `tests/test_arquitetura.py` — a regra de dependência é verificada automaticamente
+- `tests/test_web_e2e.py` — 21 testes em Chromium real (`pytest -m e2e`)
 - Fixtures reais da API em `tests/fixtures/`; nenhum teste toca a internet
 - `.venv` local com **Python 3.13**, mesma versão mais alta testada no CI
 
-**Próximo passo: Fase 4 — interface web.** HTML/CSS/JS puro em `web/`, sem build:
-pega a posição pelo navegador (Geolocation API), consulta
-`/api/parks/{id}/recommendations` e mostra a lista com mapa Leaflet. Precisa ser
-responsiva — vai ser usada no celular, dentro do parque, andando. Tratar os três casos
-que sempre aparecem: carregando, erro da API e **recusa do GPS**.
+**Como rodar o app inteiro:** `uvicorn nextup.api.main:app --reload` e abrir
+`http://127.0.0.1:8000` — a interface e a API sobem juntas.
 
-A API já entrega `latitude`/`longitude` de cada atração justamente para o mapa, e o
-CORS já está liberado. Falta servir os arquivos estáticos pelo próprio FastAPI.
+**Testes:** `pytest -m "not e2e"` para o ciclo rápido; `pytest` roda tudo. Os de
+interface exigem `pip install -e ".[dev,e2e]"` e `playwright install chromium`.
+
+**Próximo passo: Fase 5 — produção.** Docker, deploy público e README com GIF de
+demonstração. Pontos já preparados: `/api/health` existe para o healthcheck do
+contêiner, `NEXTUP_WEB_DIR` permite apontar a pasta do frontend no contêiner, e
+`NEXTUP_CORS_ORIGINS` deve deixar de ser `*` quando houver domínio próprio.
 
 **Duas lições dos dados reais, que valem para as próximas fases:**
 1. `OPERATING` **não** garante tempo de fila — 9 das 35 atrações do Magic Kingdom

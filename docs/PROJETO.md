@@ -453,11 +453,34 @@ SSL de 0,7s sem necessidade.
 > escrevi **afirmava o comportamento errado**, porque foi escrito olhando o que o código
 > fazia em vez do que deveria fazer.
 
-### Fase 4 — Interface Web
+### Fase 4 — Interface Web ✅ *concluída em 12/09/2026*
 Página que pega a localização pelo navegador (Geolocation API), consulta nossa API e
 mostra o ranking com mapa Leaflet. Responsiva — vai ser usada no celular, dentro do
 parque, andando. Estado de carregamento, tratamento de erro e recusa de GPS resolvidos.
 **Entrega:** o produto funcionando de verdade, na tela.
+
+Entregou `web/` (HTML + CSS + JS puro, sem build), servido pelo próprio FastAPI —
+o app inteiro cabe num contêiner só. Seletor com os 198 parques da API, mapa Leaflet
+com o visitante e as atrações, e a primeira colocada destacada.
+
+**Tocar no mapa define a posição.** Resolve de uma vez os dois problemas previstos na
+seção 8: quem nega o GPS continua usando o app, e quem está com GPS impreciso (comum
+entre prédios) corrige na mão.
+
+**21 testes de ponta a ponta**, em Chromium de verdade (`pytest -m e2e`), cobrindo o
+que nenhum teste de API alcança:
+
+| Verificado | Por que importa |
+|---|---|
+| O Leaflet carrega e desenha | Se falhasse, o mapa seria um retângulo vazio e nada acusaria |
+| Negar o GPS não quebra o app | É o caminho mais provável de um usuário real |
+| Clicar no mapa funciona sem GPS | A alternativa oferecida precisa realmente existir |
+| 503 e 404 viram frase compreensível | O código HTTP não serve para o visitante ler |
+| Nome com `<script>` não executa | Os nomes vêm de fonte externa — seria XSS |
+| Sem rolagem horizontal a 390px | Sintoma clássico de layout quebrado no celular |
+
+O CI ganhou um **segundo job** para eles, separado porque baixa um navegador e não faz
+sentido repetir isso em três versões do Python. A suíte rápida continua em ~7s.
 
 ### Fase 5 — Produção
 Docker, CI no GitHub Actions, deploy público, README com GIF de demonstração.
@@ -543,6 +566,12 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **Lifespan** | Código que roda ao ligar e ao desligar a aplicação; monta e desmonta recursos |
 | **HTTP 422** | "Entendi seu pedido, mas os dados estão inválidos" — latitude 91, por exemplo |
 | **DTO / schema de saída** | Objeto que define o que a API devolve, separado do modelo interno |
+| **Geolocation API** | Recurso do navegador que informa a posição do usuário, só com permissão dele |
+| **XSS** | Falha em que texto de terceiros vira código executável na página de quem abre |
+| **Teste E2E** | Teste que usa o app como um usuário usaria — navegador real, clique real |
+| **Esqueleto (skeleton)** | Bloco cinza que ocupa o lugar do conteúdo enquanto ele carrega |
+| **Responsivo** | Layout que se adapta ao tamanho da tela, do celular ao desktop |
+| **Viewport** | Área visível da página; a `meta` que a declara evita o celular fingir ser desktop |
 
 ---
 
@@ -577,6 +606,12 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 12/09/2026 | Erros do projeto viram códigos HTTP num só lugar | Nenhuma rota precisa de `try/except`; o código diz de quem é o problema e se vale repetir |
 | 12/09/2026 | `/health` não consulta a ThemeParks.wiki | Instabilidade da fonte faria o orquestrador reiniciar um contêiner saudável |
 | 12/09/2026 | `Annotated` em vez de `Depends` no valor padrão | Forma recomendada hoje pelo FastAPI, e evita o alerta B008 do `ruff` |
+| 12/09/2026 | Frontend servido pelo próprio FastAPI | Um contêiner só, um deploy só; a tela é estática e não justifica um segundo servidor |
+| 12/09/2026 | Tocar no mapa define a posição | Resolve recusa de GPS e imprecisão de GPS com o mesmo gesto |
+| 12/09/2026 | Playwright num job separado do CI | Baixa um navegador; repetir isso em 3 versões do Python seria desperdício |
+| 12/09/2026 | E2E interceptam a API dentro do navegador | Teste de tela não pode depender da ThemeParks.wiki estar no ar |
+| 12/09/2026 | Escapar nomes vindos da API antes de inserir no HTML | Nome com `<script>` viraria XSS no navegador de quem abrisse a página |
+| 12/09/2026 | Actions atualizadas para `@v7` | As `@v4`/`@v5` usavam Node 20, marcado como descontinuado pelo GitHub |
 
 ---
 
