@@ -1,7 +1,9 @@
-# Projeto Disney — Assistente Inteligente de Filas em Parques
+# NextUp — Assistente Inteligente de Filas em Parques
 
 > Documento vivo. Nasceu em 11/09/2026 e é atualizado a cada decisão tomada.
 > Registro de contexto, decisões e arquitetura. Se algo mudar, muda aqui primeiro.
+>
+> **Status atual: Fase 0 concluída** (12/09/2026). Próximo passo: Fase 1 — cliente da API.
 
 ---
 
@@ -167,7 +169,7 @@ pela velocidade média a pé. Duas correções importantes:
   Aplicar um **fator de sinuosidade** de ~1,3 sobre a distância.
 
 **Tempo de fila previsto** — na primeira versão, o `waitTime` atual da API. Numa fase
-posterior, o valor projetado para o momento em que o visitante *chegar lá* (Fase 4).
+posterior, o valor projetado para o momento em que o visitante *chegar lá* (Fase 6).
 
 ### Filtros eliminatórios
 
@@ -260,10 +262,10 @@ Usuário (lat, lon, filtros)
 > full-stack. Esta seção é o mapa do repositório para quem chega de fora — inclusive o
 > recrutador — e precisa ser mantida em dia.
 >
-> Nome de pacote provisório: `parkpilot`. A confirmar antes do primeiro commit.
+> Nome definido em 12/09/2026: **NextUp**, pacote Python `nextup`.
 
 ```
-projeto-disney/
+nextup/
 │
 ├── .github/
 │   └── workflows/
@@ -274,7 +276,7 @@ projeto-disney/
 │   └── PROMPTS.md              # Registro de prompts
 │
 ├── src/
-│   └── parkpilot/
+│   └── nextup/
 │       ├── __init__.py
 │       ├── config.py           # Constantes e configuração (TTLs, velocidade a pé)
 │       │
@@ -312,6 +314,7 @@ projeto-disney/
 │   └── test_themeparks_client.py
 │
 ├── .env.example                # Modelo de variáveis de ambiente
+├── .gitattributes              # Normaliza quebras de linha Windows/Linux
 ├── .gitignore
 ├── Dockerfile
 ├── docker-compose.yml
@@ -348,9 +351,22 @@ técnico procura quando abre um repositório.
 Cada fase entrega algo que **funciona e é demonstrável**. Nada de fase que só faz sentido
 quando a próxima terminar.
 
-### Fase 0 — Fundação
-Repositório Git, ambiente virtual, dependências, `ruff`, estrutura de pastas, este
-documento. Primeiro commit.
+### Fase 0 — Fundação ✅ *concluída em 12/09/2026*
+Repositório Git, estrutura de pastas em 4 camadas, `pyproject.toml` com dependências e
+configuração de `ruff`/`pytest`, `.gitignore`, `.gitattributes`, `.env.example`, licença
+MIT, README e pipeline de CI.
+
+Entregou também o primeiro módulo funcional, `core/geo.py`: Haversine, correção de
+sinuosidade e conversão em minutos — **17 testes passando**, validados contra referências
+externas conhecidas (Paris–Londres, um grau de latitude, pontos antipodais) e coordenadas
+reais do Magic Kingdom.
+
+Histórico em 5 commits, seguindo Conventional Commits.
+
+> **Nota de ambiente:** o ambiente virtual **não** foi criado nesta etapa, por restrição da
+> máquina corporativa onde o projeto nasceu. Será criado ao clonar o repositório na máquina
+> pessoal. Consequência: `ruff` ainda não rodou localmente — a primeira validação de lint
+> virá do CI, no primeiro push.
 
 ### Fase 1 — Cliente da API
 Módulo que conversa com a ThemeParks.wiki: busca parques, catálogo e dados ao vivo.
@@ -425,6 +441,11 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **Pydantic** | Biblioteca que valida JSON e transforma em objetos Python tipados |
 | **Async** | Modelo em que o programa faz outra coisa enquanto espera a rede responder |
 | **ISO-8601** | Padrão de data/hora: `2026-09-11T22:30:25Z` |
+| **Lint** | Ferramenta que lê o código e aponta erros e desvios de estilo sem executá-lo |
+| **Fixture** | Dado de apoio para teste — aqui, respostas reais da API salvas em arquivo |
+| **Conventional Commits** | Padrão de mensagem de commit: `feat:`, `fix:`, `docs:`, `chore:`, `ci:` |
+| **src layout** | Código dentro de `src/`, separado dos testes; evita importar o pacote errado |
+| **Ambiente virtual (venv)** | Pasta isolada com as dependências de um projeto, sem afetar o Python do sistema |
 
 ---
 
@@ -439,6 +460,10 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 11/09/2026 | Posicionamento full-stack | Alvo de vaga escolhido: backend sólido + interface bem feita |
 | 11/09/2026 | Frontend sem framework (HTML/CSS/JS + Leaflet) | Sem etapa de build; a tela é lista + mapa, não justifica React |
 | 11/09/2026 | Arquitetura em 4 camadas, dependência unidirecional | Permite testar o algoritmo sem rede e trocar a fonte de dados sem quebrar o resto |
+| 12/09/2026 | Nome do projeto: **NextUp** | Curto, memorável, em inglês e diz o que o app faz: *o próximo* |
+| 12/09/2026 | Sem venv na máquina corporativa | Restrição de ambiente; será criado ao clonar na máquina pessoal |
+| 12/09/2026 | Commits pequenos e temáticos (Conventional Commits) | Histórico legível conta a evolução do projeto — critério de avaliação de portfólio |
+| 12/09/2026 | `geo.py` sem dependências externas | Mantém o `core` testável offline e permitiu validar a lógica sem instalar nada |
 
 ---
 

@@ -1,4 +1,4 @@
-# Registro de Prompts — Projeto Disney
+# Registro de Prompts — NextUp
 
 Histórico de todos os prompts enviados por Gabriel de Angelis nas conversas com o Claude
 Code dentro deste projeto.
@@ -89,6 +89,44 @@ definirem a arquitetura.
 
 **Pendente ao fim da sessão:** confirmar o nome do projeto e executar a Fase 0 (repositório
 Git, ambiente virtual, dependências, esqueleto de pastas, primeiro commit).
+
+---
+
+## Sessão 002 — 12/09/2026
+
+### Prompt #002
+**Data:** 12/09/2026
+**Contexto:** Documentação pronta e arquitetura definida. Faltava nomear o projeto e
+executar a Fase 0 do roadmap.
+
+```
+Vamos começar essa fase, o nome do app vai ser NextUp. Porém, estou em uma máquina corporativa, acredito que por aqui não consiga criar o ambiente virtual, então pode pular essa etapa. Quando o projeto estiver no github eu vou clonar ele na minha máquina pessoal e lá criaremos o ambiente virtual. Pode ser?
+```
+
+**O que resultou — Fase 0 concluída:**
+
+- **Nome definido: NextUp**, pacote Python `nextup`. Documentação toda atualizada.
+- **Repositório Git** inicializado na branch `main`.
+- **Estrutura em 4 camadas** criada em `src/nextup/` (`clients`, `models`, `core`, `api`).
+- **`pyproject.toml`** com dependências, `ruff` e `pytest` configurados; `src layout`.
+- **`config.py`** centralizando todo número mágico do projeto, com sobrescrita por
+  variável de ambiente.
+- **`core/geo.py`** — primeiro módulo funcional: Haversine, correção de sinuosidade e
+  conversão em minutos. Escrito sem dependências externas, de propósito, para ser
+  executável mesmo sem ambiente virtual.
+- **`tests/test_geo.py`** — 17 testes, **todos passando**, validados contra referências
+  externas (Paris–Londres, um grau de latitude, pontos antipodais) e coordenadas reais do
+  Magic Kingdom.
+- **`README.md`**, `LICENSE` (MIT), `.gitignore`, `.gitattributes`, `.env.example`.
+- **CI no GitHub Actions** — `ruff` + `pytest` em Python 3.11, 3.12 e 3.13.
+- **5 commits temáticos**, seguindo Conventional Commits.
+
+**Decisão de ambiente registrada:** venv pulado por restrição da máquina corporativa. Por
+isso `ruff` não foi validado localmente — a primeira verificação de lint virá do CI no
+primeiro push. Os testes, esses sim, rodaram e passaram nesta máquina.
+
+**Pendente ao fim da sessão:** criar o repositório no GitHub e dar o primeiro push; clonar
+na máquina pessoal e criar o venv; iniciar a Fase 1 (cliente da API com cache).
 
 ---
 
