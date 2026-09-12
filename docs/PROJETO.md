@@ -364,12 +364,17 @@ reais do Magic Kingdom.
 Histórico em 5 commits, seguindo Conventional Commits.
 
 > **Nota de ambiente:** o ambiente virtual **não** foi criado nesta etapa, por restrição da
-> máquina corporativa onde o projeto nasceu. Será criado ao clonar o repositório na máquina
-> pessoal. Consequência: `ruff` não rodou localmente — a validação de lint ficou por conta
-> do CI.
+> máquina corporativa onde o projeto nasceu. Consequência: `ruff` não rodou localmente — a
+> validação de lint ficou por conta do CI.
 >
 > **Resultado do primeiro CI (12/09/2026): sucesso.** Lint, formatação e os 17 testes
 > passaram em Python 3.11, 3.12 e 3.13, no commit `b33c3b6`.
+>
+> **Ambiente local criado (12/09/2026), na máquina pessoal.** Só havia Python 3.14
+> instalado, versão que o CI ainda não testa — para não validar contra algo sem garantia,
+> foi instalado Python 3.13 (`winget install Python.Python.3.13`) e a `.venv` foi criada
+> com ele. `pytest`, `ruff check` e `ruff format --check` rodaram localmente pela primeira
+> vez, com o mesmo resultado do CI. Fase 0 agora está concluída de ponta a ponta.
 
 ### Fase 1 — Cliente da API
 Módulo que conversa com a ThemeParks.wiki: busca parques, catálogo e dados ao vivo.
@@ -467,6 +472,7 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 12/09/2026 | Sem venv na máquina corporativa | Restrição de ambiente; será criado ao clonar na máquina pessoal |
 | 12/09/2026 | Commits pequenos e temáticos (Conventional Commits) | Histórico legível conta a evolução do projeto — critério de avaliação de portfólio |
 | 12/09/2026 | `geo.py` sem dependências externas | Mantém o `core` testável offline e permitiu validar a lógica sem instalar nada |
+| 12/09/2026 | `.venv` local em Python 3.13, não no 3.14 já instalado | 3.14 não é testado pelo CI; usar a mesma versão mais alta do CI evita "passa aqui, falha lá" |
 
 ---
 

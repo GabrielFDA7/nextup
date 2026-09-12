@@ -38,7 +38,8 @@ documentação de decisões **fazem parte da entrega** — não são extras opci
 
 ## Estado atual
 
-**Fase 0 concluída** (12/09/2026). Fases 1 a 6 descritas em `docs/PROJETO.md`, seção 7.
+**Fase 0 concluída** (12/09/2026), incluindo o ambiente local (12/09/2026). Fases 1 a 6
+descritas em `docs/PROJETO.md`, seção 7.
 
 Já existe e funciona:
 - Estrutura completa em `src/nextup/` com as 4 camadas
@@ -46,16 +47,18 @@ Já existe e funciona:
 - `core/geo.py` — Haversine, sinuosidade e tempo de caminhada, **17 testes passando**
 - CI no GitHub Actions (ruff + pytest em Python 3.11, 3.12, 3.13)
 - README, licença MIT, `.gitignore`, `.gitattributes`, `.env.example`
+- `.venv` local com **Python 3.13** (mesma versão mais alta testada no CI), criada em
+  12/09/2026 — `pytest`, `ruff check` e `ruff format --check` rodados e aprovados
+  localmente pela primeira vez
 
 **Próximo passo: Fase 1 — cliente da API.** Implementar `clients/themeparks.py` e
 `clients/cache.py`, com os modelos `pydantic` em `models/`. Conceitos novos a ensinar
 nesta fase: cache com TTL, backoff exponencial e **como testar código de rede sem
 depender da internet** (`respx`).
 
-**Sobre o lint:** o projeto nasceu numa máquina corporativa sem ambiente virtual, então
-`ruff` nunca rodou localmente. A validação veio do CI, que passou (`success`) no commit
-`b33c3b6` — lint, formatação e testes aprovados em Python 3.11, 3.12 e 3.13. Não há
-pendência de qualidade em aberto.
+**Sobre o lint:** não há mais pendência de nenhum tipo — `ruff` e `pytest` já rodaram
+tanto no CI (commit `b33c3b6`, Python 3.11/3.12/3.13) quanto localmente (12/09/2026,
+Python 3.13), com o mesmo resultado.
 
 ---
 
