@@ -365,8 +365,11 @@ Histórico em 5 commits, seguindo Conventional Commits.
 
 > **Nota de ambiente:** o ambiente virtual **não** foi criado nesta etapa, por restrição da
 > máquina corporativa onde o projeto nasceu. Será criado ao clonar o repositório na máquina
-> pessoal. Consequência: `ruff` ainda não rodou localmente — a primeira validação de lint
-> virá do CI, no primeiro push.
+> pessoal. Consequência: `ruff` não rodou localmente — a validação de lint ficou por conta
+> do CI.
+>
+> **Resultado do primeiro CI (12/09/2026): sucesso.** Lint, formatação e os 17 testes
+> passaram em Python 3.11, 3.12 e 3.13, no commit `b33c3b6`.
 
 ### Fase 1 — Cliente da API
 Módulo que conversa com a ThemeParks.wiki: busca parques, catálogo e dados ao vivo.

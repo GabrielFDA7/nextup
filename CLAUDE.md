@@ -52,9 +52,10 @@ Já existe e funciona:
 nesta fase: cache com TTL, backoff exponencial e **como testar código de rede sem
 depender da internet** (`respx`).
 
-**Pendência conhecida:** `ruff` nunca rodou localmente — o projeto nasceu numa máquina
-corporativa sem ambiente virtual. A primeira validação de lint veio (ou virá) do CI.
-Ao montar o ambiente numa máquina nova, rodar `ruff check .` e `ruff format .` cedo.
+**Sobre o lint:** o projeto nasceu numa máquina corporativa sem ambiente virtual, então
+`ruff` nunca rodou localmente. A validação veio do CI, que passou (`success`) no commit
+`b33c3b6` — lint, formatação e testes aprovados em Python 3.11, 3.12 e 3.13. Não há
+pendência de qualidade em aberto.
 
 ---
 
