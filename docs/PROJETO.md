@@ -454,6 +454,12 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **Conventional Commits** | Padrão de mensagem de commit: `feat:`, `fix:`, `docs:`, `chore:`, `ci:` |
 | **src layout** | Código dentro de `src/`, separado dos testes; evita importar o pacote errado |
 | **Ambiente virtual (venv)** | Pasta isolada com as dependências de um projeto, sem afetar o Python do sistema |
+| **Validação** | Conferir, na entrada, se o dado tem a forma esperada — e recusar logo se não tiver |
+| **Modelo (schema)** | Classe que descreve a forma de um dado: quais campos existem e de que tipo são |
+| **Envelope** | Camada externa da resposta da API — `{"destinations": [...]}` em vez da lista solta |
+| **UUID** | Identificador único de 36 caracteres, como `75ea578a-adc8-...`; não se repete no mundo |
+| **Slug** | Apelido legível e sem espaços de um recurso: `waltdisneyworldresort` |
+| **Imutável (frozen)** | Objeto que não pode ser alterado depois de criado; para mudar, cria-se outro |
 
 ---
 
