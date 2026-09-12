@@ -38,8 +38,8 @@ documentação de decisões **fazem parte da entrega** — não são extras opci
 
 ## Estado atual
 
-**Fases 0 e 1 concluídas** (12/09/2026). Fases 2 a 6 descritas em `docs/PROJETO.md`,
-seção 7. **110 testes passando** em ~2,5s, CI verde em Python 3.11, 3.12 e 3.13.
+**Fases 0, 1 e 2 concluídas** (12/09/2026). Fases 3 a 6 descritas em `docs/PROJETO.md`,
+seção 7. **146 testes passando** em ~2,7s, CI verde em Python 3.11, 3.12 e 3.13.
 
 Já existe e funciona:
 - Estrutura completa em `src/nextup/` com as 4 camadas
@@ -48,16 +48,18 @@ Já existe e funciona:
 - `models/` — `Destination`, `ParkCatalog` (com coordenadas GPS) e `LiveData`
 - `clients/cache.py` — cache com TTL, relógio injetável
 - `clients/themeparks.py` — cliente assíncrono, backoff exponencial, erros próprios
-- `cli.py` — comando `nextup`, imprime as filas ordenadas (`nextup --parks` lista IDs)
+- `core/recommender.py` — **o coração**: ranqueia por `custo_total = caminhada + fila`
+- `cli.py` — comando `nextup`. Sem coordenadas lista filas; com `--lat/--lon` recomenda.
+  `nextup --parks` lista os IDs de parque
+- `tests/test_arquitetura.py` — a regra de dependência é verificada automaticamente
 - Fixtures reais da API em `tests/fixtures/`; nenhum teste toca a internet
 - `.venv` local com **Python 3.13**, mesma versão mais alta testada no CI
 
-**Próximo passo: Fase 2 — motor de recomendação.** É onde o projeto passa a fazer o
-que promete: cruzar `core/geo.py` com os dados da Fase 1 e ranquear por
-`custo_total = caminhada + fila`. Lógica pura em `core/`, sem rede. A base já está
-pronta — `ParkCatalog.attractions()` dá as coordenadas e `LiveData.is_rankable` diz
-quem pode entrar no ranking; `cli._juntar` já faz esse cruzamento de forma simplificada
-e deve migrar para o `core`.
+**Próximo passo: Fase 3 — API HTTP.** FastAPI expondo a recomendação por HTTP, com
+documentação automática em `/docs`, tratamento de erro e CORS. **Zero regra de negócio
+em `api/`**: a camada só traduz HTTP em chamadas ao `core`, que já está pronto. O
+cliente aceita `http_client` justamente para a API reaproveitar uma conexão entre
+requisições, e os erros de `clients/errors.py` já existem para virar código HTTP.
 
 **Duas lições dos dados reais, que valem para as próximas fases:**
 1. `OPERATING` **não** garante tempo de fila — 9 das 35 atrações do Magic Kingdom

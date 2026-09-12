@@ -399,10 +399,29 @@ capturadas em `tests/fixtures/` e o `respx` as devolve nos testes.
 >    ficava memorizada por 24h e toda chamada seguinte falhava sem nem tentar a rede.
 >    Hoje o cache guarda o modelo já validado.
 
-### Fase 2 — Motor de Recomendação
+### Fase 2 — Motor de Recomendação ✅ *concluída em 12/09/2026*
 Haversine, filtros eliminatórios, cálculo de custo total, ranking e justificativa. Lógica
 pura, sem rede, com cobertura de testes alta.
 **Entrega:** dada uma posição no parque, o programa responde para onde ir.
+
+Entregou:
+- `core/recommender.py` — `recommend()` e `Recommendation`, com `explain()` gerando a
+  justificativa legível: *"Prince Charming Regal Carrousel — 2 min de caminhada +
+  5 min de fila = 7 min"*
+- `cli.py --lat/--lon` — o modo que responde para onde ir; sem as coordenadas, o
+  comando mantém a listagem por fila da Fase 1
+- `tests/test_arquitetura.py` — transforma a regra do `CLAUDE.md` em teste: o `core`
+  não pode importar `httpx`, `asyncio` nem `clients`. Verificado com uma violação
+  proposital, que o teste acusou.
+
+**28 testes novos.** O mais importante do projeto é
+`test_fila_menor_perde_para_atracao_mais_perto`: fila de 10 min a 900 m perde para
+fila de 20 min a 50 m. Se algum dia alguém "simplificar" o algoritmo para ordenar só
+por `waitTime`, é esse teste que vai acusar.
+
+> **Fora do escopo desta fase**, por dependerem de dados que o MVP ainda não busca:
+> filtro por horário de funcionamento (exige `/schedule`) e filtros do usuário
+> (altura mínima, intensidade, já visitada).
 
 ### Fase 3 — API HTTP
 FastAPI expondo os endpoints, documentação automática em `/docs`, tratamento de erros e
@@ -518,6 +537,10 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 12/09/2026 | Retentativa só em 5xx e falha de rede | 404 e 4xx não se consertam sozinhos; insistir gasta requisição de uma API gratuita |
 | 12/09/2026 | `User-Agent` e timeout por requisição, não na conexão | Continuam valendo quando a Fase 3 injetar uma conexão compartilhada |
 | 12/09/2026 | Relógio e `sleep` injetáveis | Testar tempo sem esperar: suíte roda em segundos e não fica instável |
+| 12/09/2026 | Regra de arquitetura virou teste automatizado | Regra que só vive na documentação se perde na terceira pressa |
+| 12/09/2026 | `Recommendation` guarda as parcelas, não só o total | Sem elas não há justificativa — e é a justificativa que faz o usuário confiar |
+| 12/09/2026 | Posição do visitante é opcional no CLI | Sem GPS ainda dá para ver as filas; com GPS vem a recomendação de verdade |
+| 12/09/2026 | O CLI pede o ranking completo e corta na exibição | Caso contrário a contagem exibida seria a do `--limit`, não a de atrações disponíveis |
 
 ---
 
