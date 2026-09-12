@@ -55,18 +55,6 @@ def dormir() -> SleepFalso:
     return SleepFalso()
 
 
-@pytest.fixture(scope="session")
-def conexao() -> httpx.AsyncClient:
-    """Uma conexão HTTP para a suíte inteira.
-
-    Criar um `httpx.AsyncClient` monta um contexto SSL e carrega os certificados,
-    o que custa ~0,7s. Fazer isso 20 vezes tornaria estes testes mais lentos que
-    todo o resto do projeto somado — e o `respx` intercepta antes de qualquer
-    byte sair, então uma conexão compartilhada não mistura estado entre testes.
-    """
-    return httpx.AsyncClient()
-
-
 @pytest.fixture
 def cliente(dormir, conexao) -> ThemeParksClient:
     """Cliente novo a cada teste — cache limpo — sobre a conexão compartilhada."""
