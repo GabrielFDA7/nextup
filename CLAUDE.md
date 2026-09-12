@@ -38,8 +38,8 @@ documentação de decisões **fazem parte da entrega** — não são extras opci
 
 ## Estado atual
 
-**Fases 0, 1 e 2 concluídas** (12/09/2026). Fases 3 a 6 descritas em `docs/PROJETO.md`,
-seção 7. **146 testes passando** em ~2,7s, CI verde em Python 3.11, 3.12 e 3.13.
+**Fases 0 a 3 concluídas** (12/09/2026). Fases 4 a 6 descritas em `docs/PROJETO.md`,
+seção 7. **173 testes passando** em ~6s, CI verde em Python 3.11, 3.12 e 3.13.
 
 Já existe e funciona:
 - Estrutura completa em `src/nextup/` com as 4 camadas
@@ -51,15 +51,20 @@ Já existe e funciona:
 - `core/recommender.py` — **o coração**: ranqueia por `custo_total = caminhada + fila`
 - `cli.py` — comando `nextup`. Sem coordenadas lista filas; com `--lat/--lon` recomenda.
   `nextup --parks` lista os IDs de parque
+- `api/` — FastAPI com 3 rotas sob `/api`: `health`, `destinations` e
+  `parks/{id}/recommendations?lat&lon&limit`. Docs automáticas em `/docs`
 - `tests/test_arquitetura.py` — a regra de dependência é verificada automaticamente
 - Fixtures reais da API em `tests/fixtures/`; nenhum teste toca a internet
 - `.venv` local com **Python 3.13**, mesma versão mais alta testada no CI
 
-**Próximo passo: Fase 3 — API HTTP.** FastAPI expondo a recomendação por HTTP, com
-documentação automática em `/docs`, tratamento de erro e CORS. **Zero regra de negócio
-em `api/`**: a camada só traduz HTTP em chamadas ao `core`, que já está pronto. O
-cliente aceita `http_client` justamente para a API reaproveitar uma conexão entre
-requisições, e os erros de `clients/errors.py` já existem para virar código HTTP.
+**Próximo passo: Fase 4 — interface web.** HTML/CSS/JS puro em `web/`, sem build:
+pega a posição pelo navegador (Geolocation API), consulta
+`/api/parks/{id}/recommendations` e mostra a lista com mapa Leaflet. Precisa ser
+responsiva — vai ser usada no celular, dentro do parque, andando. Tratar os três casos
+que sempre aparecem: carregando, erro da API e **recusa do GPS**.
+
+A API já entrega `latitude`/`longitude` de cada atração justamente para o mapa, e o
+CORS já está liberado. Falta servir os arquivos estáticos pelo próprio FastAPI.
 
 **Duas lições dos dados reais, que valem para as próximas fases:**
 1. `OPERATING` **não** garante tempo de fila — 9 das 35 atrações do Magic Kingdom

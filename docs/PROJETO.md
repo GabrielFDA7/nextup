@@ -423,10 +423,35 @@ por `waitTime`, é esse teste que vai acusar.
 > filtro por horário de funcionamento (exige `/schedule`) e filtros do usuário
 > (altura mínima, intensidade, já visitada).
 
-### Fase 3 — API HTTP
+### Fase 3 — API HTTP ✅ *concluída em 12/09/2026*
 FastAPI expondo os endpoints, documentação automática em `/docs`, tratamento de erros e
 CORS configurado.
 **Entrega:** API navegável, respondendo recomendações por HTTP.
+
+Três rotas, sob o prefixo `/api`:
+
+| Rota | O que faz |
+|---|---|
+| `GET /api/health` | Diz se o serviço está de pé. Não consulta a fonte externa de propósito |
+| `GET /api/destinations` | Destinos e parques, com os IDs usados nas demais rotas |
+| `GET /api/parks/{id}/recommendations?lat=&lon=&limit=` | O ranking por caminhada + fila |
+
+Decisões da camada:
+- **Schemas separados dos modelos internos** (`api/schemas.py`): o contrato público não
+  muda porque a ThemeParks.wiki renomeou um campo.
+- **Um cliente por processo**, criado no `lifespan`. Um cliente por requisição faria o
+  cache nascer vazio toda vez — o TTL de 24h só existe se o cache sobreviver.
+- **Erros viram códigos HTTP** em um só lugar; nenhuma rota tem `try/except`.
+  404 (não existe) · 502 (contrato mudou) · 503 (fonte fora do ar, com `Retry-After`).
+
+**27 testes novos.** A suíte da API caiu de 22s para 4,4s ao parar de disparar o
+`lifespan` nos testes que substituem a dependência — cada disparo montava um contexto
+SSL de 0,7s sem necessidade.
+
+> **O mesmo bug de contagem apareceu de novo aqui.** `available` devolvia o valor de
+> `limit` em vez do total disponível, exatamente como no CLI. Pior: o primeiro teste que
+> escrevi **afirmava o comportamento errado**, porque foi escrito olhando o que o código
+> fazia em vez do que deveria fazer.
 
 ### Fase 4 — Interface Web
 Página que pega a localização pelo navegador (Geolocation API), consulta nossa API e
@@ -512,6 +537,12 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **HTTP 4xx vs 5xx** | 4xx é erro de quem pede (não adianta repetir); 5xx é erro do servidor (costuma passar) |
 | **Gerenciador de contexto** | O bloco `with` / `async with`: garante que o recurso seja fechado mesmo se der erro no meio |
 | **Interceptar rede (respx)** | Fingir ser a API dentro do teste, para provocar falhas impossíveis de causar de propósito na API real |
+| **CORS** | Permissão que o servidor dá para uma página de outro endereço poder ler sua resposta |
+| **OpenAPI / Swagger** | Descrição da API em formato padrão; é o que gera a página `/docs` sozinha |
+| **Middleware** | Camada que envolve toda requisição, antes e depois da rota — aqui, o CORS |
+| **Lifespan** | Código que roda ao ligar e ao desligar a aplicação; monta e desmonta recursos |
+| **HTTP 422** | "Entendi seu pedido, mas os dados estão inválidos" — latitude 91, por exemplo |
+| **DTO / schema de saída** | Objeto que define o que a API devolve, separado do modelo interno |
 
 ---
 
@@ -541,6 +572,11 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 12/09/2026 | `Recommendation` guarda as parcelas, não só o total | Sem elas não há justificativa — e é a justificativa que faz o usuário confiar |
 | 12/09/2026 | Posição do visitante é opcional no CLI | Sem GPS ainda dá para ver as filas; com GPS vem a recomendação de verdade |
 | 12/09/2026 | O CLI pede o ranking completo e corta na exibição | Caso contrário a contagem exibida seria a do `--limit`, não a de atrações disponíveis |
+| 12/09/2026 | Schemas da API separados dos modelos internos | O contrato público não pode mudar porque a fonte externa renomeou um campo |
+| 12/09/2026 | Um `ThemeParksClient` por processo, criado no `lifespan` | Um por requisição faria o cache nascer vazio toda vez, anulando o TTL |
+| 12/09/2026 | Erros do projeto viram códigos HTTP num só lugar | Nenhuma rota precisa de `try/except`; o código diz de quem é o problema e se vale repetir |
+| 12/09/2026 | `/health` não consulta a ThemeParks.wiki | Instabilidade da fonte faria o orquestrador reiniciar um contêiner saudável |
+| 12/09/2026 | `Annotated` em vez de `Depends` no valor padrão | Forma recomendada hoje pelo FastAPI, e evita o alerta B008 do `ruff` |
 
 ---
 
