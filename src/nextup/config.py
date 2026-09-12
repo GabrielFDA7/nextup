@@ -28,6 +28,11 @@ REQUEST_TIMEOUT_S = float(os.getenv("NEXTUP_REQUEST_TIMEOUT", "10.0"))
 #: entre as tentativas (backoff exponencial).
 MAX_RETRIES = int(os.getenv("NEXTUP_MAX_RETRIES", "3"))
 
+#: Espera da primeira retentativa, em segundos. As seguintes dobram: 0,5s, 1s, 2s.
+#: Dobrar dá tempo à API de se recuperar — insistir no mesmo ritmo só piora um
+#: servidor que já está sobrecarregado.
+BACKOFF_BASE_S = float(os.getenv("NEXTUP_BACKOFF_BASE", "0.5"))
+
 # ---------------------------------------------------------------------------
 # Cache
 # ---------------------------------------------------------------------------
