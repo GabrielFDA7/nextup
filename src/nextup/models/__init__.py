@@ -6,13 +6,19 @@ precise saber em qual arquivo cada modelo mora.
 
 from nextup.models.attraction import EntityType, Location, ParkCatalog, ParkEntity
 from nextup.models.destination import Destination, DestinationList, Park
+from nextup.models.live import LiveData, LiveDataResponse, LiveStatus, Queue, StandbyQueue
 
 __all__ = [
     "Destination",
     "DestinationList",
     "EntityType",
+    "LiveData",
+    "LiveDataResponse",
+    "LiveStatus",
     "Location",
     "Park",
     "ParkCatalog",
     "ParkEntity",
+    "Queue",
+    "StandbyQueue",
 ]
