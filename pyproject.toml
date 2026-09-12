@@ -1,0 +1,67 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nextup"
+version = "0.1.0"
+description = "Recomendador em tempo real da próxima atração a visitar em parques temáticos, combinando tempo de fila e distância a percorrer."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Gabriel de Angelis", email = "gabrielfariaangelis@gmail.com" }]
+keywords = ["theme-parks", "disney", "wait-times", "fastapi", "recommendation"]
+
+dependencies = [
+    "httpx>=0.27",
+    "pydantic>=2.7",
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "respx>=0.21",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+nextup = "nextup.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nextup"]
+
+# ---------------------------------------------------------------------------
+# Ruff — lint e formatação
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle — erros de estilo
+    "W",    # pycodestyle — avisos
+    "F",    # pyflakes — variáveis não usadas, imports mortos
+    "I",    # isort — ordenação de imports
+    "N",    # pep8-naming — convenções de nome
+    "UP",   # pyupgrade — sintaxe moderna
+    "B",    # flake8-bugbear — armadilhas comuns
+    "SIM",  # flake8-simplify — simplificações
+    "RUF",  # regras do próprio ruff
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+# ---------------------------------------------------------------------------
+# Pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-v --strict-markers"
+asyncio_mode = "auto"
