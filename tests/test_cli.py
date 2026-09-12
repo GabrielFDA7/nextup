@@ -171,6 +171,68 @@ class TestErros:
         assert "pode estar fechado" in saida
 
 
+class TestRecomendacao:
+    """Modo `--lat/--lon`: a entrega da Fase 2."""
+
+    def test_com_posicao_ranqueia_por_custo_total(self, api_no_ar, capsys):
+        assert main(["--lat", "28.42037", "--lon", "-81.58031"]) == 0
+        saida = capsys.readouterr().out
+
+        assert "para onde ir agora" in saida
+        assert "de caminhada +" in saida
+        assert "de fila =" in saida
+
+    def test_sem_posicao_mostra_so_as_filas(self, api_no_ar, capsys):
+        main([])
+        saida = capsys.readouterr().out
+
+        assert "filas agora" in saida
+        assert "de caminhada" not in saida
+
+    def test_ranking_sai_em_ordem_crescente_de_custo(self, api_no_ar, capsys):
+        main(["--lat", "28.42037", "--lon", "-81.58031", "--limit", "0"])
+        saida = capsys.readouterr().out
+
+        totais = [
+            int(linha.split("= ")[1].split(" min")[0])
+            for linha in saida.splitlines()
+            if " min de fila = " in linha
+        ]
+
+        assert len(totais) == 26
+        assert totais == sorted(totais)
+
+    def test_posicoes_diferentes_dao_respostas_diferentes(self, api_no_ar, capsys):
+        """A prova de que a distância entra na conta."""
+        main(["--lat", "28.4210", "--lon", "-81.5810", "--limit", "1"])
+        norte = capsys.readouterr().out
+
+        main(["--lat", "28.4180", "--lon", "-81.5825", "--limit", "1"])
+        sul = capsys.readouterr().out
+
+        assert norte != sul
+
+    def test_contagem_nao_se_confunde_com_o_limite(self, api_no_ar, capsys):
+        """Bug corrigido: `--limit 6` dizia "6 de 35" em vez de "26 de 35"."""
+        main(["--lat", "28.42037", "--lon", "-81.58031", "--limit", "6"])
+        saida = capsys.readouterr().out
+
+        assert "26 de 35" in saida
+        assert "e mais 20" in saida
+
+    def test_lat_sem_lon_e_erro_de_uso(self, capsys):
+        assert main(["--lat", "28.42"]) == 2
+        assert "precisam ser usados juntos" in capsys.readouterr().err
+
+    def test_lon_sem_lat_e_erro_de_uso(self, capsys):
+        assert main(["--lon", "-81.58"]) == 2
+        assert "precisam ser usados juntos" in capsys.readouterr().err
+
+    def test_coordenada_fora_do_planeta_e_recusada(self, capsys):
+        assert main(["--lat", "91", "--lon", "0"]) == 2
+        assert "Coordenada inválida" in capsys.readouterr().err
+
+
 class TestArgumentos:
     def test_help_nao_quebra(self, capsys):
         with pytest.raises(SystemExit) as info:
