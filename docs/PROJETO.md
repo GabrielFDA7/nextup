@@ -467,6 +467,10 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **Propriedade (`@property`)** | Método que se lê como se fosse um campo: `item.is_rankable`, sem parênteses |
 | **Fila standby** | A fila comum, de quem não pagou para furar (no Disney, o oposto do Lightning Lane) |
 | **Índice (dicionário)** | Estrutura que acha um item pela chave de uma vez, em vez de varrer a lista toda |
+| **Fake (dublê)** | Substituto simples de uma dependência real no teste — aqui, um relógio controlado |
+| **Injeção de dependência** | Receber de fora o que se usa (o relógio), em vez de criar por dentro; é o que torna o código testável |
+| **Relógio monotônico** | Contador que só anda para a frente, imune a acerto de hora e horário de verão |
+| **Cache hit / miss** | *Hit*: achou no cache e não precisou pedir à API. *Miss*: não achou, vai ter que buscar |
 
 ---
 
