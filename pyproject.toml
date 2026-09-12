@@ -27,6 +27,13 @@ dev = [
     "ruff>=0.5",
 ]
 
+# Testes de ponta a ponta da interface, num navegador de verdade. Separados do
+# grupo `dev` porque exigem baixar o Chromium (`playwright install chromium`),
+# e nem toda máquina que só quer rodar o lint precisa disso.
+e2e = [
+    "pytest-playwright>=0.5",
+]
+
 [project.scripts]
 nextup = "nextup.cli:main"
 
@@ -65,3 +72,6 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-v --strict-markers"
 asyncio_mode = "auto"
+markers = [
+    "e2e: teste de interface em navegador real; exige o extra `e2e` e `playwright install chromium`",
+]
