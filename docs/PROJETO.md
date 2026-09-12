@@ -460,6 +460,10 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **UUID** | Identificador único de 36 caracteres, como `75ea578a-adc8-...`; não se repete no mundo |
 | **Slug** | Apelido legível e sem espaços de um recurso: `waltdisneyworldresort` |
 | **Imutável (frozen)** | Objeto que não pode ser alterado depois de criado; para mudar, cria-se outro |
+| **Enum** | Lista fechada de valores possíveis, como `ATTRACTION`/`SHOW`/`RESTAURANT` |
+| **Alias** | Apelido de campo: a API manda `entityType`, nosso código lê `entity_type` |
+| **camelCase / snake_case** | Convenções de nome: `waitTime` (padrão da API) vs. `wait_time` (padrão do Python) |
+| **Degradação graciosa** | Perder uma parte do resultado em vez de falhar inteiro quando um dado vem ruim |
 
 ---
 
