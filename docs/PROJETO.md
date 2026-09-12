@@ -471,6 +471,10 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **Injeção de dependência** | Receber de fora o que se usa (o relógio), em vez de criar por dentro; é o que torna o código testável |
 | **Relógio monotônico** | Contador que só anda para a frente, imune a acerto de hora e horário de verão |
 | **Cache hit / miss** | *Hit*: achou no cache e não precisou pedir à API. *Miss*: não achou, vai ter que buscar |
+| **Backoff exponencial** | Esperar cada vez mais entre as retentativas (0,5s → 1s → 2s), para dar folga a um servidor em dificuldade |
+| **HTTP 4xx vs 5xx** | 4xx é erro de quem pede (não adianta repetir); 5xx é erro do servidor (costuma passar) |
+| **Gerenciador de contexto** | O bloco `with` / `async with`: garante que o recurso seja fechado mesmo se der erro no meio |
+| **Interceptar rede (respx)** | Fingir ser a API dentro do teste, para provocar falhas impossíveis de causar de propósito na API real |
 
 ---
 
