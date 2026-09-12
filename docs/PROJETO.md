@@ -376,10 +376,28 @@ Histórico em 5 commits, seguindo Conventional Commits.
 > com ele. `pytest`, `ruff check` e `ruff format --check` rodaram localmente pela primeira
 > vez, com o mesmo resultado do CI. Fase 0 agora está concluída de ponta a ponta.
 
-### Fase 1 — Cliente da API
+### Fase 1 — Cliente da API ✅ *concluída em 12/09/2026*
 Módulo que conversa com a ThemeParks.wiki: busca parques, catálogo e dados ao vivo.
 Modelos `pydantic`, cache com TTL, tratamento de timeout e erro. Testes com `respx`.
 **Entrega:** script de linha de comando que imprime as filas de um parque, ordenadas.
+
+Entregou, em quatro peças:
+- `models/` — `Destination`, `ParkCatalog` (com as coordenadas GPS) e `LiveData`
+- `clients/cache.py` — cache com TTL e relógio injetável
+- `clients/themeparks.py` — cliente assíncrono com backoff exponencial e erros próprios
+- `cli.py` — o comando `nextup`, que imprime as filas ordenadas
+
+**93 testes novos**, nenhum tocando a internet: as respostas reais da API foram
+capturadas em `tests/fixtures/` e o `respx` as devolve nos testes.
+
+> **Duas descobertas dos dados reais**, que mudaram o desenho:
+>
+> 1. **Estar `OPERATING` não significa ter fila.** Das 35 atrações do Magic Kingdom,
+>    9 estavam abertas sem tempo de espera — o Castelo da Cinderela não é brinquedo.
+>    Daí a existência de `LiveData.is_rankable`, que exige as duas condições.
+> 2. **Guardar no cache antes de validar é bug.** Um teste pegou: resposta malformada
+>    ficava memorizada por 24h e toda chamada seguinte falhava sem nem tentar a rede.
+>    Hoje o cache guarda o modelo já validado.
 
 ### Fase 2 — Motor de Recomendação
 Haversine, filtros eliminatórios, cálculo de custo total, ranking e justificativa. Lógica
@@ -494,6 +512,12 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 12/09/2026 | Commits pequenos e temáticos (Conventional Commits) | Histórico legível conta a evolução do projeto — critério de avaliação de portfólio |
 | 12/09/2026 | `geo.py` sem dependências externas | Mantém o `core` testável offline e permitiu validar a lógica sem instalar nada |
 | 12/09/2026 | `.venv` local em Python 3.13, não no 3.14 já instalado | 3.14 não é testado pelo CI; usar a mesma versão mais alta do CI evita "passa aqui, falha lá" |
+| 12/09/2026 | Modelar só os campos que o projeto usa | `pydantic` ignora o resto; a API pode crescer sem quebrar o NextUp |
+| 12/09/2026 | Tipo e status desconhecidos viram `UNKNOWN`, não erro | Um valor novo na API não pode derrubar o catálogo inteiro de um parque |
+| 12/09/2026 | Cache guarda o modelo validado, não o JSON cru | Resposta malformada ficaria memorizada por 24h; bug encontrado por teste |
+| 12/09/2026 | Retentativa só em 5xx e falha de rede | 404 e 4xx não se consertam sozinhos; insistir gasta requisição de uma API gratuita |
+| 12/09/2026 | `User-Agent` e timeout por requisição, não na conexão | Continuam valendo quando a Fase 3 injetar uma conexão compartilhada |
+| 12/09/2026 | Relógio e `sleep` injetáveis | Testar tempo sem esperar: suíte roda em segundos e não fica instável |
 
 ---
 

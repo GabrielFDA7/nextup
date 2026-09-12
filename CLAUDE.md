@@ -38,27 +38,35 @@ documentação de decisões **fazem parte da entrega** — não são extras opci
 
 ## Estado atual
 
-**Fase 0 concluída** (12/09/2026), incluindo o ambiente local (12/09/2026). Fases 1 a 6
-descritas em `docs/PROJETO.md`, seção 7.
+**Fases 0 e 1 concluídas** (12/09/2026). Fases 2 a 6 descritas em `docs/PROJETO.md`,
+seção 7. **110 testes passando** em ~2,5s, CI verde em Python 3.11, 3.12 e 3.13.
 
 Já existe e funciona:
 - Estrutura completa em `src/nextup/` com as 4 camadas
 - `config.py` com toda a configuração centralizada
-- `core/geo.py` — Haversine, sinuosidade e tempo de caminhada, **17 testes passando**
-- CI no GitHub Actions (ruff + pytest em Python 3.11, 3.12, 3.13)
-- README, licença MIT, `.gitignore`, `.gitattributes`, `.env.example`
-- `.venv` local com **Python 3.13** (mesma versão mais alta testada no CI), criada em
-  12/09/2026 — `pytest`, `ruff check` e `ruff format --check` rodados e aprovados
-  localmente pela primeira vez
+- `core/geo.py` — Haversine, sinuosidade e tempo de caminhada
+- `models/` — `Destination`, `ParkCatalog` (com coordenadas GPS) e `LiveData`
+- `clients/cache.py` — cache com TTL, relógio injetável
+- `clients/themeparks.py` — cliente assíncrono, backoff exponencial, erros próprios
+- `cli.py` — comando `nextup`, imprime as filas ordenadas (`nextup --parks` lista IDs)
+- Fixtures reais da API em `tests/fixtures/`; nenhum teste toca a internet
+- `.venv` local com **Python 3.13**, mesma versão mais alta testada no CI
 
-**Próximo passo: Fase 1 — cliente da API.** Implementar `clients/themeparks.py` e
-`clients/cache.py`, com os modelos `pydantic` em `models/`. Conceitos novos a ensinar
-nesta fase: cache com TTL, backoff exponencial e **como testar código de rede sem
-depender da internet** (`respx`).
+**Próximo passo: Fase 2 — motor de recomendação.** É onde o projeto passa a fazer o
+que promete: cruzar `core/geo.py` com os dados da Fase 1 e ranquear por
+`custo_total = caminhada + fila`. Lógica pura em `core/`, sem rede. A base já está
+pronta — `ParkCatalog.attractions()` dá as coordenadas e `LiveData.is_rankable` diz
+quem pode entrar no ranking; `cli._juntar` já faz esse cruzamento de forma simplificada
+e deve migrar para o `core`.
 
-**Sobre o lint:** não há mais pendência de nenhum tipo — `ruff` e `pytest` já rodaram
-tanto no CI (commit `b33c3b6`, Python 3.11/3.12/3.13) quanto localmente (12/09/2026,
-Python 3.13), com o mesmo resultado.
+**Duas lições dos dados reais, que valem para as próximas fases:**
+1. `OPERATING` **não** garante tempo de fila — 9 das 35 atrações do Magic Kingdom
+   estavam abertas sem fila medida. Use sempre `is_rankable`.
+2. Validar **antes** de guardar no cache. O contrário já causou bug aqui.
+
+**Pendência conhecida (não urgente):** o CI usa `actions/checkout@v4` e
+`actions/setup-python@v5`, que o GitHub marcou como descontinuados por usarem Node.js
+20. Não quebra nada hoje; é um commit `ci:` de duas linhas.
 
 ---
 
