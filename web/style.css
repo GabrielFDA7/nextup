@@ -1,0 +1,365 @@
+/* Estilos do NextUp.
+ *
+ * Três restrições moldam tudo aqui, e todas vêm de onde o app é usado —
+ * no celular, em pé, andando dentro de um parque:
+ *
+ *   1. Contraste alto. A tela vai competir com o sol da Flórida.
+ *   2. Alvos grandes. Ninguém acerta um botão de 20px com o dedo, andando.
+ *   3. O essencial primeiro. A resposta tem que caber na primeira tela.
+ *
+ * O CSS é escrito primeiro para telas pequenas; a media query no fim acrescenta
+ * o que só faz sentido quando há espaço sobrando.
+ */
+
+:root {
+  --tinta: #16202c;
+  --tinta-suave: #55636f;
+  --fundo: #f6f7f9;
+  --superficie: #ffffff;
+  --borda: #dde2e8;
+  --destaque: #0b6bcb;
+  --destaque-escuro: #084c91;
+  --alerta: #9a3412;
+  --alerta-fundo: #fff4ed;
+  --sucesso: #14663f;
+
+  --raio: 12px;
+  --sombra: 0 1px 2px rgb(16 32 44 / 8%), 0 4px 12px rgb(16 32 44 / 6%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tinta: #e9eef4;
+    --tinta-suave: #9fb0c0;
+    --fundo: #10161e;
+    --superficie: #1a222d;
+    --borda: #2c3845;
+    --destaque: #4da3ff;
+    --destaque-escuro: #7cbcff;
+    --alerta: #ffb59a;
+    --alerta-fundo: #3a2118;
+    --sucesso: #6ee7a8;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0 16px 40px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--tinta);
+  background: var(--fundo);
+}
+
+main,
+.topo,
+.rodape {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+/* --- Cabeçalho ---------------------------------------------------------- */
+
+.topo {
+  padding: 24px 0 8px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  letter-spacing: -0.02em;
+}
+
+.subtitulo {
+  margin: 4px 0 0;
+  color: var(--tinta-suave);
+  font-size: 0.95rem;
+}
+
+/* --- Controles ---------------------------------------------------------- */
+
+.controles {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0;
+  padding: 16px;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+}
+
+.campo {
+  display: grid;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--tinta-suave);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+select {
+  width: 100%;
+  /* 16px evita o zoom automático que o Safari do iPhone aplica em campos com
+     fonte menor — o zoom desalinha a página inteira e irrita muito. */
+  font-size: 16px;
+  font-family: inherit;
+  color: var(--tinta);
+  background: var(--superficie);
+  padding: 12px;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+}
+
+button {
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  /* 48px é o alvo mínimo confortável para o dedo. */
+  min-height: 48px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.botao-principal {
+  color: #fff;
+  background: var(--destaque);
+}
+
+.botao-principal:hover:not(:disabled) {
+  background: var(--destaque-escuro);
+}
+
+.botao-secundario {
+  color: var(--destaque);
+  background: transparent;
+  border: 1px solid var(--borda);
+  min-height: 40px;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+button:focus-visible,
+select:focus-visible {
+  outline: 3px solid var(--destaque);
+  outline-offset: 2px;
+}
+
+.posicao {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--tinta-suave);
+}
+
+/* --- Avisos ------------------------------------------------------------- */
+
+.aviso {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  font-size: 0.95rem;
+  color: var(--alerta);
+  background: var(--alerta-fundo);
+  border: 1px solid currentColor;
+  border-radius: var(--raio);
+}
+
+.aviso[data-tipo="info"] {
+  color: var(--tinta-suave);
+  background: var(--superficie);
+  border-color: var(--borda);
+}
+
+/* --- Mapa --------------------------------------------------------------- */
+
+.mapa-area {
+  margin-bottom: 24px;
+}
+
+#mapa {
+  height: 260px;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  background: var(--superficie);
+}
+
+.dica {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: var(--tinta-suave);
+  text-align: center;
+}
+
+.marcador-visitante {
+  background: var(--destaque);
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--destaque);
+}
+
+/* --- Lista -------------------------------------------------------------- */
+
+.cabecalho-lista {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.resumo {
+  margin: 4px 0 12px;
+  font-size: 0.9rem;
+  color: var(--tinta-suave);
+}
+
+.lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 16px;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+}
+
+.item--melhor {
+  border-color: var(--destaque);
+  border-width: 2px;
+}
+
+.custo {
+  display: grid;
+  justify-items: center;
+  min-width: 62px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--fundo);
+}
+
+.custo strong {
+  font-size: 1.5rem;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.custo span {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--tinta-suave);
+}
+
+.nome {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.conta {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  color: var(--tinta-suave);
+}
+
+.etiqueta {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--sucesso);
+  background: color-mix(in srgb, var(--sucesso) 12%, transparent);
+  border-radius: 999px;
+}
+
+.esqueleto {
+  height: 76px;
+  border-radius: var(--raio);
+  background: linear-gradient(90deg, var(--superficie), var(--borda), var(--superficie));
+  background-size: 200% 100%;
+  animation: brilho 1.2s linear infinite;
+}
+
+@keyframes brilho {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Respeita quem configurou o sistema para reduzir animação — a mesma
+   preferência que existe por enjoo e por sensibilidade a movimento. */
+@media (prefers-reduced-motion: reduce) {
+  .esqueleto {
+    animation: none;
+  }
+}
+
+.atualizado {
+  margin: 16px 0 0;
+  font-size: 0.8rem;
+  color: var(--tinta-suave);
+  text-align: center;
+}
+
+/* --- Rodapé ------------------------------------------------------------- */
+
+.rodape {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid var(--borda);
+  font-size: 0.8rem;
+  color: var(--tinta-suave);
+  text-align: center;
+}
+
+.rodape p {
+  margin: 4px 0;
+}
+
+a {
+  color: var(--destaque);
+}
+
+/* --- Telas maiores ------------------------------------------------------ */
+
+@media (min-width: 640px) {
+  .controles {
+    grid-template-columns: 1fr auto;
+    align-items: end;
+  }
+
+  .posicao {
+    grid-column: 1 / -1;
+  }
+
+  #mapa {
+    height: 340px;
+  }
+}

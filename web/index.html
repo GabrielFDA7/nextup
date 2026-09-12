@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <!-- Sem esta linha o celular renderiza a página como se fosse desktop e
+         depois encolhe tudo: o texto fica ilegível justamente onde o app é usado. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Descubra para qual atração do parque ir agora, considerando fila e distância."
+    />
+    <title>NextUp — para onde ir agora</title>
+
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+
+  <body>
+    <header class="topo">
+      <h1>NextUp</h1>
+      <p class="subtitulo">
+        Para onde ir agora — considerando <strong>fila e distância</strong>.
+      </p>
+    </header>
+
+    <main>
+      <section class="controles" aria-label="Configuração">
+        <label class="campo">
+          <span>Parque</span>
+          <select id="parque" disabled>
+            <option>Carregando parques…</option>
+          </select>
+        </label>
+
+        <button id="btn-localizar" type="button" class="botao-principal">
+          Usar minha localização
+        </button>
+
+        <p id="posicao-atual" class="posicao" hidden></p>
+      </section>
+
+      <!-- `aria-live` faz o leitor de tela anunciar mudanças de estado sozinho,
+           sem o usuário precisar procurar o que mudou na página. -->
+      <div id="aviso" class="aviso" role="status" aria-live="polite" hidden></div>
+
+      <section class="mapa-area" aria-label="Mapa">
+        <div id="mapa"></div>
+        <p class="dica">Toque no mapa para ajustar sua posição.</p>
+      </section>
+
+      <section aria-label="Recomendações">
+        <div class="cabecalho-lista">
+          <h2 id="titulo-lista">Recomendações</h2>
+          <button id="btn-atualizar" type="button" class="botao-secundario" hidden>
+            Atualizar
+          </button>
+        </div>
+
+        <p id="resumo" class="resumo" hidden></p>
+        <ol id="lista" class="lista"></ol>
+        <p id="atualizado" class="atualizado" hidden></p>
+      </section>
+    </main>
+
+    <footer class="rodape">
+      <p>
+        Dados de
+        <a href="https://themeparks.wiki" target="_blank" rel="noopener">ThemeParks.wiki</a>.
+        Projeto sem vínculo com a The Walt Disney Company.
+      </p>
+      <p>
+        <a href="/docs" target="_blank" rel="noopener">API</a> ·
+        <a href="https://github.com/GabrielFDA7/nextup" target="_blank" rel="noopener">
+          Código no GitHub
+        </a>
+      </p>
+    </footer>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="app.js"></script>
+  </body>
+</html>

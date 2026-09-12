@@ -18,11 +18,13 @@ A documentação interativa fica em `/docs`, gerada sozinha a partir dos schemas
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from nextup import __version__
 from nextup.api.routes import router
@@ -38,6 +40,11 @@ from nextup.clients.themeparks import ThemeParksClient
 #: para o domínio do frontend; `*` só faz sentido enquanto a API é pública e
 #: somente leitura, como agora.
 CORS_ORIGINS = os.getenv("NEXTUP_CORS_ORIGINS", "*").split(",")
+
+#: Pasta do frontend. Servi-lo pelo próprio FastAPI evita precisar de um segundo
+#: servidor e faz o app inteiro caber num contêiner só. A variável de ambiente
+#: existe porque no Docker o caminho não é o mesmo do repositório.
+WEB_DIR = Path(os.getenv("NEXTUP_WEB_DIR", str(Path(__file__).resolve().parents[3] / "web")))
 
 
 @asynccontextmanager
@@ -81,6 +88,12 @@ def criar_app() -> FastAPI:
 
     _registrar_erros(app)
     app.include_router(router, prefix="/api")
+
+    # Depois das rotas, nunca antes: montado na raiz, o arquivo estático engoliria
+    # `/api/...`. O `if` deixa a API funcionar mesmo sem o frontend presente —
+    # instalada como biblioteca, por exemplo.
+    if WEB_DIR.is_dir():
+        app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
 
     return app
 
