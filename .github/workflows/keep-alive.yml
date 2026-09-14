@@ -1,0 +1,65 @@
+# Mantém o serviço acordado no Render.
+#
+# O plano gratuito hiberna após ~15 minutos sem acesso, e a visita seguinte
+# espera o contêiner subir — algo perto de um minuto. Num link de portfólio isso
+# é caro: quem abre e vê tela em branco costuma fechar antes de o app carregar.
+#
+# Este agendamento chama `/api/health` de 10 em 10 minutos, o que basta para o
+# Render nunca considerar o serviço ocioso.
+#
+# Três coisas que vale saber sobre este arquivo:
+#
+# 1. **Ele só faz sentido enquanto o serviço estiver no plano gratuito.** Num
+#    plano pago não há hibernação, e o agendamento vira desperdício — apagar.
+#
+# 2. **O GitHub atrasa agendamentos.** O horário é uma intenção, não uma
+#    garantia: em momentos de fila, um `cron` pode rodar minutos depois. Por
+#    isso o intervalo é 10 e não 14 — sobra margem antes dos 15 da hibernação.
+#
+# 3. **O GitHub desativa agendamentos em repositórios públicos parados há 60
+#    dias.** Se o projeto ficar esse tempo sem commits, este workflow para
+#    sozinho e precisa ser reativado no painel do Actions.
+#
+# A rota escolhida é `/api/health` de propósito: ela não consulta a
+# ThemeParks.wiki. Acordar nosso serviço não pode significar gerar tráfego numa
+# API pública e gratuita de terceiros a cada 10 minutos.
+
+name: Manter acordado
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  # Permite disparar na mão pelo painel do Actions, útil para acordar o serviço
+  # logo antes de mostrar o projeto para alguém.
+  workflow_dispatch:
+
+# Se um disparo atrasar e outro começar, o antigo é cancelado: não há motivo
+# para dois pings simultâneos.
+concurrency:
+  group: keep-alive
+  cancel-in-progress: true
+
+jobs:
+  acordar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Chamar /api/health
+        run: |
+          URL="https://nextup-rcux.onrender.com/api/health"
+
+          # Três tentativas com espera crescente. Sem isso, uma instabilidade
+          # passageira marcaria o workflow como falho e dispararia e-mail — e um
+          # alarme que toca à toa é um alarme que se aprende a ignorar.
+          for tentativa in 1 2 3; do
+            if resposta=$(curl --fail --silent --show-error --max-time 90 "$URL"); then
+              echo "tentativa $tentativa: $resposta"
+              exit 0
+            fi
+            echo "tentativa $tentativa falhou; aguardando"
+            sleep $((tentativa * 20))
+          done
+
+          echo "::error::o serviço não respondeu em 3 tentativas — verificar o Render"
+          exit 1
