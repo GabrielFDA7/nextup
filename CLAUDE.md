@@ -67,23 +67,27 @@ Já existe e funciona:
 **Testes:** `pytest -m "not e2e"` para o ciclo rápido; `pytest` roda tudo. Os de
 interface exigem `pip install -e ".[dev,e2e]"` e `playwright install chromium`.
 
-**Próximo passo: Fase 5 — produção.** Docker, deploy público e README com GIF de
-demonstração. Pontos já preparados: `/api/health` existe para o healthcheck do
-contêiner, `NEXTUP_WEB_DIR` permite apontar a pasta do frontend no contêiner, e
-`NEXTUP_CORS_ORIGINS` deve deixar de ser `*` quando houver domínio próprio.
+**Fase 5 — empacotamento pronto, deploy pendente.** `Dockerfile`, `docker-compose.yml`,
+`.dockerignore` e `render.yaml` existem, e o job `imagem-docker` do CI constrói a imagem,
+sobe o contêiner e confere que a API responde, que não roda como root e que respeita a
+variável `PORT`. **Docker não está instalado na máquina** — a validação é toda pelo CI.
 
-**Pendência combinada com o Gabriel (12/09/2026):** a interface funciona e foi aprovada,
-mas **falta refino visual** — ele pediu explicitamente para "deixar bonito" depois. Fazer
-antes de divulgar o link publicamente.
+**Próximo passo: o Gabriel criar a conta no Render** e conectar o repositório
+(New → Blueprint). É a única parte que exige credenciais dele. Depois disso, todo push
+na `main` republica sozinho.
 
-**Duas lições dos dados reais, que valem para as próximas fases:**
+**Duas pendências combinadas com ele:**
+1. **Refino visual da interface** (12/09/2026) — ela funciona e foi aprovada, mas ele
+   pediu para "deixar bonito" depois. Fazer antes de divulgar o link publicamente.
+2. **Fase 6** — histórico de filas, tendências e previsão.
+
+**Três lições dos dados reais, que valem para as próximas fases:**
 1. `OPERATING` **não** garante tempo de fila — 9 das 35 atrações do Magic Kingdom
    estavam abertas sem fila medida. Use sempre `is_rankable`.
 2. Validar **antes** de guardar no cache. O contrário já causou bug aqui.
-
-**Pendência conhecida (não urgente):** o CI usa `actions/checkout@v4` e
-`actions/setup-python@v5`, que o GitHub marcou como descontinuados por usarem Node.js
-20. Não quebra nada hoje; é um commit `ci:` de duas linhas.
+3. O mesmo bug de contagem (`available` refletindo o `limit` em vez do total) apareceu
+   **três vezes**, no CLI, na API e quase no frontend. O padrão é sempre o mesmo: pedir a
+   lista já cortada e depois medir o tamanho dela. Peça tudo, corte na exibição.
 
 ---
 
@@ -148,15 +152,21 @@ pip install -e ".[dev]"
 Verificar que tudo está de pé:
 
 ```bash
-pytest                 # esperado: 17 testes passando
+pytest -m "not e2e"    # esperado: 173 testes, ~7s
 ruff check .
 ruff format --check .
 ```
 
-A partir da Fase 3, subir a API com:
+Subir a aplicação inteira (API + interface):
 
 ```bash
-uvicorn nextup.api.main:app --reload
+uvicorn nextup.api.main:app --reload     # http://127.0.0.1:8000
+```
+
+Testes de interface (exigem `pip install -e ".[dev,e2e]"` e `playwright install chromium`):
+
+```bash
+pytest -m e2e          # esperado: 21 testes, ~50s
 ```
 
 ---

@@ -487,9 +487,32 @@ sentido repetir isso em três versões do Python. A suíte rápida continua em ~
 > precisamos deixar bonito agora, mas isso é um trabalho para depois."* Fazer antes de
 > divulgar o link — é a primeira coisa que um recrutador vê.
 
-### Fase 5 — Produção
+### Fase 5 — Produção 🟡 *empacotamento concluído em 13/09/2026; deploy pendente*
 Docker, CI no GitHub Actions, deploy público, README com GIF de demonstração.
 **Entrega:** link que qualquer pessoa — ou recrutador — abre e usa.
+
+Já entregue:
+- `Dockerfile` em duas etapas, rodando como usuário sem privilégios, com `HEALTHCHECK`
+  apontando para `/api/health`
+- `docker-compose.yml` e `.dockerignore`
+- `render.yaml` — configuração do deploy versionada junto do código
+- README renovado: captura da interface real, instruções de Docker, tabela de rotas da
+  API com exemplo de resposta
+- **Job `imagem-docker` no CI** — constrói, sobe, espera ficar saudável, confere que a
+  API e a interface respondem, que o processo não roda como root e que a imagem respeita
+  a variável `PORT`
+
+> **Docker não foi instalado na máquina do Gabriel.** A imagem é construída e testada
+> pelo CI a cada push, o que na prática é uma garantia mais forte que "funcionou na minha
+> máquina" — mas significa que ele não consegue depurar o contêiner localmente.
+
+> **Armadilha evitada:** o `CMD` fixava a porta 8000. O Render — como quase toda
+> plataforma — escolhe a porta e a informa por variável de ambiente (`PORT`, padrão
+> 10000). O serviço subiria saudável e **nunca receberia uma requisição**. É o tipo de
+> falha que só aparece depois do deploy; virou passo de CI.
+
+**Pendente:** criar a conta no Render e conectar o repositório. É a única parte que exige
+credenciais do Gabriel e não pode ser automatizada daqui.
 
 > As Fases 3 a 5 formam o MVP completo. É o ponto em que o projeto já pode ir para o
 > LinkedIn.
@@ -577,6 +600,12 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **Esqueleto (skeleton)** | Bloco cinza que ocupa o lugar do conteúdo enquanto ele carrega |
 | **Responsivo** | Layout que se adapta ao tamanho da tela, do celular ao desktop |
 | **Viewport** | Área visível da página; a `meta` que a declara evita o celular fingir ser desktop |
+| **Imagem / contêiner** | A *imagem* é a receita congelada; o *contêiner* é uma execução dela, descartável |
+| **Build em etapas** | Construir numa imagem e copiar só o resultado para outra, deixando as ferramentas para trás |
+| **Healthcheck** | Comando que o orquestrador roda para saber se o contêiner está vivo e são |
+| **Blueprint (render.yaml)** | Configuração de deploy escrita em arquivo e versionada, em vez de cliques num painel |
+| **Serverless** | Modelo em que a função acorda por requisição e some depois — sem memória entre chamadas |
+| **Hibernação (cold start)** | Serviço gratuito que dorme sem uso; a primeira visita paga a espera de subir |
 
 ---
 
@@ -617,6 +646,14 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 12/09/2026 | E2E interceptam a API dentro do navegador | Teste de tela não pode depender da ThemeParks.wiki estar no ar |
 | 12/09/2026 | Escapar nomes vindos da API antes de inserir no HTML | Nome com `<script>` viraria XSS no navegador de quem abrisse a página |
 | 12/09/2026 | Actions atualizadas para `@v7` | As `@v4`/`@v5` usavam Node 20, marcado como descontinuado pelo GitHub |
+| 13/09/2026 | Imagem Docker validada pelo CI, não localmente | Docker Desktop não instalado; build verificado a cada push é garantia mais forte que "funciona aqui" |
+| 13/09/2026 | Build em duas etapas | O compilador não viaja para o servidor: imagem menor e menos superfície de ataque |
+| 13/09/2026 | Contêiner roda como usuário sem privilégios | Root é o padrão do Docker e é má ideia: quem escapar da aplicação já entra com o usuário mais poderoso |
+| 13/09/2026 | O código não é copiado para a imagem final | Já vem instalado dentro do venv; copiar de novo seria peso morto |
+| 13/09/2026 | `CMD` respeita `${PORT:-8000}` com `exec` | Plataformas escolhem a porta; o `exec` mantém o uvicorn como processo principal para receber o sinal de desligamento |
+| 13/09/2026 | **Netlify descartado** como plataforma | Não roda Python nem servidor de longa duração — e sem processo persistente o cache de 24h nasceria vazio a cada requisição |
+| 13/09/2026 | Render como plataforma de deploy | Plano gratuito sem cartão, lê o Dockerfile do repositório; hibernação de ~50s é o preço aceito |
+| 13/09/2026 | Configuração do deploy em `render.yaml` | Versionada junto do código, em vez de existir só como cliques num painel |
 
 ---
 
