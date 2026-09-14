@@ -487,7 +487,12 @@ sentido repetir isso em três versões do Python. A suíte rápida continua em ~
 > precisamos deixar bonito agora, mas isso é um trabalho para depois."* Fazer antes de
 > divulgar o link — é a primeira coisa que um recrutador vê.
 
-### Fase 5 — Produção 🟡 *empacotamento concluído em 13/09/2026; deploy pendente*
+### Fase 5 — Produção ✅ *concluída em 13/09/2026*
+
+**No ar em <https://nextup-rcux.onrender.com>** — verificado em produção: interface
+carregando, 198 parques no seletor, mapa com tiles, ranking com dados ao vivo e nenhum
+erro de console.
+
 Docker, CI no GitHub Actions, deploy público, README com GIF de demonstração.
 **Entrega:** link que qualquer pessoa — ou recrutador — abre e usa.
 
@@ -511,8 +516,12 @@ Já entregue:
 > 10000). O serviço subiria saudável e **nunca receberia uma requisição**. É o tipo de
 > falha que só aparece depois do deploy; virou passo de CI.
 
-**Pendente:** criar a conta no Render e conectar o repositório. É a única parte que exige
-credenciais do Gabriel e não pode ser automatizada daqui.
+**Publicado em 13/09/2026.** O Render leu o `render.yaml`, construiu a imagem e subiu o
+serviço; todo push na `main` republica sozinho.
+
+**Limitação assumida:** o plano gratuito hiberna após ~15 min sem acesso, e a primeira
+visita depois disso espera o contêiner subir. É o preço de não cadastrar cartão de
+crédito — e está avisado no README, para o visitante não achar que o site quebrou.
 
 > As Fases 3 a 5 formam o MVP completo. É o ponto em que o projeto já pode ir para o
 > LinkedIn.

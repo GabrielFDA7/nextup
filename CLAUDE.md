@@ -67,14 +67,16 @@ Já existe e funciona:
 **Testes:** `pytest -m "not e2e"` para o ciclo rápido; `pytest` roda tudo. Os de
 interface exigem `pip install -e ".[dev,e2e]"` e `playwright install chromium`.
 
-**Fase 5 — empacotamento pronto, deploy pendente.** `Dockerfile`, `docker-compose.yml`,
-`.dockerignore` e `render.yaml` existem, e o job `imagem-docker` do CI constrói a imagem,
-sobe o contêiner e confere que a API responde, que não roda como root e que respeita a
-variável `PORT`. **Docker não está instalado na máquina** — a validação é toda pelo CI.
+**Fase 5 concluída — o projeto está no ar:**
+<https://nextup-rcux.onrender.com> (API em `/api`, docs em `/docs`).
 
-**Próximo passo: o Gabriel criar a conta no Render** e conectar o repositório
-(New → Blueprint). É a única parte que exige credenciais dele. Depois disso, todo push
-na `main` republica sozinho.
+`Dockerfile`, `docker-compose.yml`, `.dockerignore` e `render.yaml` existem, e o job
+`imagem-docker` do CI constrói a imagem, sobe o contêiner e confere que a API responde,
+que não roda como root e que respeita a variável `PORT`. **Docker não está instalado na
+máquina** — a validação é toda pelo CI. Todo push na `main` republica no Render sozinho.
+
+**Limitação do plano gratuito:** hiberna após ~15 min sem acesso; a primeira visita
+espera o contêiner subir. Avisado no README.
 
 **Duas pendências combinadas com ele:**
 1. **Refino visual da interface** (12/09/2026) — ela funciona e foi aprovada, mas ele

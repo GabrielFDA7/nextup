@@ -6,6 +6,14 @@ NextUp responde essa pergunta em tempo real, cruzando o tempo de fila de cada at
 a distância que você precisa percorrer até ela — e devolve a que custa menos tempo do seu
 dia.
 
+### 👉 [Abrir o NextUp](https://nextup-rcux.onrender.com) · [Documentação da API](https://nextup-rcux.onrender.com/docs)
+
+> Dados ao vivo de parques reais. Sem GPS por perto? **Toque no mapa** para escolher uma
+> posição dentro do parque.
+>
+> *O serviço roda no plano gratuito do Render e hiberna quando fica sem acesso — a
+> primeira visita pode levar até um minuto para responder.*
+
 [![CI](https://github.com/GabrielFDA7/nextup/actions/workflows/ci.yml/badge.svg)](https://github.com/GabrielFDA7/nextup/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![Testes](https://img.shields.io/badge/testes-194-brightgreen)
@@ -210,7 +218,7 @@ a fonte de dados afeta só essa pasta.
 - [x] **Fase 2** — Motor de recomendação por custo total
 - [x] **Fase 3** — API HTTP com documentação automática
 - [x] **Fase 4** — Interface web com mapa e geolocalização
-- [ ] **Fase 5** — Docker ✅ · deploy público pendente
+- [x] **Fase 5** — Docker e deploy público
 - [ ] **Fase 6** — Histórico de filas, tendências e previsão
 
 Contexto completo, decisões técnicas e detalhes de arquitetura em
