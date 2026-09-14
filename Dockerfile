@@ -77,8 +77,17 @@ EXPOSE 8000
 # ThemeParks.wiki: uma instabilidade da fonte externa não deve derrubar um
 # contêiner que está perfeitamente de pé.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4).status == 200 else 1)"
+    CMD python -c "import os,urllib.request,sys; porta=os.getenv('PORT','8000'); sys.exit(0 if urllib.request.urlopen(f'http://127.0.0.1:{porta}/api/health', timeout=4).status == 200 else 1)"
 
-# `0.0.0.0` e não `127.0.0.1`: dentro do contêiner, ouvir só no endereço local
-# significaria recusar todo mundo que vem de fora dele — inclusive você.
-CMD ["uvicorn", "nextup.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Duas escolhas deliberadas nesta linha:
+#
+# `0.0.0.0` e não `127.0.0.1` — dentro do contêiner, ouvir só no endereço local
+# significaria recusar todo mundo que vem de fora dele, inclusive você.
+#
+# `${PORT:-8000}` — plataformas de hospedagem escolhem a porta e a informam por
+# variável de ambiente (o Render usa 10000 por padrão). Fixar 8000 faria o
+# serviço subir e, mesmo saudável, nunca receber uma requisição.
+#
+# O `exec` importa: sem ele, o `sh` continuaria como processo principal e
+# engoliria o sinal de desligamento, fazendo o contêiner demorar a encerrar.
+CMD exec uvicorn nextup.api.main:app --host 0.0.0.0 --port ${PORT:-8000}

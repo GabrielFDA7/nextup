@@ -1,0 +1,57 @@
+# Publicação no Render.
+#
+# Este arquivo é um "blueprint": em vez de configurar o serviço clicando no
+# painel, a configuração fica versionada aqui, junto do código. Quem clonar o
+# repositório publica exatamente o mesmo serviço — e uma mudança de configuração
+# aparece no `git log` como qualquer outra alteração.
+#
+# Como publicar, uma vez só:
+#   1. Criar conta em render.com (não pede cartão de crédito)
+#   2. New → Blueprint → conectar este repositório
+#   3. O Render lê este arquivo e cria o serviço sozinho
+#
+# A partir daí, todo push na `main` republica automaticamente.
+
+services:
+  - name: nextup
+    type: web
+
+    # O Render constrói a partir do nosso Dockerfile, então roda exatamente a
+    # mesma imagem que o CI verifica a cada push. É o ponto do Docker: a máquina
+    # do servidor deixa de ser uma variável.
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+
+    # Plano gratuito. O preço é hibernar após ~15 min sem acesso: a visita
+    # seguinte espera o contêiner subir, algo em torno de 50 segundos.
+    plan: free
+
+    # Região mais próxima do Brasil entre as disponíveis no plano gratuito.
+    region: oregon
+
+    # O Render consulta este caminho para decidir se o serviço está de pé. Aponta
+    # para a rota que de propósito NÃO chama a ThemeParks.wiki — uma instabilidade
+    # da fonte externa não pode fazer o Render derrubar um serviço saudável.
+    healthCheckPath: /api/health
+
+    # Republica a cada commit na branch padrão.
+    autoDeployTrigger: commit
+
+    envVars:
+      # Enquanto a API é pública e somente leitura, `*` é aceitável. Assim que
+      # houver domínio próprio, trocar pelo endereço do frontend.
+      - key: NEXTUP_CORS_ORIGINS
+        value: "*"
+
+      # Identificação enviada à ThemeParks.wiki. Vale distinguir o tráfego de
+      # produção do de desenvolvimento: se causarmos algum problema, eles
+      # conseguem ver de onde veio.
+      - key: NEXTUP_USER_AGENT
+        value: "NextUp/0.1 (+https://github.com/GabrielFDA7/nextup)"
+
+      # Os TTLs padrão do `config.py` já servem; ficam explícitos aqui para
+      # deixar claro o que dá para ajustar sem tocar no código.
+      - key: NEXTUP_LIVE_TTL
+        value: "60"
+      - key: NEXTUP_CATALOG_TTL
+        value: "86400"

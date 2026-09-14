@@ -135,6 +135,25 @@ jobs:
           echo "usuário do contêiner: $usuario"
           [ "$usuario" = "nextup" ]
 
+      - name: Respeita a variável PORT
+        # Plataformas de hospedagem escolhem a porta e a informam por variável de
+        # ambiente — o Render usa 10000. Se a imagem ignorasse isso, o serviço
+        # subiria saudável e nunca receberia uma requisição.
+        run: |
+          docker run -d --name nextup-porta -e PORT=10000 -p 9000:10000 nextup:ci
+          for tentativa in $(seq 1 20); do
+            if curl --fail --silent http://localhost:9000/api/health > /dev/null; then
+              echo "respondeu na porta informada por PORT"
+              docker rm -f nextup-porta
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::a imagem ignorou a variável PORT"
+          docker logs nextup-porta
+          docker rm -f nextup-porta
+          exit 1
+
       - name: Logs do contêiner
         # Roda mesmo se algo acima falhar — sem os logs, um erro no CI vira
         # adivinhação.
