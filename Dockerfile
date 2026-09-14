@@ -1,0 +1,84 @@
+# Imagem do NextUp — a API e a interface num contêiner só.
+#
+# O build tem duas etapas, e a razão é o tamanho da imagem final. A primeira
+# etapa instala as dependências (o que exige compilador, cabeçalhos e cache de
+# pacotes); a segunda copia só o resultado. Assim o compilador não viaja junto
+# para o servidor: menos coisa para baixar, menos superfície para atacar.
+#
+# Construir e rodar:
+#
+#     docker build -t nextup .
+#     docker run --rm -p 8000:8000 nextup
+#
+# Depois, abrir http://localhost:8000
+
+# ---------------------------------------------------------------------------
+# Etapa 1 — construir o ambiente com as dependências
+# ---------------------------------------------------------------------------
+# A versão é fixada de propósito. `python:3.13-slim` sem a versão exata mudaria
+# sozinha com o tempo, e um build que funciona hoje falharia daqui a meses sem
+# ninguém ter tocado no código.
+FROM python:3.13.15-slim AS construcao
+
+# Onde o venv vai morar. Fora de /app para não ser sobrescrito por um volume
+# montado durante o desenvolvimento.
+ENV VENV=/opt/venv
+RUN python -m venv $VENV
+ENV PATH="$VENV/bin:$PATH"
+
+WORKDIR /app
+
+# O código inteiro vem antes do `pip install` porque o `hatchling` empacota o
+# que está em `src/nextup`: instalar com a pasta pela metade produziria um
+# pacote incompleto, que só falharia em produção.
+#
+# O preço é que editar um arquivo Python invalida o cache desta camada e
+# reinstala as dependências. Para um projeto com quatro dependências isso custa
+# segundos — barato demais para justificar um truque frágil em troca.
+COPY pyproject.toml README.md LICENSE ./
+COPY src/ ./src/
+
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir .
+
+# ---------------------------------------------------------------------------
+# Etapa 2 — a imagem que realmente vai para o servidor
+# ---------------------------------------------------------------------------
+FROM python:3.13.15-slim AS producao
+
+ENV VENV=/opt/venv \
+    PATH="/opt/venv/bin:$PATH" \
+    # Não gerar os .pyc: dentro de um contêiner eles só ocupam espaço, já que o
+    # sistema de arquivos é descartado quando o contêiner morre.
+    PYTHONDONTWRITEBYTECODE=1 \
+    # Sem buffer na saída: o log aparece na hora em vez de ficar preso esperando
+    # o buffer encher — o que faria depurar um contêiner virar adivinhação.
+    PYTHONUNBUFFERED=1 \
+    NEXTUP_WEB_DIR=/app/web
+
+# Rodar como root dentro do contêiner é o padrão do Docker e é uma má ideia: se
+# alguém escapar da aplicação, já entra com o usuário mais poderoso da máquina.
+# Um usuário sem privilégios limita o estrago.
+RUN useradd --create-home --uid 1000 nextup
+
+WORKDIR /app
+
+# O código não é copiado de novo: ele já veio instalado dentro do venv. Só o
+# frontend precisa existir como arquivo, porque é servido do disco.
+COPY --from=construcao $VENV $VENV
+COPY --chown=nextup:nextup web/ ./web/
+
+USER nextup
+
+EXPOSE 8000
+
+# O orquestrador usa isto para saber se o contêiner está saudável e reiniciá-lo
+# quando não estiver. Aponta para `/api/health`, que de propósito NÃO consulta a
+# ThemeParks.wiki: uma instabilidade da fonte externa não deve derrubar um
+# contêiner que está perfeitamente de pé.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4).status == 200 else 1)"
+
+# `0.0.0.0` e não `127.0.0.1`: dentro do contêiner, ouvir só no endereço local
+# significaria recusar todo mundo que vem de fora dele — inclusive você.
+CMD ["uvicorn", "nextup.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

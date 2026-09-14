@@ -1,0 +1,45 @@
+# O que NÃO entra no contêiner.
+#
+# Isto não é só arrumação. Tudo que está aqui é enviado ao Docker antes do build
+# começar, então incluir `.venv` e `.git` deixaria o build lento e a imagem
+# grande — e, no caso do `.env`, colocaria segredos dentro de uma imagem que
+# pode acabar publicada.
+
+# Ambientes virtuais — a imagem cria o seu próprio
+.venv/
+venv/
+env/
+
+# Histórico do Git: pesado e inútil dentro do contêiner
+.git/
+.github/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Testes e qualidade não vão para produção
+tests/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Segredos — nunca dentro de uma imagem
+.env
+*.local
+
+# Documentação: útil no repositório, peso morto no contêiner
+docs/
+CLAUDE.md
+
+# Editores e sistema operacional
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+.DS_Store

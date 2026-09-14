@@ -83,3 +83,64 @@ jobs:
 
       - name: Testes de interface
         run: pytest -m e2e
+
+  # ---------------------------------------------------------------------------
+  # A imagem Docker.
+  #
+  # Este job é o que garante que o Dockerfile funciona. Um Dockerfile que nunca
+  # foi construído é um arquivo de texto com boas intenções: ele só vira uma
+  # promessa verificável quando alguém o constrói e sobe o contêiner.
+  # ---------------------------------------------------------------------------
+  imagem-docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v7
+
+      - name: Construir a imagem
+        run: docker build -t nextup:ci .
+
+      - name: Subir o contêiner
+        run: docker run -d --name nextup-ci -p 8000:8000 nextup:ci
+
+      - name: Esperar ficar saudável
+        # Usa o HEALTHCHECK da própria imagem: se ele nunca virar "healthy", o
+        # problema é do contêiner, não do teste.
+        run: |
+          for tentativa in $(seq 1 30); do
+            estado=$(docker inspect --format '{{.State.Health.Status}}' nextup-ci)
+            echo "tentativa $tentativa: $estado"
+            [ "$estado" = "healthy" ] && exit 0
+            [ "$estado" = "unhealthy" ] && break
+            sleep 2
+          done
+          echo "::error::o contêiner não ficou saudável"
+          docker logs nextup-ci
+          exit 1
+
+      - name: A API responde
+        run: |
+          curl --fail --silent --show-error http://localhost:8000/api/health | tee /dev/stderr | grep -q '"status":"ok"'
+
+      - name: A interface é servida
+        run: |
+          curl --fail --silent --show-error http://localhost:8000/ | grep -q "NextUp"
+
+      - name: Não roda como root
+        # Processo como root dentro do contêiner é um risco desnecessário; este
+        # passo impede que alguém remova o `USER` sem perceber.
+        run: |
+          usuario=$(docker exec nextup-ci whoami)
+          echo "usuário do contêiner: $usuario"
+          [ "$usuario" = "nextup" ]
+
+      - name: Logs do contêiner
+        # Roda mesmo se algo acima falhar — sem os logs, um erro no CI vira
+        # adivinhação.
+        if: always()
+        run: docker logs nextup-ci
+
+      - name: Derrubar o contêiner
+        if: always()
+        run: docker rm -f nextup-ci

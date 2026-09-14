@@ -1,0 +1,31 @@
+# Atalho para subir o NextUp com um comando só.
+#
+#     docker compose up --build
+#
+# Depois, abrir http://localhost:8000
+#
+# O `docker run` equivalente teria meia dúzia de flags que ninguém lembra de cor.
+# Este arquivo guarda essas escolhas por escrito — e serve como documentação de
+# como a aplicação espera ser executada.
+
+services:
+  nextup:
+    build: .
+    image: nextup:local
+
+    ports:
+      # host:contêiner. Mudar o lado esquerdo troca a porta na sua máquina sem
+      # alterar nada dentro da imagem.
+      - "8000:8000"
+
+    environment:
+      # Todos opcionais: a aplicação sobe sem nenhum deles. Estão aqui como
+      # lembrete do que dá para ajustar sem tocar no código. Ver `.env.example`.
+      NEXTUP_LIVE_TTL: "60"
+      NEXTUP_CATALOG_TTL: "86400"
+      # Em produção, trocar por um domínio específico em vez de `*`.
+      NEXTUP_CORS_ORIGINS: "*"
+
+    # Se o processo morrer, sobe de novo — mas não fica insistindo para sempre
+    # num contêiner que quebra ao iniciar.
+    restart: on-failure:3
