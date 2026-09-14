@@ -80,10 +80,13 @@ máquina** — a validação é toda pelo CI. Todo push na `main` republica no R
 `/api/health` porque essa rota não consulta a ThemeParks.wiki, e o GitHub desativa
 agendamentos em repositórios públicos parados há 60 dias.
 
-**Duas pendências combinadas com ele:**
-1. **Refino visual da interface** (12/09/2026) — ela funciona e foi aprovada, mas ele
-   pediu para "deixar bonito" depois. Fazer antes de divulgar o link publicamente.
-2. **Fase 6** — histórico de filas, tendências e previsão.
+**Refino visual feito (13/09/2026).** Direção escolhida pelo Gabriel: "personalidade de
+parque" — paleta de pôr do sol (coral, âmbar, roxo profundo), fonte Outfit, cantos
+arredondados, ícones SVG e marcadores numerados no mapa. Tema escuro revisado: os fundos
+quentes clareiam nele, então a tinta por cima inverte via `--sobre-quente` — sem isso, o
+botão principal ficaria branco sobre coral claro.
+
+**Pendência:** **Fase 6** — histórico de filas, tendências e previsão.
 
 **Três lições dos dados reais, que valem para as próximas fases:**
 1. `OPERATING` **não** garante tempo de fila — 9 das 35 atrações do Magic Kingdom

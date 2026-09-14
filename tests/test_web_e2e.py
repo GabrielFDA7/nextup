@@ -222,8 +222,10 @@ class TestFluxoFeliz:
         pagina.click("#btn-localizar")
         pagina.wait_for_selector(".item")
 
-        expect(pagina.locator(".item").first).to_contain_text("a pé +")
+        expect(pagina.locator(".item").first).to_contain_text("a pé")
         expect(pagina.locator(".item").first).to_contain_text("de fila")
+        # As duas parcelas aparecem separadas, cada uma com seu ícone.
+        assert pagina.locator(".item").first.locator(".parcela").count() == 2
 
     def test_atracoes_aparecem_no_mapa(self, navegador, servidor):
         pagina = abrir(navegador, servidor)

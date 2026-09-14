@@ -1,44 +1,86 @@
 /* Estilos do NextUp.
  *
- * Três restrições moldam tudo aqui, e todas vêm de onde o app é usado —
- * no celular, em pé, andando dentro de um parque:
+ * Onde o app é usado manda em tudo: no celular, em pé, andando dentro de um
+ * parque, sob sol forte. Daí três regras que nenhuma decisão estética pode
+ * quebrar:
  *
- *   1. Contraste alto. A tela vai competir com o sol da Flórida.
- *   2. Alvos grandes. Ninguém acerta um botão de 20px com o dedo, andando.
- *   3. O essencial primeiro. A resposta tem que caber na primeira tela.
+ *   1. Contraste alto. A tela compete com o sol da Flórida.
+ *   2. Alvos grandes. Ninguém acerta um botão de 20px com o dedo, caminhando.
+ *   3. O essencial primeiro. A resposta cabe na primeira tela.
  *
- * O CSS é escrito primeiro para telas pequenas; a media query no fim acrescenta
- * o que só faz sentido quando há espaço sobrando.
+ * A personalidade é de pôr do sol em parque — âmbar, coral e um roxo profundo —
+ * escolhida para o app não parecer mais um painel corporativo azul. Mas o calor
+ * é da *paleta*, não do contraste: o texto continua escuro sobre fundo claro.
+ *
+ * Escrito primeiro para telas pequenas; a media query no fim acrescenta o que
+ * só faz sentido quando há espaço sobrando.
  */
 
 :root {
-  --tinta: #16202c;
-  --tinta-suave: #55636f;
-  --fundo: #f6f7f9;
-  --superficie: #ffffff;
-  --borda: #dde2e8;
-  --destaque: #0b6bcb;
-  --destaque-escuro: #084c91;
-  --alerta: #9a3412;
-  --alerta-fundo: #fff4ed;
-  --sucesso: #14663f;
+  /* Tintas quentes: o preto puro sobre fundo creme vibra e cansa a vista.
+     Um marrom muito escuro assenta melhor e mantém o contraste. */
+  --tinta: #2a1a14;
+  --tinta-suave: #7a6257;
 
-  --raio: 12px;
-  --sombra: 0 1px 2px rgb(16 32 44 / 8%), 0 4px 12px rgb(16 32 44 / 6%);
+  --fundo: #fdf7f1;
+  --superficie: #ffffff;
+  --superficie-alt: #fbf1e7;
+  --borda: #ecdccd;
+
+  /* Coral queimado: o toque de ação. Escuro o bastante para texto branco por
+     cima passar no contraste. */
+  --destaque: #d1492a;
+  --destaque-escuro: #a8351b;
+  --destaque-fraco: #fbeae4;
+
+  /* Âmbar marca a melhor escolha — a cor do "é por aqui". */
+  --ambar: #b45309;
+  --ambar-fraco: #fdf0dc;
+
+  /* A tinta que vai POR CIMA do âmbar e do coral. No tema claro esses fundos
+     são escuros e pedem texto branco; no escuro eles clareiam, e o branco
+     deixaria de ter contraste. Por isso a cor é uma variável, não um valor. */
+  --sobre-quente: #ffffff;
+
+  /* Roxo profundo dá o contraponto frio, usado no número do custo. */
+  --profundo: #4c2a6b;
+
+  --alerta: #9a3412;
+  --alerta-fundo: #fff2ea;
+
+  --raio: 18px;
+  --raio-p: 12px;
+  --sombra: 0 1px 2px rgb(88 48 28 / 6%), 0 6px 18px rgb(88 48 28 / 7%);
+  --sombra-forte: 0 2px 4px rgb(88 48 28 / 8%), 0 12px 28px rgb(88 48 28 / 12%);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --tinta: #e9eef4;
-    --tinta-suave: #9fb0c0;
-    --fundo: #10161e;
-    --superficie: #1a222d;
-    --borda: #2c3845;
-    --destaque: #4da3ff;
-    --destaque-escuro: #7cbcff;
+    --tinta: #f6ece3;
+    --tinta-suave: #b9a396;
+
+    --fundo: #17110e;
+    --superficie: #241a16;
+    --superficie-alt: #2e211b;
+    --borda: #3d2c24;
+
+    --destaque: #ff7a52;
+    --destaque-escuro: #ff9a79;
+    --destaque-fraco: #3a1f16;
+
+    --ambar: #f0a83c;
+    --ambar-fraco: #35240f;
+
+    /* Invertida: sobre o âmbar claro do tema escuro, texto escuro é o que lê. */
+    --sobre-quente: #2a1a14;
+
+    --profundo: #c9a6e8;
+
     --alerta: #ffb59a;
     --alerta-fundo: #3a2118;
-    --sucesso: #6ee7a8;
+
+    --sombra: 0 1px 2px rgb(0 0 0 / 30%), 0 6px 18px rgb(0 0 0 / 25%);
+    --sombra-forte: 0 2px 4px rgb(0 0 0 / 35%), 0 12px 28px rgb(0 0 0 / 35%);
   }
 }
 
@@ -48,12 +90,15 @@
 
 body {
   margin: 0;
-  padding: 0 16px 40px;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  padding: 0 16px 48px;
+  /* A fonte do sistema fica como reserva: se o Google Fonts demorar ou falhar,
+     a página continua legível em vez de aparecer sem texto. */
+  font-family: "Outfit", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-size: 16px;
   line-height: 1.5;
   color: var(--tinta);
   background: var(--fundo);
+  -webkit-font-smoothing: antialiased;
 }
 
 main,
@@ -66,28 +111,56 @@ main,
 /* --- Cabeçalho ---------------------------------------------------------- */
 
 .topo {
-  padding: 24px 0 8px;
+  padding: 28px 0 10px;
+}
+
+.marca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.marca__simbolo {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  color: var(--sobre-quente);
+  background: linear-gradient(135deg, var(--destaque), var(--ambar));
+  box-shadow: var(--sombra);
+}
+
+.marca__simbolo svg {
+  width: 21px;
+  height: 21px;
 }
 
 h1 {
   margin: 0;
-  font-size: 1.75rem;
-  letter-spacing: -0.02em;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
 .subtitulo {
-  margin: 4px 0 0;
+  margin: 6px 0 0;
   color: var(--tinta-suave);
   font-size: 0.95rem;
+}
+
+.subtitulo strong {
+  color: var(--tinta);
+  font-weight: 600;
 }
 
 /* --- Controles ---------------------------------------------------------- */
 
 .controles {
   display: grid;
-  gap: 12px;
-  margin: 20px 0;
-  padding: 16px;
+  gap: 14px;
+  margin: 22px 0;
+  padding: 18px;
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio);
@@ -96,12 +169,12 @@ h1 {
 
 .campo {
   display: grid;
-  gap: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
+  gap: 7px;
+  font-size: 0.74rem;
+  font-weight: 700;
   color: var(--tinta-suave);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.09em;
 }
 
 select {
@@ -110,11 +183,12 @@ select {
      fonte menor — o zoom desalinha a página inteira e irrita muito. */
   font-size: 16px;
   font-family: inherit;
+  font-weight: 500;
   color: var(--tinta);
-  background: var(--superficie);
-  padding: 12px;
+  background: var(--superficie-alt);
+  padding: 13px 14px;
   border: 1px solid var(--borda);
-  border-radius: 8px;
+  border-radius: var(--raio-p);
 }
 
 button {
@@ -122,31 +196,44 @@ button {
   font-size: 1rem;
   font-weight: 600;
   /* 48px é o alvo mínimo confortável para o dedo. */
-  min-height: 48px;
-  padding: 12px 16px;
+  min-height: 50px;
+  padding: 13px 18px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--raio-p);
   cursor: pointer;
+  transition: transform 0.12s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .botao-principal {
-  color: #fff;
-  background: var(--destaque);
+  /* No tema escuro o coral clareia para se destacar do fundo, e aí texto branco
+     por cima perderia o contraste — por isso a tinta é a mesma variável usada
+     nos outros fundos quentes, que inverte junto com o tema. */
+  color: var(--sobre-quente);
+  background: linear-gradient(135deg, var(--destaque), var(--destaque-escuro));
+  box-shadow: var(--sombra);
 }
 
 .botao-principal:hover:not(:disabled) {
-  background: var(--destaque-escuro);
+  box-shadow: var(--sombra-forte);
+}
+
+.botao-principal:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .botao-secundario {
   color: var(--destaque);
-  background: transparent;
-  border: 1px solid var(--borda);
-  min-height: 40px;
+  background: var(--destaque-fraco);
+  min-height: 42px;
+  font-size: 0.9rem;
+}
+
+.botao-secundario:hover {
+  background: var(--superficie-alt);
 }
 
 button:disabled {
-  opacity: 0.55;
+  opacity: 0.6;
   cursor: progress;
 }
 
@@ -160,13 +247,14 @@ select:focus-visible {
   margin: 0;
   font-size: 0.85rem;
   color: var(--tinta-suave);
+  font-variant-numeric: tabular-nums;
 }
 
 /* --- Avisos ------------------------------------------------------------- */
 
 .aviso {
-  margin: 0 0 16px;
-  padding: 14px 16px;
+  margin: 0 0 18px;
+  padding: 15px 17px;
   font-size: 0.95rem;
   color: var(--alerta);
   background: var(--alerta-fundo);
@@ -183,28 +271,50 @@ select:focus-visible {
 /* --- Mapa --------------------------------------------------------------- */
 
 .mapa-area {
-  margin-bottom: 24px;
+  margin-bottom: 26px;
 }
 
 #mapa {
-  height: 260px;
+  height: 270px;
   border: 1px solid var(--borda);
   border-radius: var(--raio);
   background: var(--superficie);
+  /* Sem isso os cantos dos tiles escapam por cima da borda arredondada. */
+  overflow: hidden;
+  box-shadow: var(--sombra);
 }
 
 .dica {
-  margin: 8px 0 0;
+  margin: 10px 0 0;
   font-size: 0.8rem;
   color: var(--tinta-suave);
   text-align: center;
 }
 
-.marcador-visitante {
-  background: var(--destaque);
-  border: 3px solid #fff;
+/* Marcador numerado, para ligar o que está no mapa ao que está na lista.
+   Branco fixo aqui, e não a variável do tema: o fundo é o mapa, que é claro
+   nos dois modos. */
+.pino {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #fff;
+  background: #b8553a;
+  border: 2.5px solid #fff;
   border-radius: 50%;
-  box-shadow: 0 0 0 2px var(--destaque);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 35%);
+  font-variant-numeric: tabular-nums;
+}
+
+.pino--melhor {
+  width: 36px;
+  height: 36px;
+  margin: -3px 0 0 -3px;
+  font-size: 1rem;
+  background: #b45309;
 }
 
 /* --- Lista -------------------------------------------------------------- */
@@ -218,11 +328,13 @@ select:focus-visible {
 
 h2 {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .resumo {
-  margin: 4px 0 12px;
+  margin: 6px 0 14px;
   font-size: 0.9rem;
   color: var(--tinta-suave);
 }
@@ -232,79 +344,127 @@ h2 {
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .item {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 14px;
+  gap: 16px;
   align-items: center;
-  padding: 14px 16px;
+  padding: 16px;
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio);
   box-shadow: var(--sombra);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
+.item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--sombra-forte);
+}
+
+/* A primeira colocada é a resposta à pergunta do app. Ela ganha moldura âmbar
+   e fundo próprio para ser encontrada antes de o olho começar a ler. */
 .item--melhor {
-  border-color: var(--destaque);
+  border-color: var(--ambar);
   border-width: 2px;
+  background: linear-gradient(180deg, var(--ambar-fraco), var(--superficie) 60%);
 }
 
 .custo {
   display: grid;
   justify-items: center;
-  min-width: 62px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--fundo);
+  align-content: center;
+  min-width: 68px;
+  height: 68px;
+  border-radius: 16px;
+  background: var(--superficie-alt);
+  color: var(--profundo);
+}
+
+.item--melhor .custo {
+  color: var(--sobre-quente);
+  background: linear-gradient(140deg, var(--destaque), var(--ambar));
 }
 
 .custo strong {
-  font-size: 1.5rem;
-  line-height: 1.1;
+  font-size: 1.7rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  /* Números de mesma largura: sem isso a coluna "dança" entre 7 e 11. */
   font-variant-numeric: tabular-nums;
 }
 
 .custo span {
-  font-size: 0.7rem;
+  margin-top: 2px;
+  font-size: 0.65rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--tinta-suave);
+  letter-spacing: 0.1em;
+  opacity: 0.85;
 }
 
 .nome {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
 }
 
 .conta {
-  margin: 2px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin: 7px 0 0;
   font-size: 0.85rem;
   color: var(--tinta-suave);
+  font-variant-numeric: tabular-nums;
+}
+
+.parcela {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.parcela svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  opacity: 0.75;
 }
 
 .etiqueta {
-  display: inline-block;
-  margin-top: 6px;
-  padding: 2px 8px;
-  font-size: 0.72rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 9px;
+  padding: 4px 11px;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--sucesso);
-  background: color-mix(in srgb, var(--sucesso) 12%, transparent);
+  letter-spacing: 0.07em;
+  color: var(--sobre-quente);
+  background: var(--ambar);
   border-radius: 999px;
 }
 
+.etiqueta svg {
+  width: 12px;
+  height: 12px;
+}
+
 .esqueleto {
-  height: 76px;
+  height: 100px;
   border-radius: var(--raio);
   background: linear-gradient(90deg, var(--superficie), var(--borda), var(--superficie));
   background-size: 200% 100%;
-  animation: brilho 1.2s linear infinite;
+  animation: brilho 1.3s linear infinite;
 }
 
 @keyframes brilho {
@@ -316,13 +476,17 @@ h2 {
 /* Respeita quem configurou o sistema para reduzir animação — a mesma
    preferência que existe por enjoo e por sensibilidade a movimento. */
 @media (prefers-reduced-motion: reduce) {
-  .esqueleto {
-    animation: none;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
 .atualizado {
-  margin: 16px 0 0;
+  margin: 18px 0 0;
   font-size: 0.8rem;
   color: var(--tinta-suave);
   text-align: center;
@@ -331,8 +495,8 @@ h2 {
 /* --- Rodapé ------------------------------------------------------------- */
 
 .rodape {
-  margin-top: 32px;
-  padding-top: 16px;
+  margin-top: 36px;
+  padding-top: 18px;
   border-top: 1px solid var(--borda);
   font-size: 0.8rem;
   color: var(--tinta-suave);
@@ -340,11 +504,13 @@ h2 {
 }
 
 .rodape p {
-  margin: 4px 0;
+  margin: 5px 0;
 }
 
 a {
   color: var(--destaque);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
 }
 
 /* --- Telas maiores ------------------------------------------------------ */
@@ -360,6 +526,10 @@ a {
   }
 
   #mapa {
-    height: 340px;
+    height: 360px;
+  }
+
+  h1 {
+    font-size: 2.3rem;
   }
 }

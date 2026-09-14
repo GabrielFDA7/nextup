@@ -82,15 +82,39 @@ function iniciarMapa() {
   });
 }
 
+/* Marcador numerado, na paleta do app.
+ *
+ * O alfinete azul padrão do Leaflet destoa do resto e, pior, não diz nada: oito
+ * marcadores idênticos não permitem ligar o mapa à lista. Numerado, dá para
+ * achar no mapa a atração que está em primeiro sem contar pontinhos.
+ */
+function marcadorNumerado(posicao) {
+  const melhor = posicao === 1;
+
+  return L.divIcon({
+    className: "",
+    html: `<span class="pino${melhor ? " pino--melhor" : ""}">${posicao}</span>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+    popupAnchor: [0, -14],
+  });
+}
+
 function desenharMapa(recomendacoes) {
   camadaAtracoes.clearLayers();
 
   recomendacoes.forEach((item, indice) => {
     const { latitude, longitude } = item.attraction;
 
-    L.marker([latitude, longitude])
+    L.marker([latitude, longitude], {
+      icon: marcadorNumerado(indice + 1),
+      // Atrações vizinhas ficam a poucos metros, então os marcadores se
+      // sobrepõem. Quanto melhor a colocação, mais na frente: a resposta do app
+      // não pode ficar escondida atrás de uma opção pior.
+      zIndexOffset: (recomendacoes.length - indice) * 10,
+    })
       .bindPopup(`<strong>${indice + 1}. ${escapar(item.attraction.name)}</strong><br>
-         ${item.total_minutes} min no total`)
+         ${Math.round(item.total_minutes)} min no total`)
       .addTo(camadaAtracoes);
   });
 }
@@ -294,17 +318,39 @@ function renderizar(dados) {
   el.atualizado.hidden = false;
 }
 
-function criarItem(item, indice) {
-  const menorFila = item.queue_minutes;
-  const destaque = indice === 0 ? " item--melhor" : "";
+/* Ícones em SVG, desenhados inline.
+ *
+ * Poderiam ser emoji, que seria mais curto — mas emoji muda de desenho conforme
+ * o sistema, não herda a cor do texto e desalinha com a linha de base. O SVG
+ * escala sem borrar e acompanha a cor de quem o contém.
+ */
+const ICONE = {
+  caminhada: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="13" cy="4" r="2" />
+      <path d="m13.5 9-2.5 4 3 2.5 1 6.5" />
+      <path d="M8 21l2-5.5-2-3 1-4.5 3-1 3 2.5 2.5 1" />
+    </svg>`,
+  fila: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3.5 2" />
+    </svg>`,
+  estrela: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="m12 2 2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8L12 2Z" />
+    </svg>`,
+};
 
-  // A etiqueta explica por que a primeira colocada venceu mesmo sem ter a
-  // menor fila — que é o argumento do projeto inteiro.
-  const etiqueta =
-    indice === 0 ? '<span class="etiqueta">Melhor escolha agora</span>' : "";
+function criarItem(item, indice) {
+  const ehMelhor = indice === 0;
+
+  // A etiqueta responde à pergunta do app: entre 26 atrações, é esta.
+  const etiqueta = ehMelhor
+    ? `<span class="etiqueta">${ICONE.estrela} Melhor escolha agora</span>`
+    : "";
 
   return `
-    <li class="item${destaque}">
+    <li class="item${ehMelhor ? " item--melhor" : ""}">
       <div class="custo">
         <strong>${Math.round(item.total_minutes)}</strong>
         <span>min</span>
@@ -312,7 +358,12 @@ function criarItem(item, indice) {
       <div>
         <p class="nome">${escapar(item.attraction.name)}</p>
         <p class="conta">
-          ${Math.round(item.walking_minutes)} min a pé + ${menorFila} min de fila
+          <span class="parcela">
+            ${ICONE.caminhada} ${Math.round(item.walking_minutes)} min a pé
+          </span>
+          <span class="parcela">
+            ${ICONE.fila} ${item.queue_minutes} min de fila
+          </span>
         </p>
         ${etiqueta}
       </div>

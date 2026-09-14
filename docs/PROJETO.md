@@ -482,10 +482,25 @@ que nenhum teste de API alcança:
 O CI ganhou um **segundo job** para eles, separado porque baixa um navegador e não faz
 sentido repetir isso em três versões do Python. A suíte rápida continua em ~7s.
 
-> **Pendência assumida (12/09/2026):** a interface foi aprovada quanto ao funcionamento,
-> mas ainda não passou por refino visual. Gabriel: *"Ficou maneiro e parece funcional. Só
-> precisamos deixar bonito agora, mas isso é um trabalho para depois."* Fazer antes de
-> divulgar o link — é a primeira coisa que um recrutador vê.
+#### Refino visual — 13/09/2026
+
+A primeira versão funcionava e era genérica. Direção escolhida entre três propostas:
+**"personalidade de parque"** — paleta de pôr do sol (coral queimado, âmbar, roxo
+profundo), fonte **Outfit**, cantos arredondados, ícones SVG e marcadores numerados.
+
+O objetivo não foi enfeitar: foi não parecer mais um painel corporativo azul. Num
+portfólio, ser lembrado conta.
+
+Três problemas reais encontrados e corrigidos no caminho:
+
+| Problema | Por que importava |
+|---|---|
+| Botão principal e etiqueta com **texto branco** no tema escuro | Os fundos quentes clareiam no escuro; branco por cima perdia o contraste. Resolvido com `--sobre-quente`, que inverte junto com o tema |
+| Marcadores azuis genéricos e **todos iguais** | Oito alfinetes idênticos não deixavam ligar o mapa à lista. Viraram numerados, na paleta do app |
+| O marcador **nº 1 ficava escondido** atrás de outro | Atrações vizinhas se sobrepõem no mapa; a resposta do app não pode ficar atrás de uma opção pior. Resolvido com `zIndexOffset` proporcional à colocação |
+
+As três regras funcionais foram preservadas e continuam verificadas por teste: contraste
+alto, alvos de toque grandes e nada de rolagem horizontal no celular.
 
 ### Fase 5 — Produção ✅ *concluída em 13/09/2026*
 
@@ -671,6 +686,10 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 13/09/2026 | Configuração do deploy em `render.yaml` | Versionada junto do código, em vez de existir só como cliques num painel |
 | 13/09/2026 | Ping a cada 10 min para evitar a hibernação | Link de portfólio não pode abrir em tela branca por um minuto; decisão consciente do Gabriel, ciente de que contorna o limite do plano gratuito |
 | 13/09/2026 | O ping usa `/api/health`, não a rota de recomendação | Acordar o nosso serviço não pode gerar tráfego na API pública de terceiros a cada 10 minutos |
+| 13/09/2026 | Identidade visual "personalidade de parque" | Painel azul corporativo não é lembrado; num portfólio, ser lembrado conta |
+| 13/09/2026 | Tinta sobre fundos quentes é variável (`--sobre-quente`) | No tema escuro o coral e o âmbar clareiam, e texto branco por cima perderia o contraste |
+| 13/09/2026 | Ícones em SVG, não emoji | Emoji muda de desenho conforme o sistema, não herda a cor do texto e desalinha com a linha de base |
+| 13/09/2026 | Marcadores numerados, com o 1º na frente | Permite ligar mapa e lista; e a resposta do app não pode ficar escondida atrás de uma opção pior |
 
 ---
 

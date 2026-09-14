@@ -11,6 +11,16 @@
     />
     <title>NextUp — para onde ir agora</title>
 
+    <!-- `preconnect` abre a conexão com o servidor de fontes antes de o
+         navegador descobrir que precisa dela, o que corta uns 100ms da primeira
+         renderização do texto. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -22,7 +32,16 @@
 
   <body>
     <header class="topo">
-      <h1>NextUp</h1>
+      <div class="marca">
+        <span class="marca__simbolo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 21s7-5.2 7-11a7 7 0 1 0-14 0c0 5.8 7 11 7 11Z" />
+            <circle cx="12" cy="10" r="2.6" />
+          </svg>
+        </span>
+        <h1>NextUp</h1>
+      </div>
       <p class="subtitulo">
         Para onde ir agora — considerando <strong>fila e distância</strong>.
       </p>
