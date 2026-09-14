@@ -8,7 +8,16 @@ dia.
 
 [![CI](https://github.com/GabrielFDA7/nextup/actions/workflows/ci.yml/badge.svg)](https://github.com/GabrielFDA7/nextup/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![Testes](https://img.shields.io/badge/testes-194-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-green)
+
+<p align="center">
+  <img src="docs/img/tela-celular.png" alt="NextUp no celular: mapa do Magic Kingdom com as atrações e a lista ordenada por tempo total" width="380">
+</p>
+
+> Repare no terceiro colocado da lista: **Mad Tea Party está a 1 minuto a pé** — a atração
+> mais próxima de todas — e mesmo assim perde para duas que ficam mais longe. É o
+> algoritmo funcionando: 1 minuto de caminhada + 10 de fila custa mais que 2 + 5.
 
 ---
 
@@ -56,12 +65,16 @@ Você (GPS do navegador)
    Motor de Ranking   ◀── Haversine + filtros + custo total
         │
         ▼
-   Top 5 atrações, com a justificativa de cada uma
+   As melhores atrações, com a justificativa de cada uma
 ```
 
-Atrações fechadas, em manutenção ou fora do horário são descartadas antes de qualquer
-cálculo. O resultado vem com explicação legível — *"4 min de caminhada + 20 min de fila =
-24 min"* — porque uma recomendação sem motivo não gera confiança.
+Antes de qualquer cálculo, são descartadas as atrações fechadas, em manutenção, quebradas
+— e também as que estão **abertas mas não informam fila**. Essa última categoria existe e
+surpreende: o Castelo da Cinderela está `OPERATING` e não é brinquedo. No Magic Kingdom,
+9 das 35 atrações caem nesse caso.
+
+O resultado vem com explicação legível — *"4 min de caminhada + 20 min de fila = 24 min"* —
+porque uma recomendação sem motivo não gera confiança.
 
 ## Stack
 
@@ -69,13 +82,27 @@ cálculo. O resultado vem com explicação legível — *"4 min de caminhada + 2
 |---|---|
 | Backend | Python 3.11+, FastAPI, httpx, Pydantic v2 |
 | Frontend | HTML, CSS e JavaScript puro + Leaflet |
-| Testes | pytest, respx |
+| Testes | pytest, respx, Playwright |
 | Qualidade | ruff |
 | Infra | Docker, GitHub Actions |
 
 Fonte de dados: [ThemeParks.wiki](https://themeparks.wiki) — API pública e gratuita.
 
-## Rodando localmente
+**Por que o frontend não usa framework:** a tela é uma lista ordenada e um mapa. React
+aqui acrescentaria etapa de build, dependências e complexidade de deploy sem melhorar o
+produto — e o código continua legível em dois minutos por quem abre o repositório.
+
+## Rodando
+
+### Com Docker
+
+```bash
+docker compose up --build
+```
+
+Abrir <http://localhost:8000>. A API e a interface sobem juntas, num contêiner só.
+
+### Sem Docker
 
 ```bash
 git clone https://github.com/GabrielFDA7/nextup.git
@@ -83,30 +110,80 @@ cd nextup
 
 python -m venv .venv
 source .venv/bin/activate       # Windows: .venv\Scripts\activate
-
 pip install -e ".[dev]"
-```
 
-Rodar os testes:
-
-```bash
-pytest
-```
-
-Verificar qualidade do código:
-
-```bash
-ruff check .
-ruff format --check .
-```
-
-Subir a API (a partir da Fase 3):
-
-```bash
 uvicorn nextup.api.main:app --reload
 ```
 
 Documentação interativa da API em <http://localhost:8000/docs>.
+
+### Pela linha de comando
+
+```bash
+nextup --parks                                  # lista os IDs de parque
+nextup                                          # filas do Magic Kingdom, ordenadas
+nextup --lat 28.42037 --lon -81.58031           # para onde ir, considerando a distância
+```
+
+## A API
+
+| Rota | Devolve |
+|---|---|
+| `GET /api/health` | Estado do serviço. Não consulta a fonte externa, de propósito |
+| `GET /api/destinations` | Destinos e parques, com os IDs usados nas outras rotas |
+| `GET /api/parks/{id}/recommendations?lat&lon&limit` | O ranking, com a conta aberta de cada atração |
+
+```jsonc
+// GET /api/parks/75ea578a-.../recommendations?lat=28.42037&lon=-81.58031&limit=1
+{
+  "park_name": "Magic Kingdom Park",
+  "total_attractions": 35,
+  "available": 26,
+  "data_updated_at": "2026-09-12T18:43:55Z",
+  "recommendations": [
+    {
+      "attraction": { "name": "Mad Tea Party", "latitude": 28.42, "longitude": -81.579 },
+      "walking_minutes": 1.2,
+      "queue_minutes": 5,
+      "total_minutes": 6.2,
+      "explanation": "Mad Tea Party — 1 min de caminhada + 5 min de fila = 6 min"
+    }
+  ]
+}
+```
+
+## Testes
+
+```bash
+pytest -m "not e2e"     # 173 testes, ~7s — o ciclo rápido
+pytest                  # tudo, incluindo interface em navegador real
+ruff check . && ruff format --check .
+```
+
+**194 testes, e nenhum deles toca a internet.** As respostas reais da ThemeParks.wiki
+foram capturadas em `tests/fixtures/` e são devolvidas pelo `respx`, o que torna possível
+testar o que a API real nunca entregaria sob demanda: erro 503, conexão derrubada no meio
+da requisição, contrato de dados alterado.
+
+Três garantias que os testes protegem e valem destaque:
+
+- **A tese do produto.** `test_fila_menor_perde_para_atracao_mais_perto` trava a regra
+  central: fila de 10 min a 900 m perde para fila de 20 min a 50 m. Se alguém
+  "simplificar" o algoritmo para ordenar por `waitTime`, esse teste acusa.
+- **A arquitetura.** `test_arquitetura.py` lê o código-fonte e falha se algum módulo de
+  `core/` importar `httpx`, `asyncio` ou `clients/`. A regra de dependência não vive só na
+  documentação.
+- **A interface.** 21 testes em Chromium verificam o que nenhum teste de API alcança: que
+  o mapa carrega, que negar o GPS não quebra o app e que a tela não rola de lado no
+  celular.
+
+Para rodar os de interface:
+
+```bash
+pip install -e ".[dev,e2e]"
+playwright install chromium
+pytest -m e2e
+```
 
 ## Estrutura do projeto
 
@@ -129,11 +206,11 @@ a fonte de dados afeta só essa pasta.
 ## Roadmap
 
 - [x] **Fase 0** — Fundação: repositório, estrutura, qualidade, CI
-- [ ] **Fase 1** — Cliente da API com cache e tratamento de falhas
-- [ ] **Fase 2** — Motor de recomendação
-- [ ] **Fase 3** — API HTTP
-- [ ] **Fase 4** — Interface web com mapa
-- [ ] **Fase 5** — Docker e deploy público
+- [x] **Fase 1** — Cliente da API com cache, backoff exponencial e tratamento de falhas
+- [x] **Fase 2** — Motor de recomendação por custo total
+- [x] **Fase 3** — API HTTP com documentação automática
+- [x] **Fase 4** — Interface web com mapa e geolocalização
+- [ ] **Fase 5** — Docker ✅ · deploy público pendente
 - [ ] **Fase 6** — Histórico de filas, tendências e previsão
 
 Contexto completo, decisões técnicas e detalhes de arquitetura em
