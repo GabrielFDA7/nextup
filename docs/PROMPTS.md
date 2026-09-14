@@ -481,6 +481,152 @@ demonstração. Refino visual da interface em algum momento antes de divulgar o 
 
 ---
 
+## Sessão 004 — 13/09/2026
+
+> A sessão que colocou o projeto no ar. Fase 5 concluída (Docker, deploy no Render,
+> README como vitrine), mais o refino visual que estava pendente desde a sessão anterior.
+> **O MVP está fechado: fases 0 a 5 concluídas.**
+
+### Prompt #023
+**Data:** 13/09/2026
+**Contexto:** Abertura da sessão. Fases 0 a 4 concluídas; Fase 5 era o próximo passo.
+
+```
+Vamos!
+```
+
+**O que resultou:** verificação do estado (tudo sincronizado, 173 testes verdes) e
+descoberta de que **Docker não está instalado na máquina**, o que exigia uma decisão sobre
+como validar a imagem.
+
+---
+
+### Prompt #024
+**Data:** 13/09/2026
+**Contexto:** Perguntado como validar o Docker e onde publicar. Ele escolheu validar pelo
+CI e, em vez de escolher uma plataforma, devolveu uma pergunta.
+
+```
+Validar só pelo CI (Recomendado)
+```
+```
+O Netlify é uma possibilidade boa?
+```
+
+**O que resultou:**
+- Consulta à documentação do Netlify em vez de resposta de memória: **Functions suporta
+  TypeScript, JavaScript e Go — Python não**, e não há servidor de longa duração.
+- **Netlify descartado**, com o motivo que importa: sem processo persistente, o cache de
+  24h nasceria vazio a cada requisição, que é exatamente o abuso que a Fase 1 evitou.
+- `Dockerfile` em duas etapas, `.dockerignore`, `docker-compose.yml` e o job
+  `imagem-docker` no CI. Dois bugs próprios pegos antes do commit: a etapa de construção
+  geraria um pacote vazio, e a imagem final copiava o código à toa.
+
+---
+
+### Prompt #025
+**Data:** 13/09/2026
+**Contexto:** Com o Netlify fora, a pergunta da plataforma voltou.
+
+```
+Render (Recomendado)
+```
+
+**O que resultou:**
+- `render.yaml` versionado junto do código.
+- **Armadilha evitada pela documentação:** o `CMD` fixava a porta 8000, mas o Render
+  escolhe a porta e a informa por `PORT` (padrão 10000). O serviço subiria saudável e
+  nunca receberia requisição. Virou passo de CI.
+- README renovado: captura da interface, instruções de Docker, tabela de rotas. Corrigida
+  uma afirmação falsa — o README dizia que atrações fora do horário eram filtradas, e esse
+  filtro não existe.
+
+---
+
+### Prompt #026
+**Data:** 13/09/2026
+**Contexto:** Ele criou a conta no Render e conectou o repositório.
+
+```
+Feito, o site está no ar.
+```
+
+**O que resultou:** tentativa de adivinhar a URL (404 nas duas hipóteses) e pedido do
+endereço, em vez de continuar chutando.
+
+---
+
+### Prompt #027
+**Data:** 13/09/2026
+
+```
+https://nextup-rcux.onrender.com/
+```
+
+**O que resultou:** verificação completa em produção — API, interface, arquivos estáticos,
+`/docs`, e o fluxo inteiro num navegador real: 198 parques, mapa com tiles, ranking com
+dados ao vivo, **zero erro de console**. O link foi para o topo do README.
+
+---
+
+### Prompt #028
+**Data:** 13/09/2026
+**Contexto:** Apresentadas duas formas de tratar a hibernação do plano gratuito: avisar na
+tela ou manter o serviço acordado. Foi dito explicitamente que a segunda contorna o limite
+do plano.
+
+```
+Vamos usar o ping do github actions
+```
+
+**O que resultou:**
+- `keep-alive.yml` chamando `/api/health` a cada 10 minutos — intervalo de 10 e não 14
+  porque o GitHub atrasa agendamentos.
+- O ping usa `/api/health` de propósito: acordar o nosso serviço não pode virar tráfego na
+  API pública de terceiros a cada 10 minutos.
+- Três tentativas antes de falhar, para não gerar alarme à toa.
+- A decisão foi registrada na tabela com o motivo — inclusive o fato de contornar o limite
+  do plano gratuito.
+
+---
+
+### Prompt #029
+**Data:** 13/09/2026
+**Contexto:** MVP no ar; faltava o refino visual pedido na sessão anterior.
+
+```
+Vamos para o refino
+```
+```
+Personalidade de parque
+```
+
+**O que resultou:**
+- Paleta de pôr do sol (coral, âmbar, roxo profundo), fonte **Outfit**, cantos
+  arredondados, ícones SVG.
+- **Três problemas reais encontrados olhando a tela, não o código:** texto branco sobre
+  fundos quentes perdia contraste no tema escuro; os marcadores do mapa eram oito
+  alfinetes idênticos; e o marcador nº 1 ficava escondido atrás de outro.
+- Publicado e verificado em produção.
+
+---
+
+### Prompt #030
+**Data:** 13/09/2026
+**Contexto:** Encerramento.
+
+```
+Vamos parar por hoje!
+```
+
+**O que resultou:** prompts registrados, nenhum servidor deixado rodando, árvore limpa.
+
+**Pendente para a próxima sessão:** **Fase 6** — histórico de filas, tendências e
+previsão. É a única frente que resta, e a que tira o projeto de "consome uma API" para
+"produz conhecimento próprio a partir de dados".
+
+---
+
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 
