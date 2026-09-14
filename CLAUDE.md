@@ -75,8 +75,10 @@ interface exigem `pip install -e ".[dev,e2e]"` e `playwright install chromium`.
 que não roda como root e que respeita a variável `PORT`. **Docker não está instalado na
 máquina** — a validação é toda pelo CI. Todo push na `main` republica no Render sozinho.
 
-**Limitação do plano gratuito:** hiberna após ~15 min sem acesso; a primeira visita
-espera o contêiner subir. Avisado no README.
+**Limitação do plano gratuito:** hiberna após ~15 min sem acesso. Mitigado pelo workflow
+`keep-alive.yml`, que chama `/api/health` a cada 10 min. Dois cuidados: o ping usa
+`/api/health` porque essa rota não consulta a ThemeParks.wiki, e o GitHub desativa
+agendamentos em repositórios públicos parados há 60 dias.
 
 **Duas pendências combinadas com ele:**
 1. **Refino visual da interface** (12/09/2026) — ela funciona e foi aprovada, mas ele

@@ -519,9 +519,15 @@ Já entregue:
 **Publicado em 13/09/2026.** O Render leu o `render.yaml`, construiu a imagem e subiu o
 serviço; todo push na `main` republica sozinho.
 
-**Limitação assumida:** o plano gratuito hiberna após ~15 min sem acesso, e a primeira
-visita depois disso espera o contêiner subir. É o preço de não cadastrar cartão de
-crédito — e está avisado no README, para o visitante não achar que o site quebrou.
+**Limitação e mitigação:** o plano gratuito hiberna após ~15 min sem acesso. O workflow
+`keep-alive.yml` chama `/api/health` a cada 10 minutos para evitar isso — intervalo de 10
+e não 14 porque o GitHub atrasa agendamentos, e a margem cobre o atraso.
+
+Detalhes que valem lembrar: o ping usa `/api/health` de propósito, porque essa rota **não**
+consulta a ThemeParks.wiki — acordar nosso serviço não pode virar tráfego numa API pública
+de terceiros a cada 10 minutos. E o GitHub desativa agendamentos em repositórios públicos
+parados há 60 dias, então o workflow para sozinho se o projeto ficar esse tempo sem
+commits.
 
 > As Fases 3 a 5 formam o MVP completo. É o ponto em que o projeto já pode ir para o
 > LinkedIn.
@@ -663,6 +669,8 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 13/09/2026 | **Netlify descartado** como plataforma | Não roda Python nem servidor de longa duração — e sem processo persistente o cache de 24h nasceria vazio a cada requisição |
 | 13/09/2026 | Render como plataforma de deploy | Plano gratuito sem cartão, lê o Dockerfile do repositório; hibernação de ~50s é o preço aceito |
 | 13/09/2026 | Configuração do deploy em `render.yaml` | Versionada junto do código, em vez de existir só como cliques num painel |
+| 13/09/2026 | Ping a cada 10 min para evitar a hibernação | Link de portfólio não pode abrir em tela branca por um minuto; decisão consciente do Gabriel, ciente de que contorna o limite do plano gratuito |
+| 13/09/2026 | O ping usa `/api/health`, não a rota de recomendação | Acordar o nosso serviço não pode gerar tráfego na API pública de terceiros a cada 10 minutos |
 
 ---
 

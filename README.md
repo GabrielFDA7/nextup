@@ -11,8 +11,9 @@ dia.
 > Dados ao vivo de parques reais. Sem GPS por perto? **Toque no mapa** para escolher uma
 > posição dentro do parque.
 >
-> *O serviço roda no plano gratuito do Render e hiberna quando fica sem acesso — a
-> primeira visita pode levar até um minuto para responder.*
+> *Roda no plano gratuito do Render, que hiberna sem acesso. Um agendamento do GitHub
+> Actions chama `/api/health` a cada 10 minutos para manter o serviço acordado — mas se
+> ele tiver dormido, a primeira visita leva até um minuto.*
 
 [![CI](https://github.com/GabrielFDA7/nextup/actions/workflows/ci.yml/badge.svg)](https://github.com/GabrielFDA7/nextup/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
