@@ -692,6 +692,65 @@ Primeiro de tudo, estamos em um novo computador, onde não temos todas as depend
 
 ---
 
+### Prompt #033
+**Data:** 15/09/2026
+**Contexto:** O push tinha falhado por falta de credenciais na máquina nova, e eu havia
+pedido a connection string do Neon para seguir com o 6.2. O Gabriel colou o roteiro de
+onboarding que o próprio painel do Neon gera — junto com a URL do banco, **com a senha**.
+
+```
+Por que essa sessão não permite prompts interativos?
+
+Set up this Neon project in the current working directory.
+
+1. `npm i -g neon@latest && neon login`
+2. `neon skills -y`
+3. `neon mcp -y`
+4. `neon link --project-id mute-forest-48970873 --branch production -y`
+5. `neon config init`
+6. Update `neon.ts`:
+
+
+postgresql://neondb_owner:***@ep-bitter-scene-acvmxetx-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+```ts
+import { defineConfig } from "@neon/config/v1";
+
+export default defineConfig({});
+```
+
+7. `neon deploy`
+```
+
+> **Nota:** a senha foi substituída por `***` neste registro. O prompt está íntegro no
+> resto. Registrar credencial em arquivo versionado seria repetir, num lugar pior, o
+> problema que o `alembic.ini` vazio existe para evitar.
+
+**O que resultou:**
+- **Resposta à pergunta:** as ferramentas de shell da sessão rodam sem terminal
+  interativo (stdin no dispositivo nulo), então comandos que *perguntam* algo recebem EOF.
+  Por isso o `git push` e o `neon login` não passam; comandos que só executam funcionam.
+- **Passos 1 a 7 descartados, com justificativa:** são o fluxo Node/TypeScript do Neon.
+  O NextUp é Python e faz deploy pelo Render — um `neon.ts` na raiz seria peso morto. Do
+  Neon o projeto precisa só da connection string. (O `npm i -g` foi, de todo modo,
+  bloqueado pelo classificador de permissões da sessão.)
+- **Aviso de segurança:** a senha circulou em texto plano e deve ser rotacionada.
+- **A quinta armadilha da fase, encontrada ao conectar:** a URL do Neon traz
+  `?sslmode=require&channel_binding=require`, parâmetros da libpq que o `asyncpg` recusa
+  com `TypeError: connect() got an unexpected keyword argument 'sslmode'`.
+- `normalize_database_url` passou a removê-los, e `ssl_is_required` a preservar a
+  intenção — porque o pior desfecho não seria o erro, seria conectar em **texto plano**
+  com a senha viajando aberta.
+- TLS resolvido com `ssl.create_default_context()` no `connect_args`, com verificação de
+  cadeia e hostname. Validado contra o Neon real, com caso de controle.
+- `config.py` passou a carregar o `.env`; **isso criou uma armadilha nova**, fechada na
+  mesma sessão: a URL padrão passou a apontar para produção, então o `conftest.py` força
+  SQLite em memória e `test_trava_de_seguranca.py` vigia a trava.
+- Migração aplicada no Neon e camada de storage validada contra Postgres real: 8
+  verificações, incluindo fuso, recusa de duplicata e retenção. Dados de teste removidos.
+- Suíte de **201 para 225 testes**.
+
+---
+
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 

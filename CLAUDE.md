@@ -1,4 +1,4 @@
-# NextUp — Contexto para o Claude Code
+﻿# NextUp — Contexto para o Claude Code
 
 Este arquivo é lido automaticamente ao abrir o projeto. Ele existe para que qualquer
 sessão, em qualquer máquina, continue de onde a anterior parou.
@@ -42,7 +42,7 @@ documentação de decisões **fazem parte da entrega** — não são extras opci
 storage) foi concluído em 15/09/2026**; o próximo é o **6.2, o coletor periódico**.
 O fatiamento da fase está na seção 7 de `docs/PROJETO.md`.
 
-**222 testes passando**: 201 na suíte rápida (~3s) e 21 de interface em navegador (~46s).
+**246 testes passando**: 225 na suíte rápida (~3s) e 21 de interface em navegador (~46s).
 CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
 
 Já existe e funciona:
@@ -98,10 +98,26 @@ botão principal ficaria branco sobre coral claro.
 **Pendência:** **Fase 6**, passos 6.2 a 6.6 — coletor, tendência, rota de histórico,
 gráfico e previsão na chegada.
 
-**O banco (Fase 6).** `NEXTUP_DATABASE_URL` no ambiente; o padrão é um SQLite na raiz,
-e em produção é um **Postgres gerenciado externo** (Neon/Supabase). O Postgres do Render
-foi descartado porque o plano gratuito expira, e SQLite dentro do contêiner perderia tudo
-a cada push — o disco do plano gratuito é efêmero. Migrações: `alembic upgrade head`.
+**O banco (Fase 6).** Produção é um **Postgres no Neon** — projeto
+`mute-forest-48970873`, branch `production`, região `sa-east-1` — com a migração já
+aplicada. O Postgres do Render foi descartado porque o plano gratuito expira, e SQLite
+dentro do contêiner perderia tudo a cada push (disco efêmero).
+
+A URL vem de `NEXTUP_DATABASE_URL`; o `config.py` **carrega o `.env` sozinho**
+(`override=False`, então variável do ambiente vence o arquivo). O padrão sem configuração
+é um SQLite na raiz. Migrações: `alembic upgrade head`.
+
+**Cole a connection string do painel sem editar.** `normalize_database_url` põe o
+`+asyncpg` e remove `sslmode`/`channel_binding`, que são da libpq e o `asyncpg` recusa; o
+TLS é configurado pelo `connect_args_for`, com verificação completa de certificado.
+
+> ⚠️ **A suíte tem uma trava no `conftest.py`** que força SQLite em memória antes de
+> qualquer `import nextup`. Sem ela, com o `.env` carregado, um teste distraído
+> escreveria no banco de produção. Não remova — `tests/test_trava_de_seguranca.py` vigia.
+
+> ⚠️ **A CLI do Neon (`neon login`, `neon.ts`, `neon deploy`) não é usada aqui.** É um
+> fluxo Node/TypeScript; o NextUp é Python e faz deploy pelo Render. Do Neon o projeto
+> precisa só da connection string.
 
 **Cinco lições dos dados reais, que valem para as próximas fases:**
 1. `OPERATING` **não** garante tempo de fila — 9 das 35 atrações do Magic Kingdom
@@ -186,7 +202,7 @@ pip install -e ".[dev]"
 Verificar que tudo está de pé:
 
 ```bash
-pytest -m "not e2e"    # esperado: 201 testes, ~3s
+pytest -m "not e2e"    # esperado: 225 testes, ~3s
 ruff check .
 ruff format --check .
 ```

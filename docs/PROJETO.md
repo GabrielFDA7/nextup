@@ -571,6 +571,7 @@ o coletor vem cedo — ele enche o banco enquanto o resto é construído.
 | # | Entrega | Situação |
 |---|---|---|
 | 6.1 | `QueueSnapshot`, pasta `storage/`, SQLAlchemy, Alembic | ✅ 15/09/2026 |
+| — | Banco de produção provisionado no Neon, migração aplicada | ✅ 15/09/2026 |
 | 6.2 | Coletor periódico gravando o Magic Kingdom | pendente |
 | 6.3 | `core/trends.py` — tendência como função pura | pendente |
 | 6.4 | Rota `GET /api/.../history` | pendente |
@@ -610,6 +611,44 @@ Três armadilhas encontradas e fechadas no caminho:
 > `tables.py` — e quebra só no deploy. `tests/test_migracoes.py` aplica as migrações num
 > banco vazio e compara o resultado com o desenho declarado. Foi verificado que ele
 > realmente falha quando os dois divergem; teste que nunca falha não protege nada.
+
+#### Banco de produção — Neon ✅ *15/09/2026*
+
+Projeto `mute-forest-48970873`, branch `production`, região `sa-east-1` (São Paulo — a
+mais próxima, embora a latência importe pouco aqui: quem espera pelo banco é o coletor,
+não o visitante). A migração está aplicada e a tabela existe, vazia.
+
+**A quinta armadilha, encontrada na hora de conectar.** A connection string que o Neon
+manda copiar termina em `?sslmode=require&channel_binding=require`. Esses são parâmetros
+da **libpq**, a biblioteca C oficial do Postgres que o `psycopg` usa por baixo. O
+`asyncpg` não é libpq — implementa o protocolo por conta própria e tem API própria para
+TLS — então recusa os dois:
+
+```
+TypeError: connect() got an unexpected keyword argument 'sslmode'
+```
+
+A correção fácil seria editar a string à mão. É também a errada: editar à mão é o passo
+que alguém esquece no dia do deploy. `normalize_database_url` remove os parâmetros, e
+`ssl_is_required` preserva a **intenção** deles antes que sumam.
+
+Essa separação é o ponto importante. O pior resultado possível não seria o erro acima —
+erro alto se conserta. Seria o NextUp descartar o `sslmode` e conectar em **texto plano**,
+funcionando perfeitamente enquanto a senha do banco viaja aberta pela rede.
+
+E a solução ficou mais forte que o pedido original. Passar `ssl=verify-full` na URL não
+serve: o `asyncpg` então exige um `~/.postgresql/root.crt` em cada máquina — funcionaria
+aqui e quebraria no contêiner. O engine monta um `ssl.create_default_context()`, que já
+vem com verificação de cadeia **e** de hostname, usando as autoridades certificadoras do
+sistema. Verificado contra o Neon real, inclusive com um caso de controle: um contexto que
+não confia em nenhuma CA precisa ser recusado, senão a verificação seria decorativa.
+
+> **Uma armadilha criada e fechada na mesma sessão.** Fazer o `config.py` carregar o
+> `.env` é conveniente — mas a partir daí a URL padrão numa máquina de desenvolvimento
+> passou a apontar para o **banco de produção**. Bastaria um teste criar um engine sem URL
+> explícita para apagar dados reais. O `conftest.py` sobrescreve a URL para SQLite em
+> memória antes de qualquer `import nextup`, e `tests/test_trava_de_seguranca.py` existe
+> para que remover essa trava quebre a suíte em vez de passar em silêncio.
 
 ---
 
@@ -712,6 +751,14 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **TIMESTAMPTZ** | Tipo do Postgres que guarda o instante junto com o fuso; o SQLite não tem equivalente |
 | **Retenção** | Por quanto tempo se guarda um dado antes de apagar; decisão de produto, não de faxina |
 | **Lote (batch)** | Enviar muitas linhas num comando só, em vez de uma ida ao banco por linha |
+| **libpq** | A biblioteca C oficial do Postgres. O `psycopg` a usa; o `asyncpg` não — daí os parâmetros incompatíveis |
+| **Connection string** | A URL que contém tudo para conectar: usuário, senha, host, banco e opções. **Contém segredo** |
+| **TLS / SSL** | Cifra a conexão. Cifrar não é o mesmo que verificar com quem se está falando |
+| **`sslmode=require` vs. `verify-full`** | `require` só cifra; `verify-full` confere a cadeia do certificado e o hostname, e é o que barra um intermediário |
+| **Autoridade certificadora (CA)** | Quem assina certificados; o sistema já confia num conjunto delas, e é contra esse conjunto que se valida |
+| **Pooler** | Intermediário que reaproveita conexões do banco; o `-pooler` no host do Neon indica que se está falando com ele |
+| **Variável de ambiente** | Configuração que vem de fora do código, o jeito padrão de entregar segredo a uma aplicação |
+| **`.env`** | Arquivo local com as variáveis de ambiente do projeto. **Nunca vai para o git** |
 
 ---
 
@@ -781,6 +828,13 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 15/09/2026 | Teste compara o banco migrado com `tables.py` | Esquecer de gerar a migração passa em todo teste local e só quebra no deploy |
 | 15/09/2026 | Driver assíncrono obrigatório (`+asyncpg` / `+aiosqlite`) | Um driver síncrono travaria o event loop do FastAPI a cada gravação do coletor |
 | 15/09/2026 | Retenção de 90 dias configurável | ~6 mil linhas por dia por parque; guardar para sempre um dado que ninguém consulta é conta crescendo |
+| 15/09/2026 | **Neon** como provedor do Postgres | Free tier sem prazo de expiração, região `sa-east-1`; projeto `mute-forest-48970873`, branch `production` |
+| 15/09/2026 | `sslmode` e `channel_binding` removidos da URL | São parâmetros da libpq; o `asyncpg` tem API própria de TLS e recusa os dois. Permite colar a string do painel sem editar |
+| 15/09/2026 | TLS por `SSLContext` do Python, não por `ssl=verify-full` na URL | O `asyncpg` exigiria um `~/.postgresql/root.crt` em cada máquina — funcionaria aqui e quebraria no contêiner |
+| 15/09/2026 | A verificação de certificado é **completa**, não só cifra | `require` cifra mas não confere com quem se está falando; o contexto padrão valida cadeia e hostname |
+| 15/09/2026 | `config.py` carrega o `.env` com `override=False` | Evita exportar variável na mão a cada comando, e variável do ambiente continua vencendo o arquivo em produção |
+| 15/09/2026 | Trava no `conftest.py` forçando SQLite na suíte | Com o `.env` carregado, a URL padrão passou a apontar para produção — um teste distraído apagaria dados reais |
+| 15/09/2026 | CLI do Neon e `neon.ts` **descartados** | Fluxo Node/TypeScript; o NextUp é Python e faz deploy pelo Render. Do Neon o projeto só precisa da connection string |
 
 ---
 
