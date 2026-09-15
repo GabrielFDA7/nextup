@@ -17,6 +17,14 @@ dependencies = [
     "pydantic>=2.7",
     "fastapi>=0.111",
     "uvicorn[standard]>=0.30",
+    # Persistência do histórico de filas (Fase 6). O SQLAlchemy é o que permite
+    # desenvolver em SQLite e publicar em Postgres sem reescrever consulta.
+    "sqlalchemy[asyncio]>=2.0",
+    "alembic>=1.13",
+    # Drivers assíncronos: um por banco. O projeto inteiro é async, e um driver
+    # síncrono travaria o event loop do FastAPI a cada gravação.
+    "aiosqlite>=0.20",
+    "asyncpg>=0.29",
 ]
 
 [project.optional-dependencies]
