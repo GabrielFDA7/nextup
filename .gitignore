@@ -22,8 +22,15 @@ htmlcov/
 
 # Cache do projeto
 .cache/
-data/*.db
 data/snapshots/
+
+# Bancos SQLite locais (desenvolvimento e testes). O historico de filas de
+# producao vive num Postgres gerenciado; estes arquivos sao descartaveis.
+# Os `-wal` e `-shm` sao os arquivos auxiliares que o SQLite cria ao lado.
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 
 # Editores
 .vscode/

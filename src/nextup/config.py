@@ -71,3 +71,48 @@ DEFAULT_RESULT_LIMIT = int(os.getenv("NEXTUP_RESULT_LIMIT", "5"))
 
 #: Parque usado como padrão no MVP (Magic Kingdom, Walt Disney World).
 DEFAULT_PARK_ID = os.getenv("NEXTUP_DEFAULT_PARK", "75ea578a-adc8-4116-a54d-dccb60765ef9")
+
+# ---------------------------------------------------------------------------
+# Banco de dados — histórico de filas (Fase 6)
+# ---------------------------------------------------------------------------
+# O padrão é um SQLite em arquivo, na raiz do projeto: quem clonar o repositório
+# roda o projeto inteiro sem instalar banco nenhum. Em produção, a variável
+# aponta para um Postgres gerenciado.
+#
+# O prefixo `+aiosqlite` / `+asyncpg` escolhe o driver assíncrono. Sem ele, o
+# SQLAlchemy usaria o driver síncrono e travaria o event loop do FastAPI a cada
+# gravação — o servidor pararia de responder enquanto escreve no banco.
+#
+#: Atenção ao publicar: plataformas costumam entregar a URL no formato
+#: `postgres://` ou `postgresql://`, sem driver. `normalize_database_url` conserta.
+DATABASE_URL = os.getenv("NEXTUP_DATABASE_URL", "sqlite+aiosqlite:///./nextup.db")
+
+#: Quanto tempo de histórico manter. Um parque com ~35 atrações medidas a cada 5
+#: minutos gera ~6 mil linhas por dia; 90 dias são ~540 mil, que qualquer Postgres
+#: aguenta sem suar — mas guardar para sempre um dado que ninguém consulta é só
+#: conta crescendo.
+HISTORY_RETENTION_DAYS = int(os.getenv("NEXTUP_HISTORY_RETENTION_DAYS", "90"))
+
+
+def normalize_database_url(url: str) -> str:
+    """Garante que a URL do banco use um driver assíncrono.
+
+    Render, Heroku e afins entregam a URL como `postgres://...`, herança de uma
+    convenção antiga. O SQLAlchemy 2 não reconhece mais esse prefixo, e mesmo
+    `postgresql://` sozinho carregaria o driver síncrono. Consertar aqui evita que
+    o deploy quebre por um detalhe de formato de string — o mesmo tipo de
+    armadilha da porta fixa que pegamos na Fase 5.
+
+    Args:
+        url: URL como veio do ambiente.
+
+    Returns:
+        A mesma URL, com driver assíncrono explícito.
+    """
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    if url.startswith("sqlite://"):
+        url = url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+    return url
