@@ -3,7 +3,12 @@
 > Documento vivo. Nasceu em 11/09/2026 e é atualizado a cada decisão tomada.
 > Registro de contexto, decisões e arquitetura. Se algo mudar, muda aqui primeiro.
 >
-> **Status atual: Fase 0 concluída** (12/09/2026). Próximo passo: Fase 1 — cliente da API.
+> **Status atual: Fases 0 a 5 concluídas.** O projeto está no ar em
+> <https://nextup-rcux.onrender.com>.
+>
+> **Fase 6 em andamento** — o passo 6.1 (fundação do storage) foi concluído em
+> 15/09/2026. Próximo passo: **6.2, o coletor periódico**. 201 testes na suíte rápida,
+> 21 de interface em navegador.
 
 ---
 
@@ -547,12 +552,64 @@ commits.
 > As Fases 3 a 5 formam o MVP completo. É o ponto em que o projeto já pode ir para o
 > LinkedIn.
 
-### Fase 6 — Inteligência Histórica
+### Fase 6 — Inteligência Histórica *em andamento*
 Persistir snapshots de fila ao longo do tempo. Com histórico vêm as análises que mais
 valorizam o projeto: detecção de tendência, melhor horário por atração e previsão da fila
 no momento em que o visitante chega.
 **Entrega:** gráficos e previsão — o que eleva o projeto de "consome uma API" para
 "produz conhecimento próprio a partir de dados".
+
+**O que esta fase muda de fundamental:** até a Fase 5 o NextUp era *stateless* — consulta,
+responde, esquece. Daqui em diante ele acumula história própria, o que exige duas coisas
+novas: **estado persistente** e **um processo que roda sozinho**, gravando a fila mesmo
+sem ninguém acessando o site.
+
+E uma consequência de cronograma que decide a ordem de tudo: **previsão precisa de dados
+que ainda não existem.** Não dá para construir o modelo e testá-lo no mesmo dia. Por isso
+o coletor vem cedo — ele enche o banco enquanto o resto é construído.
+
+| # | Entrega | Situação |
+|---|---|---|
+| 6.1 | `QueueSnapshot`, pasta `storage/`, SQLAlchemy, Alembic | ✅ 15/09/2026 |
+| 6.2 | Coletor periódico gravando o Magic Kingdom | pendente |
+| 6.3 | `core/trends.py` — tendência como função pura | pendente |
+| 6.4 | Rota `GET /api/.../history` | pendente |
+| 6.5 | Gráfico da fila na interface | pendente |
+| 6.6 | Previsão da fila **na chegada** | pendente |
+
+O 6.3 torna verdadeira uma frase que a seção 4 deste documento promete desde o começo e
+que o app ainda não cumpre: *"caiu de 45 para 20 nos últimos 30 minutos"*. E o 6.6 fecha a
+tese do projeto — hoje o algoritmo soma a fila de **agora** a uma atração onde o visitante
+só chega em 12 minutos, o que é uma aproximação, não a resposta certa.
+
+#### 6.1 — Fundação do storage ✅ *concluída em 15/09/2026*
+
+- `models/snapshot.py` — `QueueSnapshot`, Pydantic puro, com `from_live()`
+- `storage/tables.py`, `engine.py`, `snapshots.py` — tabela, conexão e acesso
+- `migrations/` — Alembic com template assíncrono e a primeira migração
+- 28 testes novos, em SQLite na memória; a suíte rápida foi de 173 para **201**
+
+Três armadilhas encontradas e fechadas no caminho:
+
+1. **O SQLite não autoincrementa `BIGINT`.** Só `INTEGER PRIMARY KEY` vira *rowid*; com
+   `BIGINT` a chave sai nula e a inserção falha. No Postgres funciona normalmente.
+   Resolvido com `BigInteger().with_variant(Integer, "sqlite")` — a mesma classe de
+   problema da porta fixa da Fase 5: some no ambiente onde se testa, aparece no outro.
+2. **O SQLite não guarda fuso horário**, mesmo com a coluna declarada `timezone=True`.
+   A data volta ingênua e o histórico ficaria deslocado em horas entre desenvolvimento e
+   produção, sem erro nenhum. Resolvido normalizando tudo para UTC na entrada e
+   reanexando o fuso na leitura.
+3. **Medição duplicada não dá erro** — só envenena a média. O coletor roda num ritmo que
+   escolhemos, a fonte atualiza num ritmo que não controlamos; quando o primeiro é mais
+   rápido, a mesma medição chega de novo. A restrição de unicidade em
+   `(attraction_id, observed_at)` faz o banco recusá-la, e o `ON CONFLICT DO NOTHING`
+   impede que uma repetida derrube o lote inteiro.
+
+> **Uma quarta armadilha, prevenida:** alterar `tables.py` e esquecer de gerar a migração
+> passa em *todos* os testes locais — eles criam as tabelas a partir do próprio
+> `tables.py` — e quebra só no deploy. `tests/test_migracoes.py` aplica as migrações num
+> banco vazio e compara o resultado com o desenho declarado. Foi verificado que ele
+> realmente falha quando os dois divergem; teste que nunca falha não protege nada.
 
 ---
 
@@ -636,6 +693,25 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **Blueprint (render.yaml)** | Configuração de deploy escrita em arquivo e versionada, em vez de cliques num painel |
 | **Serverless** | Modelo em que a função acorda por requisição e some depois — sem memória entre chamadas |
 | **Hibernação (cold start)** | Serviço gratuito que dorme sem uso; a primeira visita paga a espera de subir |
+| **Stateless / stateful** | Sem ou com memória entre execuções. O NextUp era o primeiro; com o histórico virou o segundo |
+| **Disco efêmero** | Sistema de arquivos recriado a cada deploy — o que for gravado nele some sozinho |
+| **ORM** | Biblioteca que traduz linhas de tabela em objetos da linguagem, e vice-versa |
+| **SQLAlchemy Core vs. ORM** | *Core* descreve tabelas e monta SQL; *ORM* mapeia classes para linhas. O NextUp usa só o Core |
+| **Migração (migration)** | Script versionado que transforma o banco de uma forma para outra, sem perder o que já está lá |
+| **Alembic** | Ferramenta de migrações do SQLAlchemy; guarda no próprio banco em que versão ele está |
+| **Autogenerate** | Comparação entre o desenho declarado e o banco real, que escreve a migração da diferença. Sugere, não decide |
+| **Schema drift** | Código e banco discordarem sobre a forma da tabela; passa em todo teste local e quebra no deploy |
+| **Restrição de unicidade** | Regra do banco que recusa duas linhas com a mesma combinação de colunas |
+| **ON CONFLICT DO NOTHING** | "Se essa linha já existe, siga em frente" — em vez de abortar a transação inteira |
+| **Índice** | Estrutura que evita varrer a tabela toda para achar poucas linhas; o custo é ocupar espaço e deixar a escrita um pouco mais lenta |
+| **Transação** | Bloco de comandos que vale inteiro ou não vale nada; impede gravar metade de uma coleta |
+| **Pool de conexões** | Conjunto de conexões abertas e reaproveitadas, porque abrir uma custa caro |
+| **Driver** | Biblioteca que fala o protocolo de um banco específico (`asyncpg` para Postgres, `aiosqlite` para SQLite) |
+| **UTC** | Hora de referência mundial, sem fuso nem horário de verão; o único formato seguro para guardar instante |
+| **Datetime ingênuo (naive)** | Data sem fuso horário — parece funcionar até dois ambientes a interpretarem diferente |
+| **TIMESTAMPTZ** | Tipo do Postgres que guarda o instante junto com o fuso; o SQLite não tem equivalente |
+| **Retenção** | Por quanto tempo se guarda um dado antes de apagar; decisão de produto, não de faxina |
+| **Lote (batch)** | Enviar muitas linhas num comando só, em vez de uma ida ao banco por linha |
 
 ---
 
@@ -690,7 +766,22 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 13/09/2026 | Tinta sobre fundos quentes é variável (`--sobre-quente`) | No tema escuro o coral e o âmbar clareiam, e texto branco por cima perderia o contraste |
 | 13/09/2026 | Ícones em SVG, não emoji | Emoji muda de desenho conforme o sistema, não herda a cor do texto e desalinha com a linha de base |
 | 13/09/2026 | Marcadores numerados, com o 1º na frente | Permite ligar mapa e lista; e a resposta do app não pode ficar escondida atrás de uma opção pior |
+| 15/09/2026 | **Postgres gerenciado externo** para o histórico | O disco do plano gratuito do Render é efêmero: um SQLite no contêiner perderia tudo no próximo push — e todo push republica |
+| 15/09/2026 | Postgres do Render descartado | O plano gratuito dele tem prazo de expiração; é o mesmo risco de perder o histórico, só adiado |
+| 15/09/2026 | SQLite no desenvolvimento, Postgres na produção | Quem clona o repositório roda a suíte sem instalar banco nenhum, e os testes continuam em milissegundos |
+| 15/09/2026 | `storage/` como pasta irmã de `clients/` | `clients/` busca dado de fora, que não controlamos; `storage/` guarda dado nosso. Quebram por motivos diferentes |
+| 15/09/2026 | `core/` proibido de importar `sqlalchemy` | Mesma regra do `httpx`: se o algoritmo consultar o banco, seus testes passam a exigir um banco de pé |
+| 15/09/2026 | Tabelas em SQLAlchemy Core, sem ORM declarativo | O idioma comum já são os modelos Pydantic; um segundo conjunto de classes de domínio criaria duas verdades sobre o que é um snapshot |
+| 15/09/2026 | **Duas datas por snapshot** (`observed_at` e `recorded_at`) | Uma é quando a fonte mediu, a outra quando gravamos. Só a primeira identifica a medição |
+| 15/09/2026 | Unicidade em `(attraction_id, observed_at)` + `ON CONFLICT DO NOTHING` | Coletar mais rápido que a fonte atualiza duplicaria medições e enviesaria a média histórica **sem dar erro** |
+| 15/09/2026 | Snapshot de atração fechada é guardado, com fila nula | "Esteve fechada às 14h" é história; descartar criaria buracos que pareceriam falha do coletor |
+| 15/09/2026 | Todo instante normalizado para UTC na entrada | O Postgres guarda fuso, o SQLite não. Sem normalizar, o histórico ficaria deslocado em horas entre os dois ambientes |
+| 15/09/2026 | Alembic desde a primeira tabela | `create_all` só cria o que falta; migrar um banco que já tem dados exige o passo a passo versionado |
+| 15/09/2026 | `alembic.ini` com `sqlalchemy.url` vazia | O arquivo é versionado num repositório público; senha de produção no histórico do git não sai mais de lá |
+| 15/09/2026 | Teste compara o banco migrado com `tables.py` | Esquecer de gerar a migração passa em todo teste local e só quebra no deploy |
+| 15/09/2026 | Driver assíncrono obrigatório (`+asyncpg` / `+aiosqlite`) | Um driver síncrono travaria o event loop do FastAPI a cada gravação do coletor |
+| 15/09/2026 | Retenção de 90 dias configurável | ~6 mil linhas por dia por parque; guardar para sempre um dado que ninguém consulta é conta crescendo |
 
 ---
 
-*Mantido por Gabriel de Angelis, com Claude Code. Última atualização: 11/09/2026.*
+*Mantido por Gabriel de Angelis, com Claude Code. Última atualização: 15/09/2026.*

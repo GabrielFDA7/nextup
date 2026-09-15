@@ -627,6 +627,71 @@ previsão. É a única frente que resta, e a que tira o projeto de "consome uma 
 
 ---
 
+## Sessão 005 — 15/09/2026
+
+Retomada do projeto em **outra máquina**, sem ambiente montado. Sessão dividida em duas
+partes: preparar a máquina e iniciar a Fase 6.
+
+### Prompt #031
+**Data:** 15/09/2026
+**Contexto:** Primeira mensagem da sessão. Fases 0 a 5 concluídas, projeto no ar, Fase 6
+descrita no roadmap mas ainda sem fatiamento.
+
+```
+Claudão, bora retomar o projeto?
+Quais seriam os próximos passos?
+```
+
+**O que resultou:**
+- Leitura do estado atual e proposta da **Fase 6 fatiada em 6 passos** (6.1 a 6.6),
+  registrada na seção 7 do `docs/PROJETO.md`.
+- Levantamento do problema central da fase: o NextUp era *stateless* e passa a precisar de
+  estado persistente e de um processo que roda sozinho.
+- Alerta sobre a armadilha do **disco efêmero do Render** — um SQLite no contêiner
+  perderia o histórico a cada push, e todo push republica.
+- Duas perguntas ao Gabriel: onde persistir e por onde começar.
+
+---
+
+### Prompt #032
+**Data:** 15/09/2026
+**Contexto:** Resposta às duas perguntas, feita pelo seletor de opções. A escolha de banco
+foi a recomendada; a de ponto de partida ele escreveu por conta própria.
+
+**Banco escolhido:** Postgres externo (Neon/Supabase) — recomendado.
+
+**Ponto de partida, na íntegra:**
+
+```
+Primeiro de tudo, estamos em um novo computador, onde não temos todas as dependências do projeto instaladas. O primeiro passo vai ser analisar o que temos e baixar todo o restante que falta, depois disso iremos começar o 6.1 - fundação do storage
+```
+
+**O que resultou — parte 1, ambiente:**
+- Diagnóstico: sem `.venv`; a máquina tinha **Python 3.14 e 3.10**, nenhuma das duas
+  adequada — a 3.10 está abaixo do `requires-python`, e a 3.14 não é testada pelo CI.
+- **Python 3.13.15 instalado via `winget`**, mantendo a paridade com o CI (a mesma decisão
+  registrada em 12/09/2026, agora repetida em máquina nova).
+- `.venv` criada, `pip install -e ".[dev,e2e]"`, `playwright install chromium`.
+- Suíte completa verde apesar do salto de versões das dependências (`pytest` 8 → 9,
+  `fastapi` → 0.141, `starlette` → 1.6): **173 + 21 testes passando**, lint limpo.
+- Observação registrada: o **Bash falha nesta máquina** (erro de `fork` do MSYS); a sessão
+  inteira correu em PowerShell.
+
+**O que resultou — parte 2, passo 6.1:**
+- `models/snapshot.py` — `QueueSnapshot`, Pydantic puro, com `from_live()`.
+- `storage/` — `tables.py`, `engine.py`, `snapshots.py`. SQLAlchemy Core assíncrono.
+- `migrations/` — Alembic com template assíncrono; `alembic.ini` com a URL **vazia**, para
+  não versionar senha num repositório público.
+- `config.py` — `NEXTUP_DATABASE_URL`, retenção e `normalize_database_url`.
+- 28 testes novos; a suíte rápida foi de **173 para 201**.
+- `test_arquitetura.py` estendido: `core/` e `models/` agora também não podem importar
+  `sqlalchemy`.
+- Três armadilhas encontradas no caminho (autoincremento de `BIGINT` no SQLite, fuso
+  perdido na ida e volta, medição duplicada silenciosa) — detalhadas na seção 7 do
+  `docs/PROJETO.md`.
+
+---
+
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 

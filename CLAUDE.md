@@ -38,9 +38,12 @@ documentação de decisões **fazem parte da entrega** — não são extras opci
 
 ## Estado atual
 
-**Fases 0 a 4 concluídas** (12/09/2026). Fases 5 e 6 descritas em `docs/PROJETO.md`,
-seção 7. **194 testes passando**: 173 na suíte rápida (~7s) e 21 de interface em
-navegador (~50s). CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
+**Fases 0 a 5 concluídas.** A Fase 6 está em andamento: o passo **6.1 (fundação do
+storage) foi concluído em 15/09/2026**; o próximo é o **6.2, o coletor periódico**.
+O fatiamento da fase está na seção 7 de `docs/PROJETO.md`.
+
+**222 testes passando**: 201 na suíte rápida (~3s) e 21 de interface em navegador (~46s).
+CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
 
 Já existe e funciona:
 - Estrutura completa em `src/nextup/` com as 4 camadas
@@ -56,7 +59,13 @@ Já existe e funciona:
   `parks/{id}/recommendations?lat&lon&limit`. Docs automáticas em `/docs`
 - `web/` — interface em HTML/CSS/JS puro, servida pelo próprio FastAPI. Geolocation,
   mapa Leaflet, e **tocar no mapa define a posição** (saída para quem nega o GPS)
+- `storage/` — persistência do histórico de filas (Fase 6). `tables.py` (desenho),
+  `engine.py` (conexão) e `snapshots.py` (gravar, consultar, limpar). SQLAlchemy Core,
+  assíncrono, SQLite no desenvolvimento e Postgres na produção
+- `migrations/` — Alembic com template assíncrono. A URL vem do ambiente, **nunca** do
+  `alembic.ini`, que é versionado num repositório público
 - `tests/test_arquitetura.py` — a regra de dependência é verificada automaticamente
+- `tests/test_migracoes.py` — aplica as migrações e compara com `tables.py`
 - `tests/test_web_e2e.py` — 21 testes em Chromium real (`pytest -m e2e`)
 - Fixtures reais da API em `tests/fixtures/`; nenhum teste toca a internet
 - `.venv` local com **Python 3.13**, mesma versão mais alta testada no CI
@@ -86,15 +95,27 @@ arredondados, ícones SVG e marcadores numerados no mapa. Tema escuro revisado: 
 quentes clareiam nele, então a tinta por cima inverte via `--sobre-quente` — sem isso, o
 botão principal ficaria branco sobre coral claro.
 
-**Pendência:** **Fase 6** — histórico de filas, tendências e previsão.
+**Pendência:** **Fase 6**, passos 6.2 a 6.6 — coletor, tendência, rota de histórico,
+gráfico e previsão na chegada.
 
-**Três lições dos dados reais, que valem para as próximas fases:**
+**O banco (Fase 6).** `NEXTUP_DATABASE_URL` no ambiente; o padrão é um SQLite na raiz,
+e em produção é um **Postgres gerenciado externo** (Neon/Supabase). O Postgres do Render
+foi descartado porque o plano gratuito expira, e SQLite dentro do contêiner perderia tudo
+a cada push — o disco do plano gratuito é efêmero. Migrações: `alembic upgrade head`.
+
+**Cinco lições dos dados reais, que valem para as próximas fases:**
 1. `OPERATING` **não** garante tempo de fila — 9 das 35 atrações do Magic Kingdom
    estavam abertas sem fila medida. Use sempre `is_rankable`.
 2. Validar **antes** de guardar no cache. O contrário já causou bug aqui.
 3. O mesmo bug de contagem (`available` refletindo o `limit` em vez do total) apareceu
    **três vezes**, no CLI, na API e quase no frontend. O padrão é sempre o mesmo: pedir a
    lista já cortada e depois medir o tamanho dela. Peça tudo, corte na exibição.
+4. **Todo instante vai para o banco em UTC, com fuso.** O Postgres guarda o fuso, o
+   SQLite não — sem normalizar na entrada, o histórico fica deslocado em horas entre os
+   dois ambientes e nenhum teste reclama.
+5. **Medição duplicada não dá erro, só envenena a média.** Por isso a unicidade é
+   `(attraction_id, observed_at)`, usando o `lastUpdated` da fonte e não a hora em que
+   gravamos. O coletor roda num ritmo que escolhemos; a fonte atualiza no dela.
 
 ---
 
@@ -102,15 +123,21 @@ botão principal ficaria branco sobre coral claro.
 
 ```
 api  →  core  →  models  ←  clients
+                       ↖
+                        storage
 ```
 
 A dependência é **unidirecional**:
 
-- **`core/`** é o cérebro (distância, score, ranking) e **não importa nada de rede**.
-  Recebe objetos, devolve ordenação. Por isso seus testes rodam offline, em milissegundos.
-  *Se você sentir vontade de importar `httpx` dentro de `core/`, o desenho está errado.*
+- **`core/`** é o cérebro (distância, score, ranking) e **não importa nada de rede nem de
+  banco**. Recebe objetos, devolve ordenação. Por isso seus testes rodam offline, em
+  milissegundos. *Se você sentir vontade de importar `httpx` — ou `sqlalchemy` — dentro de
+  `core/`, o desenho está errado.*
 - **`clients/`** é o único lugar que sabe que a ThemeParks.wiki existe. Trocar de fonte de
   dados deve afetar só essa pasta.
+- **`storage/`** é o único lugar que sabe que existe um banco. Irmã de `clients/`, e a
+  diferença importa: `clients/` busca dado **de fora**, que não controlamos; `storage/`
+  guarda dado **nosso**, acumulado ao longo do tempo.
 - **`models/`** é o idioma comum. Depois que o JSON vira `Attraction`, ninguém mais precisa
   conhecer o formato original da API.
 - **`api/`** só traduz HTTP em chamadas ao `core`. **Zero regra de negócio aqui.**
@@ -159,9 +186,15 @@ pip install -e ".[dev]"
 Verificar que tudo está de pé:
 
 ```bash
-pytest -m "not e2e"    # esperado: 173 testes, ~7s
+pytest -m "not e2e"    # esperado: 201 testes, ~3s
 ruff check .
 ruff format --check .
+```
+
+Preparar o banco local (SQLite; cria o arquivo na primeira vez):
+
+```bash
+alembic upgrade head
 ```
 
 Subir a aplicação inteira (API + interface):
