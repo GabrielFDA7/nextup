@@ -25,6 +25,10 @@ dependencies = [
     # síncrono travaria o event loop do FastAPI a cada gravação.
     "aiosqlite>=0.20",
     "asyncpg>=0.29",
+    # Le o `.env` no desenvolvimento. Ja vinha de carona com `uvicorn[standard]`,
+    # mas depender de dependencia transitiva e apostar que outro pacote nao vai
+    # deixar de usa-la numa versao futura.
+    "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]

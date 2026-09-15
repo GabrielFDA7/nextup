@@ -10,13 +10,40 @@ criam o seu, apontando para um SQLite em memória. Nenhuma das duas coisas depen
 de variável global escondida: o engine é passado adiante, como o relógio do cache.
 """
 
+import ssl
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 
-from nextup.config import DATABASE_URL, normalize_database_url
+from nextup.config import DATABASE_URL, normalize_database_url, ssl_is_required
 from nextup.storage.tables import metadata
+
+
+def connect_args_for(url: str) -> dict:
+    """Argumentos extras de conexão, hoje só a configuração de TLS.
+
+    O `asyncpg` não aceita o `sslmode` da URL — `normalize_database_url` o remove
+    justamente por isso. Mas o requisito que ele expressava continua valendo, e é
+    aqui que ele é atendido, de forma mais forte do que o parâmetro original pedia.
+
+    `ssl.create_default_context()` já vem com verificação de cadeia **e** de
+    hostname ligadas, usando as autoridades certificadoras do sistema. Equivale ao
+    `verify-full` do cliente oficial — e não ao `require`, que apenas cifra sem
+    conferir com quem está falando. A alternativa seria passar `ssl=verify-full`
+    direto na URL, mas aí o `asyncpg` exigiria um `~/.postgresql/root.crt` em cada
+    máquina: funcionaria no meu computador e quebraria no contêiner.
+
+    Args:
+        url: URL como veio do ambiente, ainda com os parâmetros originais.
+
+    Returns:
+        Dicionário para o `connect_args` do SQLAlchemy. Vazio quando não há TLS a
+        configurar — SQLite local, por exemplo.
+    """
+    if not ssl_is_required(url):
+        return {}
+    return {"ssl": ssl.create_default_context()}
 
 
 def create_engine(url: str | None = None, *, echo: bool = False) -> AsyncEngine:
@@ -30,7 +57,12 @@ def create_engine(url: str | None = None, *, echo: bool = False) -> AsyncEngine:
     Returns:
         Engine pronto para uso, com pool de conexões.
     """
-    return create_async_engine(normalize_database_url(url or DATABASE_URL), echo=echo)
+    bruta = url or DATABASE_URL
+    return create_async_engine(
+        normalize_database_url(bruta),
+        echo=echo,
+        connect_args=connect_args_for(bruta),
+    )
 
 
 @asynccontextmanager
