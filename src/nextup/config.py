@@ -106,6 +106,55 @@ DATABASE_URL = os.getenv("NEXTUP_DATABASE_URL", "sqlite+aiosqlite:///./nextup.db
 HISTORY_RETENTION_DAYS = int(os.getenv("NEXTUP_HISTORY_RETENTION_DAYS", "90"))
 
 
+def _env_bool(nome: str, padrao: bool) -> bool:
+    """Lê uma variável de ambiente como booleano.
+
+    Variável de ambiente é sempre texto: sem isto, `NEXTUP_COLLECTOR_ENABLED=false`
+    viraria a string `"false"`, que é **verdadeira** em Python. É o tipo de engano
+    que desliga o que se queria ligar, ou pior, não desliga o que se queria desligar.
+    """
+    valor = os.getenv(nome)
+    if valor is None:
+        return padrao
+    return valor.strip().lower() in {"1", "true", "yes", "sim", "on"}
+
+
+# ---------------------------------------------------------------------------
+# Coletor de histórico (Fase 6)
+# ---------------------------------------------------------------------------
+
+#: Se o coletor sobe junto com a aplicação.
+#:
+#: O padrão é **ligado**, e a escolha é deliberada. Desligado por padrão pareceria
+#: mais seguro, mas troca uma falha barulhenta por uma silenciosa: esquecer de
+#: ligar em produção significaria descobrir semanas depois que não há histórico
+#: nenhum — e histórico perdido não se recupera. Ligado por engano, o custo é uma
+#: requisição a cada cinco minutos.
+COLLECTOR_ENABLED = _env_bool("NEXTUP_COLLECTOR_ENABLED", True)
+
+#: Intervalo entre coletas, em segundos.
+#:
+#: Cinco minutos acompanham o ritmo com que a própria fonte atualiza. Coletar mais
+#: rápido não traria dado novo: viria a mesma medição, que a restrição de
+#: unicidade recusaria — gastando requisição de uma API gratuita em troca de nada.
+COLLECT_INTERVAL_S = int(os.getenv("NEXTUP_COLLECT_INTERVAL", "300"))
+
+#: Parques a coletar, separados por vírgula. O padrão é só o Magic Kingdom.
+#:
+#: Cada parque é uma requisição por ciclo. Começar por um mantém a coleta educada
+#: e o volume previsível enquanto a Fase 6 não está fechada.
+COLLECT_PARK_IDS = [
+    park_id.strip()
+    for park_id in os.getenv("NEXTUP_COLLECT_PARKS", DEFAULT_PARK_ID).split(",")
+    if park_id.strip()
+]
+
+#: De quanto em quanto tempo apagar o que passou da retenção. Uma vez por dia
+#: basta: rodar a limpeza a cada ciclo seria varrer a tabela inteira de cinco em
+#: cinco minutos para apagar quase nada.
+PURGE_INTERVAL_S = int(os.getenv("NEXTUP_PURGE_INTERVAL", str(24 * 60 * 60)))
+
+
 #: Parâmetros que só a `libpq` entende — a biblioteca C que o `psycopg` usa por
 #: baixo. O `asyncpg` não é libpq: tem implementação própria do protocolo e API
 #: própria para TLS, então recebê-los faz a conexão morrer com

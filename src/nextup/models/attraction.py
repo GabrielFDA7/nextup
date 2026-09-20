@@ -98,3 +98,19 @@ class ParkCatalog(BaseModel):
             for entity in self.children
             if entity.entity_type is EntityType.ATTRACTION and entity.location is not None
         ]
+
+    def attraction_ids(self) -> set[str]:
+        """IDs de tudo que é atração, **tenha coordenada ou não**.
+
+        Deliberadamente mais permissivo que `attractions()`, e a diferença importa
+        para o coletor: coordenada é requisito para *ranquear*, não para *ter
+        histórico*. Se uma atração hoje sem coordenada ganhar uma amanhã, ela entra
+        no ranking já com semanas de histórico acumulado — enquanto o filtro mais
+        estrito teria jogado esse passado fora, e passado não se recupera.
+
+        Devolve um conjunto porque o uso é sempre o mesmo: perguntar se um ID está
+        dentro. Num conjunto essa pergunta custa o mesmo com 30 ou 30 mil itens.
+        """
+        return {
+            entity.id for entity in self.children if entity.entity_type is EntityType.ATTRACTION
+        }
