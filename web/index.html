@@ -49,12 +49,25 @@
 
     <main>
       <section class="controles" aria-label="Configuração">
-        <label class="campo">
-          <span>Parque</span>
-          <select id="parque" disabled>
+        <div class="campo">
+          <label for="busca-parque">Parque</label>
+          <!-- A busca vem antes do seletor porque é o caminho mais curto com
+               198 parques na lista: digitar "magic" é mais rápido que rolar até
+               a letra M. O seletor continua ali para quem prefere navegar. -->
+          <input
+            id="busca-parque"
+            type="search"
+            class="busca"
+            placeholder="Buscar parque ou resort…"
+            autocomplete="off"
+          />
+          <select id="parque" aria-label="Parque" disabled>
             <option>Carregando parques…</option>
           </select>
-        </label>
+          <p id="busca-vazia" class="busca-vazia" role="status" hidden>
+            Nenhum parque com esse nome.
+          </p>
+        </div>
 
         <button id="btn-localizar" type="button" class="botao-principal">
           Usar minha localização

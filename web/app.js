@@ -28,10 +28,14 @@ const estado = {
   posicao: null, // { lat, lon }
   parqueId: PARQUE_PADRAO,
   carregando: false,
+  /** Todos os destinos, guardados para a busca filtrar sem ir à rede de novo. */
+  destinos: [],
 };
 
 const el = {
   parque: document.getElementById("parque"),
+  buscaParque: document.getElementById("busca-parque"),
+  buscaVazia: document.getElementById("busca-vazia"),
   btnLocalizar: document.getElementById("btn-localizar"),
   btnAtualizar: document.getElementById("btn-atualizar"),
   posicaoAtual: document.getElementById("posicao-atual"),
@@ -135,6 +139,62 @@ function marcarVisitante(lat, lon) {
   mapa.setView([lat, lon], 16);
 }
 
+/* Enquadra o parque inteiro, em vez de centralizar num ponto.
+ *
+ * Centralizar exigiria adivinhar o zoom, e o zoom certo para o Magic Kingdom é o
+ * errado para um parque três vezes maior. Com os quatro cantos que a API devolve,
+ * o Leaflet calcula o zoom sozinho.
+ *
+ * Isto conserta um comportamento que era quase um bug: escolher Disneyland Paris
+ * deixava o mapa parado na Flórida, sem nenhuma pista de que o parque tinha
+ * mudado.
+ */
+function enquadrarParque(limites) {
+  if (!limites) return;
+
+  mapa.fitBounds(
+    [
+      [limites.south, limites.west],
+      [limites.north, limites.east],
+    ],
+    // Sem folga, as atrações da borda encostam na moldura do mapa e os
+    // marcadores ficam cortados pela metade.
+    { padding: [30, 30], maxZoom: 17 }
+  );
+}
+
+/* Marcador discreto para quando ainda não há ranking.
+ *
+ * Numerar exigiria uma ordem, e ordem é exatamente o que não existe antes de o
+ * visitante dizer onde está. Um ponto neutro mostra o parque sem fingir que
+ * respondeu a pergunta do app.
+ */
+function marcadorSimples(fila) {
+  const texto = fila === null ? "—" : String(fila);
+
+  return L.divIcon({
+    className: "",
+    html: `<span class="pino pino--neutro">${texto}</span>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+    popupAnchor: [0, -14],
+  });
+}
+
+/** Desenha o parque sem ranking: as atrações e suas filas de agora. */
+function desenharParque(atracoes) {
+  camadaAtracoes.clearLayers();
+
+  atracoes.forEach((item) => {
+    const fila = item.queue_minutes;
+    const descricao = fila === null ? "sem fila medida" : `${fila} min de fila`;
+
+    L.marker([item.latitude, item.longitude], { icon: marcadorSimples(fila) })
+      .bindPopup(`<strong>${escapar(item.name)}</strong><br>${descricao}`)
+      .addTo(camadaAtracoes);
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Posição
 // ---------------------------------------------------------------------------
@@ -208,36 +268,116 @@ async function carregarParques() {
     if (!resposta.ok) throw new Error("falha ao listar parques");
 
     const dados = await resposta.json();
-    preencherSeletor(dados.destinations);
+    estado.destinos = ordenarDestinos(dados.destinations);
+    preencherSeletor(estado.destinos);
   } catch {
     // Não é motivo para travar o app: o parque padrão continua funcionando.
     el.parque.innerHTML = '<option value="">Magic Kingdom (padrão)</option>';
     el.parque.disabled = true;
+    el.buscaParque.disabled = true;
   }
+}
+
+/* Resorts grandes primeiro, depois alfabético.
+ *
+ * Alfabético puro põe "Aquatica" acima de "Walt Disney World Resort", que é o
+ * oposto do que a maioria procura. O número de parques é o melhor sinal de porte
+ * que a API nos dá sem inventar dado: um destino com quatro parques é um resort
+ * grande, e quem quer um específico agora tem a busca.
+ */
+function ordenarDestinos(destinos) {
+  return destinos
+    .slice()
+    .sort(
+      (a, b) =>
+        b.parks.length - a.parks.length || a.name.localeCompare(b.name, "pt-BR")
+    );
 }
 
 function preencherSeletor(destinos) {
   el.parque.innerHTML = "";
 
-  destinos
-    .slice()
-    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
-    .forEach((destino) => {
-      const grupo = document.createElement("optgroup");
-      grupo.label = destino.name;
+  destinos.forEach((destino) => {
+    const grupo = document.createElement("optgroup");
+    grupo.label = destino.name;
 
-      destino.parks.forEach((parque) => {
-        const opcao = document.createElement("option");
-        opcao.value = parque.id;
-        opcao.textContent = parque.name;
-        opcao.selected = parque.id === estado.parqueId;
-        grupo.appendChild(opcao);
-      });
-
-      el.parque.appendChild(grupo);
+    destino.parks.forEach((parque) => {
+      const opcao = document.createElement("option");
+      opcao.value = parque.id;
+      opcao.textContent = parque.name;
+      opcao.selected = parque.id === estado.parqueId;
+      grupo.appendChild(opcao);
     });
 
+    el.parque.appendChild(grupo);
+  });
+
   el.parque.disabled = false;
+}
+
+/* Filtra a lista pelo que foi digitado.
+ *
+ * Casa contra o nome do parque **e** o do destino: quem digita "disney" espera
+ * ver o Magic Kingdom, embora a palavra não apareça no nome dele.
+ */
+function filtrarParques(termo) {
+  const busca = termo.trim().toLowerCase();
+
+  if (!busca) {
+    preencherSeletor(estado.destinos);
+    el.buscaVazia.hidden = true;
+    return;
+  }
+
+  const filtrados = estado.destinos
+    .map((destino) => {
+      const destinoCasa = destino.name.toLowerCase().includes(busca);
+      const parques = destinoCasa
+        ? destino.parks
+        : destino.parks.filter((p) => p.name.toLowerCase().includes(busca));
+
+      return { ...destino, parks: parques };
+    })
+    .filter((destino) => destino.parks.length > 0);
+
+  preencherSeletor(filtrados);
+
+  // Some com o vazio silencioso: um seletor em branco parece app quebrado.
+  el.buscaVazia.hidden = filtrados.length > 0;
+}
+
+/* Carrega o parque sem depender da posição do visitante.
+ *
+ * É o que faz o app mostrar alguma coisa antes de o GPS ser liberado — até aqui,
+ * quem recusasse a localização via uma tela vazia e nenhuma razão para confiar
+ * no resto.
+ */
+async function carregarParque({ trocaDeParque = false } = {}) {
+  try {
+    const resposta = await fetch(`/api/parks/${estado.parqueId}/attractions`);
+    if (!resposta.ok) {
+      mostrarAviso(await explicarErroDaApi(resposta));
+      return;
+    }
+
+    const dados = await resposta.json();
+
+    // Duas chamadas assíncronas disputam o mapa: esta e a do ranking. Se o
+    // visitante liberar o GPS enquanto esta ainda está no ar, a resposta chega
+    // atrasada e jogaria a vista para longe de onde ele está. Numa troca de
+    // parque o enquadramento é o que ele pediu; na abertura, não.
+    if (trocaDeParque || !estado.posicao) {
+      enquadrarParque(dados.bounds);
+    }
+
+    // Com posição, o ranking manda: quem desenha o mapa é `buscarRecomendacoes`.
+    if (!estado.posicao) {
+      desenharParque(dados.attractions);
+      mostrarPanoramaDoParque(dados);
+    }
+  } catch {
+    mostrarAviso("Não foi possível falar com o servidor. Verifique sua conexão.");
+  }
 }
 
 async function buscarRecomendacoes() {
@@ -295,8 +435,69 @@ function mostrarEsqueleto() {
   ).join("");
 }
 
+/* A tela antes de haver posição: filas do parque, sem ranking.
+ *
+ * Ordenada pela menor fila — que é a pergunta errada do projeto, e por isso o
+ * texto diz explicitamente o que falta. Prometer "para onde ir" sem saber onde o
+ * visitante está seria repetir justamente o erro que o NextUp existe para evitar.
+ */
+function mostrarPanoramaDoParque(dados) {
+  el.tituloLista.textContent = dados.park_name;
+  // O modo fica no DOM, e não só na cabeça de quem leu o código: a lista tem dois
+  // significados muito diferentes — "as menores filas" e "o que compensa mais" —
+  // e confundi-los é exatamente o erro que o projeto inteiro existe para evitar.
+  el.lista.dataset.modo = "panorama";
+
+  // A ressalva não é modéstia, é a tese do projeto.
+  //
+  // Esta lista está ordenada pela **menor fila** — exatamente a pergunta que o
+  // NextUp existe para contestar. Sem ela, o primeiro item aqui seria lido como
+  // recomendação, e no Disneyland Paris os primeiros colocados são playgrounds
+  // com fila zero: verdadeiros e inúteis.
+  el.resumo.innerHTML = `
+    ${dados.available} de ${dados.total_attractions} atrações com fila medida.
+    <strong>Ordenado pela menor fila</strong> — que raramente é a melhor escolha.
+    Diga onde você está para somar a caminhada.
+  `;
+  el.resumo.hidden = false;
+
+  const comFila = dados.attractions
+    .filter((a) => a.queue_minutes !== null)
+    .sort((a, b) => a.queue_minutes - b.queue_minutes);
+
+  if (comFila.length === 0) {
+    el.lista.innerHTML = "";
+    mostrarAviso("Nenhuma atração com fila agora. O parque pode estar fechado.", "info");
+    el.atualizado.hidden = true;
+    return;
+  }
+
+  el.lista.innerHTML = comFila.slice(0, LIMITE).map(criarItemSimples).join("");
+
+  el.atualizado.textContent = `Dado da fonte às ${formatarHora(dados.data_updated_at)}.`;
+  el.atualizado.hidden = false;
+}
+
+function criarItemSimples(item) {
+  return `
+    <li class="item item--sem-posicao">
+      <div class="custo">
+        <strong>${item.queue_minutes}</strong>
+        <span>min</span>
+      </div>
+      <div>
+        <p class="nome">${escapar(item.name)}</p>
+        <p class="conta">
+          <span class="parcela">${ICONE.fila} só a fila — falta a caminhada</span>
+        </p>
+      </div>
+    </li>
+  `;
+}
+
 function renderizar(dados) {
   el.tituloLista.textContent = dados.park_name;
+  el.lista.dataset.modo = "ranking";
 
   el.resumo.textContent = `${dados.available} de ${dados.total_attractions} atrações disponíveis agora.`;
   el.resumo.hidden = false;
@@ -398,16 +599,35 @@ function iniciar() {
   iniciarMapa();
   carregarParques();
 
+  // Carrega o parque padrão já na abertura: o app passa a mostrar algo útil
+  // antes de qualquer permissão de GPS.
+  carregarParque();
+
   el.btnLocalizar.addEventListener("click", localizar);
-  el.btnAtualizar.addEventListener("click", buscarRecomendacoes);
+  el.btnAtualizar.addEventListener("click", () => {
+    if (estado.posicao) {
+      buscarRecomendacoes();
+    } else {
+      carregarParque();
+    }
+  });
+
+  el.buscaParque.addEventListener("input", (evento) => {
+    filtrarParques(evento.target.value);
+  });
 
   el.parque.addEventListener("change", (evento) => {
     estado.parqueId = evento.target.value || PARQUE_PADRAO;
+
+    // Sempre reenquadra o mapa; o ranking só vem se houver posição.
+    carregarParque({ trocaDeParque: true });
     buscarRecomendacoes();
   });
 
+  el.btnAtualizar.hidden = false;
+
   mostrarAviso(
-    "Toque em “Usar minha localização” ou marque sua posição no mapa para começar.",
+    "Toque em “Usar minha localização” ou marque sua posição no mapa para ver o que compensa mais.",
     "info"
   );
 }

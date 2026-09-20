@@ -177,7 +177,8 @@ h1 {
   letter-spacing: 0.09em;
 }
 
-select {
+select,
+.busca {
   width: 100%;
   /* 16px evita o zoom automático que o Safari do iPhone aplica em campos com
      fonte menor — o zoom desalinha a página inteira e irrita muito. */
@@ -189,6 +190,34 @@ select {
   padding: 13px 14px;
   border: 1px solid var(--borda);
   border-radius: var(--raio-p);
+}
+
+.busca {
+  /* Sem isto o padding somaria à largura e o campo estouraria a coluna. */
+  box-sizing: border-box;
+  font-weight: 400;
+}
+
+.busca::placeholder {
+  color: var(--tinta-suave);
+  /* O rótulo do campo é maiúsculo; o placeholder herdaria isso e gritaria. */
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.busca:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+}
+
+.busca-vazia {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--tinta-suave);
 }
 
 button {
@@ -317,6 +346,14 @@ select:focus-visible {
   background: #b45309;
 }
 
+/* Marcador de antes do ranking: mostra a fila, não uma colocação.
+   Cinza de propósito — a cor quente é a linguagem da resposta do app, e não há
+   resposta enquanto o visitante não disser onde está. */
+.pino--neutro {
+  background: #55606b;
+  font-size: 0.78rem;
+}
+
 /* --- Lista -------------------------------------------------------------- */
 
 .cabecalho-lista {
@@ -371,6 +408,14 @@ h2 {
   border-color: var(--ambar);
   border-width: 2px;
   background: linear-gradient(180deg, var(--ambar-fraco), var(--superficie) 60%);
+}
+
+/* Item de antes do ranking. Sem destaque de propósito: nenhuma destas é "a
+   melhor escolha", porque essa conta ainda não foi feita. Dar a elas o mesmo
+   visual do ranking prometeria uma resposta que o app ainda não tem. */
+.item--sem-posicao .custo {
+  background: var(--superficie-alt);
+  color: var(--tinta-suave);
 }
 
 .custo {

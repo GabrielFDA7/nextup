@@ -183,10 +183,28 @@ class TestCarregamentoInicial:
         assert pagina.is_enabled("#parque")
 
     def test_comeca_pedindo_a_posicao(self, navegador, servidor):
+        """Continua pedindo a posição — mas já não abre vazio.
+
+        Antes, quem não liberasse o GPS via uma tela em branco e nenhuma razão
+        para confiar no resto. Agora o parque aparece de cara, e o aviso explica o
+        que **falta** para o app responder a pergunta que ele promete responder.
+        """
         pagina = abrir(navegador, servidor)
 
         expect(pagina.locator("#aviso")).to_contain_text("localização")
-        assert pagina.locator(".item").count() == 0
+        pagina.wait_for_selector("[data-modo='panorama'] .item")
+
+        # Sem posição não existe ranking, e o app não pode fingir que existe.
+        assert pagina.locator("[data-modo='ranking']").count() == 0
+        assert pagina.locator(".etiqueta").count() == 0
+
+    def test_mostra_as_filas_antes_de_saber_onde_voce_esta(self, navegador, servidor):
+        """A pergunta "como está o parque?" não depende de saber onde o visitante está."""
+        pagina = abrir(navegador, servidor)
+        pagina.wait_for_selector("[data-modo='panorama'] .item")
+
+        expect(pagina.locator("#resumo")).to_contain_text("fila medida")
+        assert pagina.locator("[data-modo='panorama'] .item").count() > 0
 
 
 class TestFluxoFeliz:
@@ -212,7 +230,9 @@ class TestFluxoFeliz:
     def test_primeira_colocada_recebe_destaque(self, navegador, servidor):
         pagina = abrir(navegador, servidor)
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector(".item")
+        # Espera o **ranking**, e não qualquer item: o panorama já está na tela
+        # desde a abertura, e um `.item` solto encontraria o item errado.
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
 
         assert pagina.locator(".etiqueta").count() == 1
         expect(pagina.locator(".item").first).to_have_class("item item--melhor")
@@ -228,11 +248,18 @@ class TestFluxoFeliz:
         assert pagina.locator(".item").first.locator(".parcela").count() == 2
 
     def test_atracoes_aparecem_no_mapa(self, navegador, servidor):
+        """Com o ranking na tela, o mapa mostra as 8 colocadas — não o parque todo.
+
+        O `expect` com retentativa, em vez de um `assert` direto, é proposital:
+        duas chamadas assíncronas desenham no mapa (o panorama da abertura e o
+        ranking), e sem esperar a que vence o teste ficaria instável, passando ou
+        falhando conforme qual respondeu primeiro.
+        """
         pagina = abrir(navegador, servidor)
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector(".item")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
 
-        assert pagina.locator(".leaflet-marker-icon").count() == 8
+        expect(pagina.locator(".leaflet-marker-icon")).to_have_count(8)
 
     def test_informa_a_idade_do_dado(self, navegador, servidor):
         pagina = abrir(navegador, servidor)
