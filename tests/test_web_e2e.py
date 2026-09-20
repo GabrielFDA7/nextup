@@ -191,27 +191,58 @@ def _atracoes_como_a_api_devolve() -> dict:
     return json.loads(resposta.model_dump_json())
 
 
-def _recomendacoes_como_a_api_devolve() -> dict:
+def _recomendacoes_como_a_api_devolve(*, com_tendencia: bool = False) -> dict:
     """Monta a resposta chamando o `core` de verdade, com as fixtures reais.
 
     Assim os números na tela são os mesmos que a API produziria — sem precisar
     de rede e sem repetir a conta aqui dentro.
     """
+    from datetime import UTC, datetime, timedelta
+
     from nextup.api.schemas import RecommendationsOut
     from nextup.core.recommender import recommend
-    from nextup.models import LiveDataResponse, Location, ParkCatalog
+    from nextup.core.trends import analyze_many
+    from nextup.models import LiveDataResponse, LiveStatus, Location, ParkCatalog, QueueSnapshot
 
     catalogo = ParkCatalog.model_validate(carregar("children_magic_kingdom.json"))
     ao_vivo = LiveDataResponse.model_validate(carregar("live_magic_kingdom.json"))
 
-    resposta = RecommendationsOut.from_domain(
-        catalogo,
-        recommend(
+    visitante = Location(latitude=POSICAO["latitude"], longitude=POSICAO["longitude"])
+    ranking = recommend(catalog=catalogo, live=ao_vivo, visitor=visitante, limit=0)
+
+    tendencias = None
+    if com_tendencia:
+        agora = datetime.now(UTC)
+
+        # O histórico vai para quem **lidera o ranking**, e não para uma atração
+        # qualquer do catálogo: a tela mostra só as oito primeiras, e uma queda
+        # numa nona colocada seria calculada e nunca exibida.
+        alvo = ranking[0].attraction.id
+
+        historico = [
+            QueueSnapshot(
+                park_id=DEFAULT_PARK_ID,
+                attraction_id=alvo,
+                status=LiveStatus.OPERATING,
+                wait_time_minutes=fila,
+                observed_at=agora - timedelta(minutes=minutos),
+                recorded_at=agora - timedelta(minutes=minutos),
+            )
+            for fila, minutos in ((45, 25), (20, 1))
+        ]
+        tendencias = analyze_many(historico, now=agora)
+
+        ranking = recommend(
             catalog=catalogo,
             live=ao_vivo,
-            visitor=Location(latitude=POSICAO["latitude"], longitude=POSICAO["longitude"]),
+            visitor=visitante,
             limit=0,
-        ),
+            trends=tendencias,
+        )
+
+    resposta = RecommendationsOut.from_domain(
+        catalogo,
+        ranking,
         8,
         max((i.last_updated for i in ao_vivo.live_data), default=None),
     )
@@ -278,6 +309,52 @@ class TestCarregamentoInicial:
         pagina.wait_for_selector("[data-modo='panorama'] .item")
 
         expect(pagina.locator("#resumo")).to_contain_text("menor fila")
+
+
+class TestTendenciaNaTela:
+    """A frase que explica *por que agora* — a entrega da Fase 6.3.
+
+    Até aqui a justificativa parava em "= 24 min". Sem chegar à tela, a tendência
+    seria código bonito que ninguém vê.
+    """
+
+    def com_tendencia(self, navegador, servidor):
+        return abrir(
+            navegador,
+            servidor,
+            api=lambda rota: rota.fulfill(
+                json=_recomendacoes_como_a_api_devolve(com_tendencia=True)
+            ),
+        )
+
+    def test_a_queda_aparece_na_lista(self, navegador, servidor):
+        pagina = self.com_tendencia(navegador, servidor)
+        pagina.click("#btn-localizar")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
+
+        expect(pagina.locator(".tendencia--caindo").first).to_contain_text("Caiu de 45 para 20")
+
+    def test_a_cor_nao_carrega_a_informacao_sozinha(self, navegador, servidor):
+        """Quem não distingue verde de vermelho precisa ler a mesma coisa.
+
+        A seta aponta e o texto diz por extenso; a cor só reforça.
+        """
+        pagina = self.com_tendencia(navegador, servidor)
+        pagina.click("#btn-localizar")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
+
+        tendencia = pagina.locator(".tendencia").first
+
+        assert tendencia.locator("svg").count() == 1
+        expect(tendencia).to_contain_text("Caiu")
+
+    def test_sem_historico_nao_inventa_tendencia(self, navegador, servidor):
+        """O padrão dos testes é sem histórico — e nada deve aparecer."""
+        pagina = abrir(navegador, servidor)
+        pagina.click("#btn-localizar")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
+
+        assert pagina.locator(".tendencia").count() == 0
 
 
 class TestTrocaDeParque:

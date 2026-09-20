@@ -69,11 +69,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """
     async with httpx.AsyncClient() as conexao:
         app.state.themeparks_client = ThemeParksClient(http_client=conexao)
-        app.state.db_engine = None
         app.state.collector_task = None
 
+        # O engine nasce sempre, e não só quando o coletor está ligado: desde a
+        # Fase 6.3 as rotas também leem o histórico, para contar a tendência.
+        # Criá-lo é barato — o SQLAlchemy só abre conexão de verdade no primeiro
+        # uso, então um serviço que nunca consulta o banco não paga nada por isto.
+        app.state.db_engine = create_engine()
+
         if COLLECTOR_ENABLED:
-            app.state.db_engine = create_engine()
             app.state.collector_task = asyncio.create_task(
                 run_collector(
                     client=app.state.themeparks_client,

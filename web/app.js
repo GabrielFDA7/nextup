@@ -559,7 +559,39 @@ const ICONE = {
   estrela: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="m12 2 2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8L12 2Z" />
     </svg>`,
+  caindo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 5v14" /><path d="m19 12-7 7-7-7" />
+    </svg>`,
+  subindo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19V5" /><path d="m5 12 7-7 7 7" />
+    </svg>`,
 };
+
+/* A tendência, na linha da conta.
+ *
+ * É a frase que explica **por que agora** — a diferença entre um número e um
+ * conselho. A seta e a cor existem porque o olho lê "caindo" antes de ler o
+ * texto, e num app usado de pé, no meio do parque, isso conta.
+ *
+ * Só aparece para quem se moveu: "estável" ocupa espaço para dizer que nada
+ * mudou, e a fila fica parada quase dois terços do tempo.
+ */
+function criarTendencia(trend) {
+  if (!trend || trend.direction === "STABLE") return "";
+
+  const caindo = trend.direction === "FALLING";
+  const icone = caindo ? ICONE.caindo : ICONE.subindo;
+  const classe = caindo ? "tendencia tendencia--caindo" : "tendencia tendencia--subindo";
+
+  return `
+    <p class="${classe}">
+      ${icone}
+      ${escapar(trend.description)}
+    </p>
+  `;
+}
 
 function criarItem(item, indice) {
   const ehMelhor = indice === 0;
@@ -585,6 +617,7 @@ function criarItem(item, indice) {
             ${ICONE.fila} ${item.queue_minutes} min de fila
           </span>
         </p>
+        ${criarTendencia(item.trend)}
         ${etiqueta}
       </div>
     </li>

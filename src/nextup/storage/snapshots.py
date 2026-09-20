@@ -156,6 +156,48 @@ async def history(
     return [_para_modelo(linha) for linha in resultado]
 
 
+async def park_history(
+    conexao: AsyncConnection,
+    *,
+    park_id: str,
+    since: datetime,
+    until: datetime | None = None,
+) -> Sequence[QueueSnapshot]:
+    """Histórico de **todas** as atrações de um parque, numa consulta só.
+
+    Existe por um motivo de desempenho concreto: a tela mostra oito atrações e o
+    ranking avalia trinta e cinco. Chamar `history()` por atração seriam trinta e
+    cinco idas ao banco para montar uma resposta — e num Postgres do outro lado do
+    continente, cada ida custa a latência inteira.
+
+    É o mesmo raciocínio de `LiveDataResponse.by_id()`: peça tudo de uma vez,
+    agrupe na memória.
+
+    Args:
+        conexao: Conexão com o banco.
+        park_id: Qual parque.
+        since: Início da janela, inclusive.
+        until: Fim da janela. O padrão é "até agora".
+
+    Returns:
+        Snapshots de todas as atrações, do mais antigo ao mais recente.
+    """
+    consulta = (
+        select(queue_snapshots)
+        .where(
+            queue_snapshots.c.park_id == park_id,
+            queue_snapshots.c.observed_at >= since,
+        )
+        .order_by(queue_snapshots.c.observed_at)
+    )
+
+    if until is not None:
+        consulta = consulta.where(queue_snapshots.c.observed_at <= until)
+
+    resultado = await conexao.execute(consulta)
+    return [_para_modelo(linha) for linha in resultado]
+
+
 async def purge_older_than(conexao: AsyncConnection, cutoff: datetime) -> int:
     """Apaga snapshots anteriores a `cutoff`.
 

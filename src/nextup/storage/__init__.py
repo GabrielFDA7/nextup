@@ -13,7 +13,7 @@ do `core/`, e o `tests/test_arquitetura.py` verifica as duas.
 """
 
 from nextup.storage.engine import connection, create_engine, create_schema
-from nextup.storage.snapshots import history, purge_older_than, save_many
+from nextup.storage.snapshots import history, park_history, purge_older_than, save_many
 from nextup.storage.tables import metadata, queue_snapshots
 
 __all__ = [
@@ -22,6 +22,7 @@ __all__ = [
     "create_schema",
     "history",
     "metadata",
+    "park_history",
     "purge_older_than",
     "queue_snapshots",
     "save_many",

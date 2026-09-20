@@ -409,14 +409,27 @@ class TestCicloDeVidaDaAplicacao:
         assert tarefa.cancelled() or tarefa.done(), "o coletor continuou vivo após o shutdown"
 
     def test_desligado_nao_cria_tarefa(self):
-        """O padrão da suíte: sem coletor, sem banco aberto, sem tarefa de fundo."""
+        """O padrão da suíte: sem coletor, sem tarefa de fundo."""
         app = main.criar_app()
 
         with TestClient(app) as cliente_teste:
             cliente_teste.get("/api/health")
 
             assert app.state.collector_task is None
-            assert app.state.db_engine is None
+
+    def test_o_engine_existe_mesmo_com_o_coletor_desligado(self):
+        """Desde a Fase 6.3 as rotas também leem o histórico, para a tendência.
+
+        Antes o engine só nascia junto com o coletor. Amarrar os dois faria a
+        tendência sumir da recomendação sempre que alguém desligasse a coleta —
+        duas coisas que não têm por que andar juntas.
+        """
+        app = main.criar_app()
+
+        with TestClient(app) as cliente_teste:
+            cliente_teste.get("/api/health")
+
+            assert app.state.db_engine is not None
 
 
 async def _ids_gravados(engine) -> set[str]:

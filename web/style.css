@@ -48,6 +48,12 @@
   --alerta: #9a3412;
   --alerta-fundo: #fff2ea;
 
+  /* Tendência da fila. Verde e vermelho aqui carregam significado de produto —
+     caindo é boa notícia para o visitante, subindo é má — e por isso fogem da
+     paleta de pôr do sol, que não distingue as duas coisas. */
+  --verde-tendencia: #1a7f4b;
+  --vermelho-tendencia: #b3401f;
+
   --raio: 18px;
   --raio-p: 12px;
   --sombra: 0 1px 2px rgb(88 48 28 / 6%), 0 6px 18px rgb(88 48 28 / 7%);
@@ -63,6 +69,10 @@
     --superficie: #241a16;
     --superficie-alt: #2e211b;
     --borda: #3d2c24;
+
+    /* Clareados: os tons do tema claro perdem contraste sobre fundo escuro. */
+    --verde-tendencia: #4ade80;
+    --vermelho-tendencia: #fb9b7a;
 
     --destaque: #ff7a52;
     --destaque-escuro: #ff9a79;
@@ -416,6 +426,34 @@ h2 {
 .item--sem-posicao .custo {
   background: var(--superficie-alt);
   color: var(--tinta-suave);
+}
+
+/* A tendência da fila.
+   A cor não carrega a informação sozinha: a seta aponta e o texto diz por
+   extenso. Quem não distingue verde de vermelho — 8% dos homens — continua
+   lendo a mesma coisa. */
+.tendencia {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.tendencia svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* Fila caindo é boa notícia para o visitante. */
+.tendencia--caindo {
+  color: var(--verde-tendencia);
+}
+
+.tendencia--subindo {
+  color: var(--vermelho-tendencia);
 }
 
 .custo {

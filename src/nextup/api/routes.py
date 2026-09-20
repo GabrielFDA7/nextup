@@ -10,12 +10,16 @@ precisar abrir este arquivo.
 """
 
 import asyncio
+import logging
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from nextup import __version__
-from nextup.api.dependencies import obter_cliente
+from nextup.api.dependencies import obter_cliente, obter_engine
 from nextup.api.schemas import (
     DestinationOut,
     DestinationsOut,
@@ -24,9 +28,13 @@ from nextup.api.schemas import (
     RecommendationsOut,
 )
 from nextup.clients.themeparks import ThemeParksClient
-from nextup.config import DEFAULT_RESULT_LIMIT
+from nextup.config import DEFAULT_RESULT_LIMIT, TREND_WINDOW_MINUTES
 from nextup.core.recommender import recommend
+from nextup.core.trends import TrendAnalysis, analyze_many
 from nextup.models import Location
+from nextup.storage import connection, park_history
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -34,6 +42,9 @@ router = APIRouter()
 #: `Annotated` junta "o tipo é este" com "de onde ele vem" numa anotação só —
 #: forma preferida hoje, e que mantém o valor padrão do parâmetro livre.
 ClienteThemeParks = Annotated[ThemeParksClient, Depends(obter_cliente)]
+
+#: O banco, que pode não existir. Ver `obter_engine`.
+MotorDoBanco = Annotated[AsyncEngine | None, Depends(obter_engine)]
 
 
 @router.get("/health", response_model=HealthOut, tags=["sistema"])
@@ -93,6 +104,7 @@ async def listar_atracoes(
 )
 async def recomendar(
     cliente: ClienteThemeParks,
+    motor: MotorDoBanco,
     park_id: Annotated[str, Path(description="ID do parque, obtido em `/destinations`.")],
     lat: Annotated[float, Query(ge=-90, le=90, description="Latitude do visitante.")],
     lon: Annotated[float, Query(ge=-180, le=180, description="Longitude do visitante.")],
@@ -105,6 +117,9 @@ async def recomendar(
 
     A menor fila não vence automaticamente: uma fila de 10 minutos a 900 metros
     custa mais tempo total que uma de 20 minutos ao lado.
+
+    Quando há histórico, cada recomendação vem com a tendência da fila — que é o
+    que explica **por que agora**. A tendência não muda a ordem.
     """
     # Independentes entre si, então vão juntas: o tempo total passa a ser o da
     # mais lenta, e não a soma das duas.
@@ -120,6 +135,7 @@ async def recomendar(
         live=ao_vivo,
         visitor=Location(latitude=lat, longitude=lon),
         limit=0,
+        trends=await _tendencias(motor, park_id),
     )
 
     atualizado_em = max(
@@ -128,3 +144,30 @@ async def recomendar(
     )
 
     return RecommendationsOut.from_domain(catalogo, recomendacoes, limit, atualizado_em)
+
+
+async def _tendencias(motor: AsyncEngine | None, park_id: str) -> dict[str, TrendAnalysis] | None:
+    """Lê o histórico recente do parque e calcula a tendência de cada atração.
+
+    **Nunca deixa a recomendação falhar.** Sem banco configurado, ou com o banco
+    fora do ar, devolve `None` e o ranking sai como sempre saiu — só sem a frase
+    "caiu de 45 para 20". Perder um enfeite é aceitável; perder a resposta, não.
+
+    Este é o único lugar da API que lê o histórico, e por isso o único que precisa
+    do `try`. O alternativa seria cada rota lidar com isso — o mesmo raciocínio
+    que pôs a tradução de erros num lugar só, em `main.py`.
+    """
+    if motor is None:
+        return None
+
+    agora = datetime.now(UTC)
+    desde = agora - timedelta(minutes=TREND_WINDOW_MINUTES)
+
+    try:
+        async with connection(motor) as conexao:
+            historico = await park_history(conexao, park_id=park_id, since=desde)
+    except SQLAlchemyError:
+        logger.warning("histórico indisponível; seguindo sem tendência", exc_info=True)
+        return None
+
+    return analyze_many(historico, now=agora)

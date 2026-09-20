@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 
 from nextup.core.geo import bounding_box
 from nextup.core.recommender import Recommendation
+from nextup.core.trends import Trend, TrendAnalysis
 from nextup.models import Destination, LiveDataResponse, LiveStatus, ParkCatalog
 
 
@@ -35,6 +36,45 @@ class AttractionOut(BaseModel):
     longitude: float
 
 
+class TrendOut(BaseModel):
+    """Para onde a fila está indo, com os números que sustentam a afirmação.
+
+    Sai estruturada, e não só como frase pronta, porque a tela faz com ela o que
+    texto não permite: escolher uma seta, pintar de verde ou vermelho, ordenar.
+    A frase vem junto para quem só quer exibir.
+    """
+
+    direction: str = Field(description="FALLING, RISING ou STABLE.")
+    previous_minutes: int = Field(description="Fila no início da janela.")
+    current_minutes: int = Field(description="Fila na medição mais recente.")
+    delta: int = Field(description="Variação em minutos. Negativo é fila caindo.")
+    span_minutes: int = Field(description="Minutos entre as duas medições comparadas.")
+    description: str = Field(description="Frase pronta, como 'Caiu de 45 para 20…'.")
+
+    @classmethod
+    def from_domain(cls, analise: TrendAnalysis) -> "TrendOut | None":
+        """Devolve `None` para tendência desconhecida.
+
+        O contrato público não deve ter um estado que significa "não sei": quem
+        consome checa se o campo existe, em vez de comparar com uma string mágica.
+        """
+        if analise.direction is Trend.UNKNOWN:
+            return None
+
+        # Garantido por não ser UNKNOWN; a asserção documenta para o verificador.
+        assert analise.previous_minutes is not None
+        assert analise.current_minutes is not None
+
+        return cls(
+            direction=str(analise.direction),
+            previous_minutes=analise.previous_minutes,
+            current_minutes=analise.current_minutes,
+            delta=analise.delta,
+            span_minutes=round(analise.span_minutes),
+            description=analise.describe(),
+        )
+
+
 class RecommendationOut(BaseModel):
     """Uma atração avaliada, com a conta aberta."""
 
@@ -43,6 +83,12 @@ class RecommendationOut(BaseModel):
     queue_minutes: int = Field(description="Fila comum informada pela fonte, em minutos.")
     total_minutes: float = Field(description="Caminhada + fila. É o que ordena o ranking.")
     explanation: str = Field(description="Justificativa legível da recomendação.")
+
+    #: Ausente quando não há histórico suficiente — parque recém-incluído, ou
+    #: coletor que subiu há pouco. A recomendação continua completa sem ela.
+    trend: TrendOut | None = Field(
+        default=None, description="Tendência da fila, quando há histórico."
+    )
 
     @classmethod
     def from_domain(cls, recomendacao: Recommendation) -> "RecommendationOut":
@@ -63,6 +109,7 @@ class RecommendationOut(BaseModel):
             queue_minutes=recomendacao.queue_minutes,
             total_minutes=round(recomendacao.total_minutes, 1),
             explanation=recomendacao.explain(),
+            trend=TrendOut.from_domain(recomendacao.trend) if recomendacao.trend else None,
         )
 
 
