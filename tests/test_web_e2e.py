@@ -20,6 +20,7 @@ resto da suíte sem precisar baixar um navegador.
 """
 
 import json
+import re
 import socket
 import threading
 import time
@@ -390,6 +391,123 @@ class TestTendenciaNaTela:
         pagina.wait_for_selector("[data-modo='ranking'] .item")
 
         assert pagina.locator(".tendencia").count() == 0
+
+
+class TestJaFuiHoje:
+    """A marcação de atrações já visitadas — a entrega da Fase 7.1.
+
+    Primeiro estado que o NextUp guarda por pessoa. Mora no `localStorage`, então
+    estes testes são também a única verificação de que a persistência funciona: os
+    testes de API não têm navegador, e o navegador é onde o dado vive.
+    """
+
+    def com_ranking(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        pagina.click("#btn-localizar")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        return pagina
+
+    def test_marcar_tira_a_atracao_do_ranking(self, navegador, servidor):
+        """É o que o consultor de parque faz: não te manda de volta onde já foi."""
+        pagina = self.com_ranking(navegador, servidor)
+        antes = pagina.locator("[data-modo='ranking'] .item").count()
+
+        pagina.locator(".marcar-visitada").first.click()
+
+        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(antes - 1)
+
+    def test_avisa_quantas_foram_escondidas(self, navegador, servidor):
+        """Esconder sem dizer que escondeu é a diferença entre ajudar e parecer quebrado."""
+        pagina = self.com_ranking(navegador, servidor)
+        pagina.locator(".marcar-visitada").first.click()
+
+        expect(pagina.locator("#visitadas-aviso")).to_be_visible()
+        expect(pagina.locator("#visitadas-texto")).to_contain_text("1 atração já visitada")
+
+    def test_o_aviso_nao_aparece_sem_nada_marcado(self, navegador, servidor):
+        """Uma linha permanente dizendo "0 visitadas" seria ruído na tela principal."""
+        pagina = self.com_ranking(navegador, servidor)
+
+        expect(pagina.locator("#visitadas-aviso")).to_be_hidden()
+
+    def test_mostrar_traz_as_visitadas_de_volta(self, navegador, servidor):
+        pagina = self.com_ranking(navegador, servidor)
+        antes = pagina.locator("[data-modo='ranking'] .item").count()
+
+        pagina.locator(".marcar-visitada").first.click()
+        pagina.click("#btn-mostrar-visitadas")
+
+        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(antes)
+        expect(pagina.locator(".item--visitada")).to_have_count(1)
+
+    def test_a_visitada_nao_e_a_melhor_escolha(self, navegador, servidor):
+        """Uma atração já feita não é "a melhor escolha agora", por melhor que seja."""
+        pagina = self.com_ranking(navegador, servidor)
+        pagina.locator(".marcar-visitada").first.click()
+        pagina.click("#btn-mostrar-visitadas")
+
+        primeira = pagina.locator(".item").first
+
+        expect(primeira).to_have_class(re.compile("item--visitada"))
+        expect(primeira.locator(".etiqueta")).to_have_count(0)
+
+    def test_desmarcar_devolve_ao_ranking(self, navegador, servidor):
+        pagina = self.com_ranking(navegador, servidor)
+        antes = pagina.locator("[data-modo='ranking'] .item").count()
+
+        pagina.locator(".marcar-visitada").first.click()
+        pagina.click("#btn-mostrar-visitadas")
+        pagina.locator(".marcar-visitada").first.click()
+
+        expect(pagina.locator(".item--visitada")).to_have_count(0)
+        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(antes)
+
+    def test_limpar_esquece_tudo(self, navegador, servidor):
+        pagina = self.com_ranking(navegador, servidor)
+        antes = pagina.locator("[data-modo='ranking'] .item").count()
+
+        pagina.locator(".marcar-visitada").first.click()
+        pagina.locator(".marcar-visitada").first.click()
+        pagina.click("#btn-limpar-visitadas")
+
+        expect(pagina.locator("#visitadas-aviso")).to_be_hidden()
+        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(antes)
+
+    def test_sobrevive_a_recarregar_a_pagina(self, navegador, servidor):
+        """O ponto de guardar: fechar o app no meio do parque não pode zerar o dia."""
+        pagina = self.com_ranking(navegador, servidor)
+        nome = pagina.locator(".item .nome").first.inner_text()
+
+        pagina.locator(".marcar-visitada").first.click()
+        pagina.reload(wait_until="networkidle")
+        pagina.click("#btn-localizar")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
+
+        expect(pagina.locator("#visitadas-texto")).to_contain_text("1 atração já visitada")
+        assert nome not in pagina.locator("#lista").inner_text()
+
+    def test_o_estado_e_por_parque(self, navegador, servidor):
+        """Ter feito o Space Mountain não diz nada sobre o EPCOT."""
+        pagina = self.com_ranking(navegador, servidor)
+        pagina.locator(".marcar-visitada").first.click()
+        expect(pagina.locator("#visitadas-aviso")).to_be_visible()
+
+        pagina.select_option("#parque", PARQUE_DISTANTE)
+        pagina.wait_for_timeout(1200)
+
+        expect(pagina.locator("#visitadas-aviso")).to_be_hidden()
+
+    def test_o_botao_anuncia_o_estado(self, navegador, servidor):
+        """`aria-pressed` leva a mesma informação que a cor, para quem não a vê."""
+        pagina = self.com_ranking(navegador, servidor)
+        botao = pagina.locator(".marcar-visitada").first
+
+        expect(botao).to_have_attribute("aria-pressed", "false")
+
+        botao.click()
+        pagina.click("#btn-mostrar-visitadas")
+
+        expect(pagina.locator(".marcar-visitada").first).to_have_attribute("aria-pressed", "true")
 
 
 class TestGraficoDoHistorico:

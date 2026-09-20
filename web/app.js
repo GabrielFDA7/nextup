@@ -34,6 +34,14 @@ const estado = {
   carregando: false,
   /** Todos os destinos, guardados para a busca filtrar sem ir à rede de novo. */
   destinos: [],
+  /** Fuso do parque atual. É o que define quando "hoje" vira "ontem". */
+  fusoDoParque: "America/New_York",
+  /** IDs marcados como visitados hoje, neste parque. */
+  visitadas: new Set(),
+  /** Se as visitadas estão sendo exibidas em vez de escondidas. */
+  mostrandoVisitadas: false,
+  /** Última resposta do ranking, para redesenhar sem ir à rede de novo. */
+  ultimoRanking: null,
 };
 
 const el = {
@@ -48,6 +56,10 @@ const el = {
   lista: document.getElementById("lista"),
   atualizado: document.getElementById("atualizado"),
   tituloLista: document.getElementById("titulo-lista"),
+  visitadasAviso: document.getElementById("visitadas-aviso"),
+  visitadasTexto: document.getElementById("visitadas-texto"),
+  btnMostrarVisitadas: document.getElementById("btn-mostrar-visitadas"),
+  btnLimparVisitadas: document.getElementById("btn-limpar-visitadas"),
 };
 
 let mapa;
@@ -364,6 +376,14 @@ function trocarParque(novoId) {
 
   estado.parqueId = parqueId;
 
+  // Cada parque tem sua própria lista de visitadas: ter feito o Space Mountain
+  // não diz nada sobre o EPCOT. Zerar aqui evita o estado do parque anterior
+  // vazar para a primeira renderização do novo.
+  estado.visitadas = new Set();
+  estado.mostrandoVisitadas = false;
+  estado.ultimoRanking = null;
+  el.visitadasAviso.hidden = true;
+
   // Sempre reenquadra o mapa; o ranking só vem se houver posição.
   carregarParque({ trocaDeParque: true });
   buscarRecomendacoes();
@@ -384,6 +404,11 @@ async function carregarParque({ trocaDeParque = false } = {}) {
     }
 
     const dados = await resposta.json();
+
+    // O fuso do parque decide quando "hoje" vira "ontem" para as visitadas. Só a
+    // rota de atrações o informa, e por isso a leitura acontece aqui.
+    estado.fusoDoParque = dados.timezone || estado.fusoDoParque;
+    estado.visitadas = VISITADAS.doParque(estado.parqueId, estado.fusoDoParque);
 
     // Duas chamadas assíncronas disputam o mapa: esta e a do ranking. Se o
     // visitante liberar o GPS enquanto esta ainda está no ar, a resposta chega
@@ -527,6 +552,8 @@ function criarItemSimples(item) {
 }
 
 function renderizar(dados) {
+  estado.ultimoRanking = dados;
+
   el.tituloLista.textContent = dados.park_name;
   el.lista.dataset.modo = "ranking";
 
@@ -543,11 +570,71 @@ function renderizar(dados) {
     return;
   }
 
-  el.lista.innerHTML = dados.recommendations.map(criarItem).join("");
-  desenharMapa(dados.recommendations);
+  // As já visitadas saem do ranking — é o que o consultor de parque faz: ele não
+  // manda você de volta para onde você acabou de ir. Mas saem do ranking, não da
+  // existência: o aviso abaixo diz quantas são e deixa revê-las.
+  const visiveis = estado.mostrandoVisitadas
+    ? dados.recommendations
+    : dados.recommendations.filter((r) => !estado.visitadas.has(r.attraction.id));
+
+  atualizarAvisoDeVisitadas(dados.recommendations);
+
+  if (visiveis.length === 0) {
+    el.lista.innerHTML = "";
+    mostrarAviso(
+      "Você já passou por todas as atrações disponíveis agora. Nada mal.",
+      "info"
+    );
+    return;
+  }
+
+  limparAviso();
+
+  // A etiqueta vai para a melhor **ainda não feita**, e não para a primeira da
+  // lista. Com as visitadas à mostra, a primeira posição pode ser uma que o
+  // visitante já fez — e aí ninguém receberia o destaque, justamente na tela em
+  // que ele está decidindo para onde ir.
+  const melhorDisponivel = visiveis.find((r) => !estado.visitadas.has(r.attraction.id));
+  const idDaMelhor = melhorDisponivel ? melhorDisponivel.attraction.id : null;
+
+  el.lista.innerHTML = visiveis.map((item) => criarItem(item, idDaMelhor)).join("");
+  desenharMapa(visiveis);
 
   el.atualizado.textContent = `Dado da fonte às ${formatarHora(dados.data_updated_at)}.`;
   el.atualizado.hidden = false;
+}
+
+/* O aviso das visitadas: quantas são e como revê-las.
+ *
+ * Existe porque esconder coisas sem dizer que está escondendo é a diferença entre
+ * um app que ajuda e um que parece quebrado. A pessoa marcou três atrações, a
+ * lista encolheu — ela precisa saber que foi ela quem causou isso.
+ */
+function atualizarAvisoDeVisitadas(recomendacoes) {
+  const marcadas = recomendacoes.filter((r) => estado.visitadas.has(r.attraction.id));
+
+  if (marcadas.length === 0) {
+    el.visitadasAviso.hidden = true;
+    return;
+  }
+
+  const plural = marcadas.length === 1 ? "atração já visitada" : "atrações já visitadas";
+  el.visitadasTexto.textContent = `${marcadas.length} ${plural} hoje.`;
+
+  el.btnMostrarVisitadas.textContent = estado.mostrandoVisitadas ? "Ocultar" : "Mostrar";
+  el.btnMostrarVisitadas.setAttribute("aria-pressed", String(estado.mostrandoVisitadas));
+  el.visitadasAviso.hidden = false;
+}
+
+/** Marca ou desmarca uma atração e redesenha, sem ir à rede de novo. */
+function alternarVisitada(attractionId) {
+  estado.visitadas = VISITADAS.alternar(
+    estado.parqueId,
+    estado.fusoDoParque,
+    attractionId
+  );
+
+  if (estado.ultimoRanking) renderizar(estado.ultimoRanking);
 }
 
 /* Ícones em SVG, desenhados inline.
@@ -584,6 +671,10 @@ const ICONE = {
       <path d="M3 3v16a2 2 0 0 0 2 2h16" />
       <path d="m7 14 3.5-4 3 2.5L18 7" />
     </svg>`,
+  check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>`,
 };
 
 /* A tendência, na linha da conta.
@@ -610,16 +701,24 @@ function criarTendencia(trend) {
   `;
 }
 
-function criarItem(item, indice) {
-  const ehMelhor = indice === 0;
+function criarItem(item, idDaMelhor) {
+  const id = item.attraction.id;
+  const visitada = estado.visitadas.has(id);
 
-  // A etiqueta responde à pergunta do app: entre 26 atrações, é esta.
+  // Uma atração já visitada não é "a melhor escolha agora", por melhor que seja
+  // o número. Quem decide qual recebe a etiqueta é `renderizar`.
+  const ehMelhor = id === idDaMelhor;
+
   const etiqueta = ehMelhor
     ? `<span class="etiqueta">${ICONE.estrela} Melhor escolha agora</span>`
     : "";
 
+  const classes = ["item"];
+  if (ehMelhor) classes.push("item--melhor");
+  if (visitada) classes.push("item--visitada");
+
   return `
-    <li class="item${ehMelhor ? " item--melhor" : ""}" data-expandido="false">
+    <li class="${classes.join(" ")}" data-expandido="false">
       <div class="custo">
         <strong>${Math.round(item.total_minutes)}</strong>
         <span>min</span>
@@ -637,15 +736,24 @@ function criarItem(item, indice) {
         ${criarTendencia(item.trend)}
         ${etiqueta}
       </div>
-      <!-- Um <button> de verdade, e não um <div> clicável: o botão já vem com
-           foco pelo teclado, papel anunciado ao leitor de tela e acionamento por
-           Enter e Espaço. Refazer isso à mão num div dá errado silenciosamente. -->
-      <button type="button" class="ver-historico"
-              data-atracao="${escapar(item.attraction.id)}"
-              aria-expanded="false">
-        ${ICONE.grafico}
-        <span>Histórico</span>
-      </button>
+      <!-- Botões de verdade, e não <div> clicáveis: já vêm com foco pelo teclado,
+           papel anunciado ao leitor de tela e acionamento por Enter e Espaço.
+           Refazer isso à mão num div dá errado silenciosamente. -->
+      <div class="acoes">
+        <button type="button" class="marcar-visitada"
+                data-atracao="${escapar(id)}"
+                aria-pressed="${visitada}"
+                title="${visitada ? "Desmarcar" : "Marcar como já visitada"}">
+          ${ICONE.check}
+          <span>${visitada ? "Fui" : "Já fui"}</span>
+        </button>
+        <button type="button" class="ver-historico"
+                data-atracao="${escapar(id)}"
+                aria-expanded="false">
+          ${ICONE.grafico}
+          <span>Histórico</span>
+        </button>
+      </div>
     </li>
   `;
 }
@@ -850,6 +958,12 @@ function iniciar() {
   // morreriam junto — ou pior, ficariam vivos segurando nós que já saíram da
   // página.
   el.lista.addEventListener("click", (evento) => {
+    const marcar = evento.target.closest(".marcar-visitada");
+    if (marcar) {
+      alternarVisitada(marcar.dataset.atracao);
+      return;
+    }
+
     const botao = evento.target.closest(".ver-historico");
     if (!botao) return;
 
@@ -858,6 +972,18 @@ function iniciar() {
 
     botao.setAttribute("aria-expanded", String(!expandido));
     alternarHistorico(item, botao.dataset.atracao);
+  });
+
+  el.btnMostrarVisitadas.addEventListener("click", () => {
+    estado.mostrandoVisitadas = !estado.mostrandoVisitadas;
+    if (estado.ultimoRanking) renderizar(estado.ultimoRanking);
+  });
+
+  el.btnLimparVisitadas.addEventListener("click", () => {
+    VISITADAS.limpar(estado.parqueId);
+    estado.visitadas = new Set();
+    estado.mostrandoVisitadas = false;
+    if (estado.ultimoRanking) renderizar(estado.ultimoRanking);
   });
 
   el.parque.addEventListener("change", (evento) => {

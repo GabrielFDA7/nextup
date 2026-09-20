@@ -94,6 +94,19 @@
         </div>
 
         <p id="resumo" class="resumo" hidden></p>
+
+        <!-- Só aparece quando há algo marcado. Uma linha permanente dizendo
+             "0 já visitadas" seria ruído na tela principal do app. -->
+        <div id="visitadas-aviso" class="visitadas-aviso" hidden>
+          <span id="visitadas-texto"></span>
+          <button id="btn-mostrar-visitadas" type="button" class="link" aria-pressed="false">
+            Mostrar
+          </button>
+          <button id="btn-limpar-visitadas" type="button" class="link">
+            Limpar
+          </button>
+        </div>
+
         <ol id="lista" class="lista"></ol>
         <p id="atualizado" class="atualizado" hidden></p>
       </section>
@@ -118,6 +131,8 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
+    <!-- Antes do app.js: ele usa `VISITADAS` já na primeira renderização. -->
+    <script src="visitadas.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

@@ -98,6 +98,20 @@
   box-sizing: border-box;
 }
 
+/* O atributo `hidden` precisa vencer o `display` das classes.
+ *
+ * O navegador aplica `display: none` a `[hidden]` pela folha de estilo padrão —
+ * que perde para **qualquer** regra de autor. Então `.visitadas-aviso {
+ * display: flex }` fazia um elemento com `hidden` continuar visível na tela.
+ *
+ * É uma armadilha silenciosa: o HTML diz uma coisa, a tela mostra outra, e o
+ * `hidden` do JavaScript vira decorativo. Esta regra — presente em todo reset
+ * moderno, e que faltava aqui — restaura a promessa do atributo. O `!important`
+ * é justificado: `hidden` significa escondido, e nenhuma classe deveria opinar. */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   padding: 0 16px 48px;
@@ -428,6 +442,88 @@ h2 {
 .item--sem-posicao .custo {
   background: var(--superficie-alt);
   color: var(--tinta-suave);
+}
+
+/* --- Visitadas ---------------------------------------------------------- */
+
+.visitadas-aviso {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  color: var(--tinta-suave);
+  background: var(--superficie-alt);
+  border-radius: var(--raio-p);
+}
+
+.visitadas-aviso span {
+  margin-right: auto;
+}
+
+.link {
+  min-height: 0;
+  padding: 2px 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--destaque);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Já visitada: apagada, não apagada da tela.
+   O item continua legível — quem pediu para ver as visitadas quer LER, não
+   decifrar um fantasma. A opacidade diz "isto é passado" sem esconder nada. */
+.item--visitada {
+  opacity: 0.62;
+}
+
+.item--visitada .nome {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+.acoes {
+  display: grid;
+  gap: 6px;
+}
+
+.marcar-visitada {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  min-height: 0;
+  padding: 9px 10px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--tinta-suave);
+  background: var(--superficie-alt);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-p);
+}
+
+.marcar-visitada svg {
+  width: 16px;
+  height: 16px;
+}
+
+.marcar-visitada:hover {
+  color: var(--verde-tendencia);
+  border-color: var(--verde-tendencia);
+}
+
+/* Marcada: o botão fica cheio, porque o estado é "ligado" e não "disponível".
+   `aria-pressed` carrega a mesma informação para quem não vê a cor. */
+.marcar-visitada[aria-pressed="true"] {
+  color: #fff;
+  background: var(--verde-tendencia);
+  border-color: var(--verde-tendencia);
 }
 
 /* --- Histórico e gráfico ------------------------------------------------ */
