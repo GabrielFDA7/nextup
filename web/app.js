@@ -346,6 +346,25 @@ function filtrarParques(termo) {
   el.buscaVazia.hidden = filtrados.length > 0;
 }
 
+/* Troca o parque ativo e atualiza tudo que depende dele.
+ *
+ * Existe como função própria porque dois caminhos levam aqui — escolher no
+ * seletor e apertar Enter na busca — e eles precisam fazer exatamente a mesma
+ * coisa. Duplicar essa sequência é como um dos dois acaba divergindo do outro.
+ */
+function trocarParque(novoId) {
+  const parqueId = novoId || PARQUE_PADRAO;
+
+  // Sair e voltar ao mesmo parque não deveria custar duas requisições.
+  if (parqueId === estado.parqueId) return;
+
+  estado.parqueId = parqueId;
+
+  // Sempre reenquadra o mapa; o ranking só vem se houver posição.
+  carregarParque({ trocaDeParque: true });
+  buscarRecomendacoes();
+}
+
 /* Carrega o parque sem depender da posição do visitante.
  *
  * É o que faz o app mostrar alguma coisa antes de o GPS ser liberado — até aqui,
@@ -617,11 +636,28 @@ function iniciar() {
   });
 
   el.parque.addEventListener("change", (evento) => {
-    estado.parqueId = evento.target.value || PARQUE_PADRAO;
+    trocarParque(evento.target.value);
+  });
 
-    // Sempre reenquadra o mapa; o ranking só vem se houver posição.
-    carregarParque({ trocaDeParque: true });
-    buscarRecomendacoes();
+  // Enter na busca aplica o parque que o seletor está mostrando.
+  //
+  // Sem isto havia uma mentira na tela: filtrar reconstrói o `<select>`, e o
+  // navegador passa a exibir a primeira opção — mas **exibir não é selecionar**.
+  // Nenhum `change` dispara, então quem digitasse "epcot" e desse Enter veria
+  // "EPCOT" escrito no seletor enquanto o app continuava no Magic Kingdom.
+  el.buscaParque.addEventListener("keydown", (evento) => {
+    if (evento.key !== "Enter") return;
+
+    // Impede o Enter de submeter e recarregar a página, o que perderia a posição
+    // que o visitante já tinha informado.
+    evento.preventDefault();
+
+    if (el.parque.value) {
+      trocarParque(el.parque.value);
+      // Tira o teclado da frente do mapa no celular — que é justamente o que o
+      // visitante quer ver depois de escolher o parque.
+      el.buscaParque.blur();
+    }
   });
 
   el.btnAtualizar.hidden = false;

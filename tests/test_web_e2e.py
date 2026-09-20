@@ -110,6 +110,11 @@ def abrir(navegador, servidor, *, com_gps: bool = True, api=None) -> Page:
         "**/recommendations*",
         api or (lambda rota: rota.fulfill(json=_recomendacoes_como_a_api_devolve())),
     )
+    # Sem esta interceptação a rota de atrações chegaria ao servidor de verdade, e
+    # de lá à ThemeParks.wiki — furando a regra de que nenhum teste toca a
+    # internet. Passou despercebido quando a rota nasceu porque a chamada
+    # *funciona*: ela só fica lenta, instável e mal-educada com uma API pública.
+    pagina.route("**/attractions*", _responder_atracoes)
 
     pagina.goto(servidor, wait_until="networkidle")
     return pagina
@@ -128,6 +133,62 @@ def _destinos_como_a_api_devolve() -> dict:
             for d in bruto["destinations"]
         ]
     }
+
+
+#: Um parque bem longe do Magic Kingdom, para o reenquadramento do mapa ficar
+#: inequívoco: se a vista não se mover, os números denunciam.
+PARQUE_DISTANTE = "27d64dee-d85e-48dc-ad6d-8077445cd946"  # SeaWorld Orlando
+BOUNDS_DISTANTE = {"south": 48.870, "west": 2.772, "north": 48.875, "east": 2.780}
+
+
+def _responder_atracoes(rota) -> None:
+    """Responde `/attractions` conforme o parque pedido.
+
+    O Magic Kingdom devolve a fixture real; qualquer outro devolve um parque
+    sintético do outro lado do Atlântico. É o que permite verificar que o mapa
+    **segue** a escolha, em vez de continuar apontando para onde estava.
+    """
+    if DEFAULT_PARK_ID in rota.request.url:
+        rota.fulfill(json=_atracoes_como_a_api_devolve())
+        return
+
+    rota.fulfill(
+        json={
+            "park_id": PARQUE_DISTANTE,
+            "park_name": "Parque Distante",
+            "timezone": "Europe/Paris",
+            "bounds": BOUNDS_DISTANTE,
+            "total_attractions": 1,
+            "available": 1,
+            "data_updated_at": "2026-09-20T14:00:00Z",
+            "attractions": [
+                {
+                    "id": "distante-1",
+                    "name": "Atração Distante",
+                    "latitude": 48.8725,
+                    "longitude": 2.776,
+                    "status": "OPERATING",
+                    "queue_minutes": 15,
+                }
+            ],
+        }
+    )
+
+
+def _atracoes_como_a_api_devolve() -> dict:
+    """Monta a resposta com o schema de verdade, sobre as fixtures reais."""
+    from nextup.api.schemas import ParkAttractionsOut
+    from nextup.models import LiveDataResponse, ParkCatalog
+
+    catalogo = ParkCatalog.model_validate(carregar("children_magic_kingdom.json"))
+    ao_vivo = LiveDataResponse.model_validate(carregar("live_magic_kingdom.json"))
+
+    resposta = ParkAttractionsOut.from_domain(
+        catalogo,
+        ao_vivo,
+        max((i.last_updated for i in ao_vivo.live_data), default=None),
+    )
+    return json.loads(resposta.model_dump_json())
 
 
 def _recomendacoes_como_a_api_devolve() -> dict:
@@ -206,22 +267,103 @@ class TestCarregamentoInicial:
         expect(pagina.locator("#resumo")).to_contain_text("fila medida")
         assert pagina.locator("[data-modo='panorama'] .item").count() > 0
 
+    def test_o_panorama_avisa_que_nao_e_recomendacao(self, navegador, servidor):
+        """A ressalva é a tese do produto, não modéstia.
+
+        A lista sem posição é ordenada pela menor fila — a pergunta que o NextUp
+        existe para contestar. Sem este aviso, os primeiros colocados (que em
+        alguns parques são playgrounds com fila zero) seriam lidos como conselho.
+        """
+        pagina = abrir(navegador, servidor)
+        pagina.wait_for_selector("[data-modo='panorama'] .item")
+
+        expect(pagina.locator("#resumo")).to_contain_text("menor fila")
+
+
+class TestTrocaDeParque:
+    """O mapa tem de seguir o parque escolhido — pelos dois caminhos possíveis."""
+
+    def centro_do_mapa(self, pagina) -> tuple[float, float]:
+        pos = pagina.evaluate("() => { const c = mapa.getCenter(); return [c.lat, c.lng]; }")
+        return pos[0], pos[1]
+
+    def test_escolher_no_seletor_reenquadra_o_mapa(self, navegador, servidor):
+        pagina = abrir(navegador, servidor, com_gps=False)
+        pagina.wait_for_selector("[data-modo='panorama'] .item")
+        _, longitude_antes = self.centro_do_mapa(pagina)
+
+        pagina.select_option("#parque", PARQUE_DISTANTE)
+        pagina.wait_for_timeout(1200)
+
+        _, longitude_depois = self.centro_do_mapa(pagina)
+
+        # Orlando é longitude negativa; o parque sintético é positiva. Se o mapa
+        # não tivesse se movido, o sinal continuaria o mesmo.
+        assert longitude_antes < 0
+        assert longitude_depois > 0
+
+    def test_enter_na_busca_tambem_troca_o_parque(self, navegador, servidor):
+        """O bug relatado pelo Gabriel em 20/09/2026.
+
+        Filtrar reconstrói o `<select>` e o navegador passa a **exibir** a primeira
+        opção — mas exibir não é selecionar. Nenhum `change` disparava, então quem
+        digitasse o nome e desse Enter via o parque certo escrito no seletor
+        enquanto o app continuava no anterior. A tela mentia.
+        """
+        pagina = abrir(navegador, servidor, com_gps=False)
+        pagina.wait_for_selector("[data-modo='panorama'] .item")
+        _, longitude_antes = self.centro_do_mapa(pagina)
+
+        pagina.fill("#busca-parque", "SeaWorld Orlando")
+        pagina.press("#busca-parque", "Enter")
+        pagina.wait_for_timeout(1200)
+
+        _, longitude_depois = self.centro_do_mapa(pagina)
+
+        assert longitude_antes < 0
+        assert longitude_depois > 0, "o Enter não aplicou o parque filtrado"
+
+    def test_enter_sem_resultado_nao_faz_nada(self, navegador, servidor):
+        """Não pode cair no parque padrão só porque a busca não achou nada."""
+        pagina = abrir(navegador, servidor, com_gps=False)
+        pagina.wait_for_selector("[data-modo='panorama'] .item")
+        antes = self.centro_do_mapa(pagina)
+
+        pagina.fill("#busca-parque", "zzzz-nao-existe")
+        pagina.press("#busca-parque", "Enter")
+        pagina.wait_for_timeout(600)
+
+        expect(pagina.locator("#busca-vazia")).to_be_visible()
+        assert self.centro_do_mapa(pagina) == antes
+
+    def test_enter_nao_recarrega_a_pagina(self, navegador, servidor):
+        """Recarregar perderia a posição que o visitante já tinha informado."""
+        pagina = abrir(navegador, servidor, com_gps=False)
+        pagina.wait_for_selector("[data-modo='panorama'] .item")
+        pagina.evaluate("() => { window.__marcador = true; }")
+
+        pagina.fill("#busca-parque", "SeaWorld Orlando")
+        pagina.press("#busca-parque", "Enter")
+        pagina.wait_for_timeout(800)
+
+        assert pagina.evaluate("() => window.__marcador === true")
+
 
 class TestFluxoFeliz:
     def test_permitir_gps_mostra_o_ranking(self, navegador, servidor):
         pagina = abrir(navegador, servidor)
 
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector(".item")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
 
         expect(pagina.locator("#titulo-lista")).to_have_text("Magic Kingdom Park")
         expect(pagina.locator("#resumo")).to_contain_text("26 de 35")
-        assert pagina.locator(".item").count() == 8
+        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(8)
 
     def test_lista_sai_em_ordem_crescente_de_custo(self, navegador, servidor):
         pagina = abrir(navegador, servidor)
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector(".item")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
 
         minutos = [int(texto) for texto in pagina.locator(".custo strong").all_inner_texts()]
 
@@ -240,7 +382,7 @@ class TestFluxoFeliz:
     def test_cada_item_mostra_a_conta_aberta(self, navegador, servidor):
         pagina = abrir(navegador, servidor)
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector(".item")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
 
         expect(pagina.locator(".item").first).to_contain_text("a pé")
         expect(pagina.locator(".item").first).to_contain_text("de fila")
@@ -264,7 +406,7 @@ class TestFluxoFeliz:
     def test_informa_a_idade_do_dado(self, navegador, servidor):
         pagina = abrir(navegador, servidor)
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector(".item")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
 
         expect(pagina.locator("#atualizado")).to_contain_text("Dado da fonte")
 
@@ -303,10 +445,10 @@ class TestGpsNegado:
 
         caixa = pagina.locator("#mapa").bounding_box()
         pagina.mouse.click(caixa["x"] + caixa["width"] / 2, caixa["y"] + caixa["height"] / 2)
-        pagina.wait_for_selector(".item")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
 
         expect(pagina.locator("#posicao-atual")).to_contain_text("escolhida no mapa")
-        assert pagina.locator(".item").count() == 8
+        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(8)
 
 
 class TestErroDaApi:
@@ -389,7 +531,7 @@ class TestSeguranca:
         pagina = abrir(navegador, servidor, api=lambda rota: rota.fulfill(json=malicioso))
 
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector(".item")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
 
         assert pagina.evaluate("window.__invadido === undefined")
         expect(pagina.locator(".nome")).to_contain_text("<img")
@@ -400,7 +542,7 @@ class TestResponsivo:
         """Rolagem lateral em celular é o sintoma clássico de layout quebrado."""
         pagina = abrir(navegador, servidor)
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector(".item")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
 
         largura_conteudo = pagina.evaluate("document.documentElement.scrollWidth")
         largura_tela = pagina.evaluate("document.documentElement.clientWidth")
