@@ -1006,6 +1006,40 @@ ficado bonito no roadmap, que é o pior par possível.
 
 ---
 
+## Sessão 007 — 20/09/2026 *(continuação)*
+
+### Prompt #041
+**Data:** 20/09/2026
+**Contexto:** Roadmap original fechado. O `forecast` da fonte passara a ser gravado, mas
+sem dados suficientes para avaliá-lo.
+
+```
+Beleza, marque um dia para testarmos o forecast nos nossos arquivos de organização (.md) e vamos seguir para as fazes de personalização.
+```
+
+**O que resultou — o agendamento:**
+- **27/09/2026** marcado no `docs/PROJETO.md` (fim do bloco da Fase 6.6) e no `CLAUDE.md`.
+- Uma semana, e não um número redondo: **filas de sábado não se parecem com as de terça**,
+  e o forecast é exatamente um perfil de padrão do dia. Avaliar só com dias úteis mediria
+  metade do fenômeno.
+- O roteiro do dia inclui conferir buracos na coleta **antes** de concluir qualquer coisa —
+  o Render hiberna, e uma madrugada perdida enviesaria a medição em silêncio.
+
+**O que resultou — a Fase 7 aberta e o 7.1 entregue:**
+- Fase 7 desenhada no roadmap, com as quatro ideias dele e a ordem justificada: **7.1 e
+  7.2 são a fundação do roteiro do dia**, e por isso vêm primeiro.
+- Decisão registrada: personalização no **`localStorage`**, sem conta de usuário.
+- `web/visitadas.js` — o "já fui hoje", com carimbo da **data do parque**.
+- Suíte de 393 para **403 testes**.
+
+**Um bug de CSS que o teste encontrou, e que valia para a página inteira:** o aviso
+aparecia mesmo com o atributo `hidden`. O navegador aplica `display: none` a `[hidden]`
+pela folha de estilo padrão, que perde para qualquer regra de autor — e
+`.visitadas-aviso { display: flex }` a sobrescrevia. O projeto tinha **sete** elementos
+usando `hidden` e nenhuma regra `[hidden]` no CSS.
+
+---
+
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 

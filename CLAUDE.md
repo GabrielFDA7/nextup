@@ -45,7 +45,7 @@ O **6.6 terminou com um resultado negativo medido**: prever a fila por extrapola
 mais que usar a fila atual, em todo horizonte. O ranking não mudou — mas agora há número
 para sustentar a escolha. Detalhes na seção 7 de `docs/PROJETO.md`.
 
-**393 testes passando**: 355 na suíte rápida (~7s) e 38 de interface em navegador (~46s).
+**403 testes passando**: 355 na suíte rápida (~7s) e 48 de interface em navegador (~60s).
 CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
 
 Já existe e funciona:
@@ -66,6 +66,7 @@ Já existe e funciona:
   `parks/{id}/attractions` (o parque **sem** exigir posição, com `bounds` para o mapa),
   `parks/{id}/attractions/{id}/history?hours` e
   `parks/{id}/recommendations?lat&lon&limit`. Docs automáticas em `/docs`
+- `web/visitadas.js` — o `já fui hoje`, em `localStorage`, com carimbo do dia do parque
 - `web/` — interface em HTML/CSS/JS puro, servida pelo próprio FastAPI. Geolocation,
   mapa Leaflet, e **tocar no mapa define a posição** (saída para quem nega o GPS).
   Abre mostrando o parque antes de qualquer permissão; busca no seletor; o mapa
@@ -82,7 +83,7 @@ Já existe e funciona:
   `cli.py` porque orquestra `clients/` + `storage/`
 - `tests/test_arquitetura.py` — a regra de dependência é verificada automaticamente
 - `tests/test_migracoes.py` — aplica as migrações e compara com `tables.py`
-- `tests/test_web_e2e.py` — 38 testes em Chromium real (`pytest -m e2e`)
+- `tests/test_web_e2e.py` — 48 testes em Chromium real (`pytest -m e2e`)
 - Fixtures reais da API em `tests/fixtures/`; nenhum teste toca a internet
 - `.venv` local com **Python 3.13**, mesma versão mais alta testada no CI
 
@@ -111,10 +112,28 @@ arredondados, ícones SVG e marcadores numerados no mapa. Tema escuro revisado: 
 quentes clareiam nele, então a tinta por cima inverte via `--sobre-quente` — sem isso, o
 botão principal ficaria branco sobre coral claro.
 
-**Não há pendência do roadmap original.** As frentes naturais daqui são as ideias do
-Gabriel (personalização, "já fui hoje", brinquedos alvo) e a evolução 3 da seção 4 — o
-**roteiro do dia**, que é um problema de otimização combinatória e o que mais diferencia
-tecnicamente.
+**Fase 7 — Personalização, em andamento.** Nasce das ideias do Gabriel, não do roadmap
+original. **7.1 ("já fui hoje") concluída em 20/09/2026**; faltam 7.2 (brinquedos alvo),
+7.3 (filtros) e 7.4 (popularidade). Detalhes na seção 7 de `docs/PROJETO.md`.
+
+**7.1 e 7.2 são a fundação do roteiro do dia** (evolução 3 da seção 4): não dá para montar
+a sequência ótima sem saber onde o visitante esteve e aonde quer chegar. Parecem as mais
+simples da lista e são as mais estruturais.
+
+**A personalização mora no `localStorage`** (`web/visitadas.js`), sem conta de usuário: o
+app é usado no celular dentro do parque por algumas horas, e exigir cadastro antes de
+responder "para onde vou agora" mataria o produto.
+
+> ⚠️ **"Já fui hoje" carimba a data DO PARQUE, não a do celular.** Quem está em Orlando às
+> 23h ainda está no mesmo dia de visita. Sem o carimbo, o visitante voltaria na semana
+> seguinte com metade das atrações escondidas e nenhuma pista do porquê.
+
+> ⚠️ **Todo acesso ao `localStorage` precisa de `try/catch`.** Em aba anônima ou com
+> cookies bloqueados ele **lança**, não devolve vazio.
+
+> ⚠️ **Não remova `[hidden] { display: none !important }` do CSS.** A regra do navegador
+> para `[hidden]` perde para qualquer classe com `display`, e sete elementos da página
+> dependem do atributo. Foi bug real, encontrado por teste.
 
 **A previsão (6.6) foi medida e descartada.** `core/forecast.py` guarda os modelos e a
 régua, e `tests/test_forecast.py` fixa a conclusão. Extrapolar tendência erra mais que
@@ -127,7 +146,15 @@ horizonte. A causa é que a direção não persiste.
 **O `forecast` da fonte agora é gravado** (tabela `queue_forecasts`), porque era o único
 candidato que não dava para avaliar sem histórico dele. Guarda a **primeira** aparição de
 cada previsão — sobrescrever destruiria a medida de antecedência, que é o que dá valor a
-uma previsão. Quando houver alguns dias de dados, dá para medir se a fonte acerta.
+uma previsão.
+
+> 📅 **AGENDADO PARA 27/09/2026 — avaliar o forecast da fonte.**
+>
+> Uma semana de coleta, para cobrir fim de semana: filas de sábado não se parecem com as
+> de terça, e o forecast é um perfil de padrão do dia. O roteiro está na seção 7 de
+> `docs/PROJETO.md`, no fim do bloco da Fase 6.6. **Antes de concluir qualquer coisa,
+> conferir se houve buracos na coleta** — o Render hiberna, e uma madrugada perdida
+> enviesaria a medição em silêncio.
 
 **O histórico na API e na tela (6.4 e 6.5).** A rota de histórico é o primeiro endpoint
 que serve **dado nosso**. O gráfico é SVG escrito à mão — sem biblioteca, coerente com a
@@ -296,7 +323,7 @@ uvicorn nextup.api.main:app --reload     # http://127.0.0.1:8000
 Testes de interface (exigem `pip install -e ".[dev,e2e]"` e `playwright install chromium`):
 
 ```bash
-pytest -m e2e          # esperado: 38 testes, ~46s
+pytest -m e2e          # esperado: 48 testes, ~60s
 ```
 
 ---

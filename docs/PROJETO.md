@@ -943,12 +943,111 @@ o que dá valor a uma previsão — seria sempre de alguns minutos.
 
 Verificado em produção: 158 previsões guardadas, 26 atrações, cobrindo sete horas à frente.
 
+##### 📅 Agendado: avaliar o forecast da fonte em **27/09/2026**
+
+Uma semana de coleta a partir de 20/09. O prazo não é arredondamento: **filas de sábado
+não se parecem com as de terça**, e o `forecast` é exatamente um perfil de padrão do dia.
+Avaliar só com dias úteis mediria metade do fenômeno.
+
+**O que fazer nesse dia:**
+
+1. Conferir a continuidade da coleta antes de qualquer conclusão. O Render hiberna, e se o
+   `keep-alive` falhou em alguma madrugada há buracos no histórico — que enviesariam a
+   medição sem avisar.
+2. Cruzar `queue_forecasts` com `queue_snapshots` pelo horário, formando pares
+   *(previsto, realizado)*.
+3. Medir com `core/forecast.evaluate`, separando por **antecedência**: previsão de três
+   horas antes é um feito; de quinze minutos, quase persistência disfarçada.
+4. Comparar contra a persistência, com o mesmo método do backtest de 20/09.
+
+**A decisão que sai daí:** se o forecast bater a persistência com antecedência real, o
+`custo_total` passa a usar a fila prevista para o instante da chegada, e a Fase 6.6 ganha
+a implementação que hoje não se justifica. Se não bater, fica registrado que **as duas
+alternativas foram medidas** — o que é uma conclusão bem mais forte que nunca ter testado.
+
 **Limitação conhecida, herdada do plano gratuito:** o Render hiberna após ~15 min sem
 acesso **de entrada**, e requisições que o coletor faz para fora não contam como
 atividade. Com o serviço dormindo, não há coleta. O `keep-alive.yml`, que existia para o
 link de portfólio não abrir em tela branca, passou a ser o que mantém o histórico contínuo
 — uma responsabilidade bem maior que a original. Se o GitHub desativar o agendamento por
 inatividade do repositório, o histórico ganha buracos silenciosos.
+
+### Fase 7 — Personalização *em andamento*
+
+A partir das ideias trazidas pelo Gabriel em 20/09/2026. O roadmap original acabou na
+Fase 6; esta é a primeira fase que nasce do uso, e não do plano inicial.
+
+**A tese da fase:** até aqui o NextUp responde igual para todo mundo que está no mesmo
+lugar. Mas dois visitantes lado a lado querem coisas diferentes — um já foi no Space
+Mountain hoje, o outro veio ao parque só por causa dele. Sem saber disso, a recomendação
+é boa no geral e errada no particular.
+
+| # | Entrega | Situação |
+|---|---|---|
+| 7.1 | **"Já fui hoje"** — marcar visitadas e tirá-las do ranking | ✅ 20/09/2026 |
+| 7.2 | **Brinquedos alvo** — a lista do que o visitante veio fazer | pendente |
+| 7.3 | Filtros — fila máxima, distância máxima, "vai fechar logo" | pendente |
+| 7.4 | Popularidade, derivada da fila média histórica | pendente |
+
+A ordem não é arbitrária. **7.1 e 7.2 são a fundação do roteiro do dia** (evolução 3 da
+seção 4): não dá para montar uma sequência ótima sem saber onde o visitante já esteve e
+aonde ele quer chegar. Elas parecem as mais simples da lista e são as mais estruturais.
+
+#### A decisão que molda a fase: onde mora a personalização
+
+Três caminhos, e a escolha define o produto:
+
+| Onde | Custo | O que se ganha | O que se perde |
+|---|---|---|---|
+| **`localStorage`** | baixo | Funciona na hora, sem cadastro, sem dado pessoal nosso | Preso a um navegador; trocar de aparelho zera tudo |
+| Conta de usuário | alto | Sincroniza entre aparelhos | Login, senha, recuperação, LGPD — e uma barreira antes do primeiro uso |
+| Link com estado na URL | médio | Compartilhável, sem servidor | URLs enormes; some ao fechar a aba |
+
+**Escolhido: `localStorage`.** O NextUp é usado *dentro do parque*, no celular, por
+algumas horas — o cenário em que trocar de aparelho não acontece. E exigir cadastro antes
+de responder "para onde vou agora" mataria o produto: a graça é abrir o link e usar.
+
+> **A consequência que precisa ficar explícita na tela:** o que o visitante marcar fica no
+> aparelho dele. Não some por mágica, mas também não segue para outro navegador — e um app
+> que perde dados sem avisar é pior que um que nunca os guardou.
+
+**"Já fui hoje" precisa de data, não só de uma lista.** Marcar uma atração como visitada
+vale para *hoje*; amanhã ela volta ao ranking. Sem carimbo de data, o visitante voltaria
+ao parque na semana seguinte com metade das atrações escondidas e nenhuma pista do porquê.
+O reset acompanha o dia **do parque**, não o do navegador — quem está em Orlando às 23h
+ainda está no mesmo dia de visita, mesmo que no fuso do celular já seja outro.
+
+#### 7.1 — "Já fui hoje" ✅ *concluída em 20/09/2026*
+
+`web/visitadas.js`, módulo próprio. Marcar uma atração a tira do ranking — que é o que o
+consultor de parque faz: ele não manda você de volta para onde acabou de ir.
+
+**Três decisões que parecem detalhe e não são:**
+
+1. **Sai do ranking, não da existência.** Um aviso diz quantas foram escondidas, com
+   "Mostrar" e "Limpar". Esconder sem avisar é a diferença entre um app que ajuda e um que
+   parece quebrado — a pessoa marcou três atrações, a lista encolheu, e ela precisa saber
+   que foi ela quem causou isso.
+2. **A etiqueta "melhor escolha" vai para a melhor ainda não feita.** Com as visitadas à
+   mostra, a primeira posição pode ser uma já visitada, e aí ninguém receberia o destaque
+   — justamente na tela em que o visitante está decidindo aonde ir.
+3. **Cada parque tem sua lista.** Ter feito o Space Mountain não diz nada sobre o EPCOT.
+
+Todo acesso ao `localStorage` passa por `try/catch`: em aba anônima, com cookies
+bloqueados ou cota estourada, ele **lança** em vez de devolver vazio. Um app que quebra
+porque não conseguiu lembrar de uma preferência é pior que um app sem preferência nenhuma.
+E registros de dias anteriores são descartados na escrita, senão cada dia de uso deixaria
+uma entrada morta para sempre.
+
+> **Um bug de CSS que o teste encontrou, e que valia para a página inteira.** O aviso
+> aparecia mesmo com o atributo `hidden`. Causa: o navegador aplica `display: none` a
+> `[hidden]` pela **folha de estilo padrão**, que perde para qualquer regra de autor — e
+> `.visitadas-aviso { display: flex }` a sobrescrevia.
+>
+> É uma armadilha silenciosa: o HTML diz uma coisa, a tela mostra outra, e o `hidden` do
+> JavaScript vira decorativo. O projeto tinha **sete** elementos usando o atributo e
+> nenhuma regra `[hidden]` no CSS — a correção (`[hidden] { display: none !important }`,
+> presente em todo reset moderno) protege todos eles.
 
 ---
 
@@ -1090,6 +1189,11 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **Horizonte** | Quão longe no futuro a previsão olha. Quanto maior, mais difícil |
 | **Antecedência (lead time)** | Com quanto tempo a previsão foi feita. Acertar cinco minutos antes não impressiona |
 | **Resultado negativo** | Descobrir que algo *não* funciona. Vale tanto quanto o positivo, e quase nunca é registrado |
+| **`localStorage`** | Armazenamento do navegador que sobrevive a fechar a aba. Preso a um aparelho, e pode lançar erro |
+| **Folha de estilo do navegador** | O CSS padrão que o navegador aplica sozinho. Perde para qualquer regra que você escreva |
+| **`!important`** | Força uma regra CSS a vencer. Quase sempre um cheiro; aqui, a forma correta de honrar o `hidden` |
+| **`aria-pressed`** | Diz ao leitor de tela se um botão de liga/desliga está ligado |
+| **`Intl.DateTimeFormat`** | API do navegador para formatar data em outro fuso — é como se sabe o "hoje" do parque |
 
 ---
 
@@ -1207,6 +1311,11 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 20/09/2026 | Modelos perdedores ficam no código, documentados | Baseline ruim registrado evita que a próxima pessoa tente a mesma ideia do zero |
 | 20/09/2026 | Passar a gravar o `forecast` da fonte | Único candidato não testado, e não dava para avaliá-lo sem histórico dele |
 | 20/09/2026 | `queue_forecasts` guarda a **primeira** aparição de cada previsão | A fonte republica o mesmo perfil a cada consulta; sobrescrever destruiria a medida de antecedência |
+| 20/09/2026 | Personalização no **`localStorage`**, sem conta de usuário | O app é usado no celular dentro do parque por algumas horas; exigir cadastro antes de responder mataria o produto |
+| 20/09/2026 | "Já fui hoje" carimba a **data do parque** | Sem data, o visitante voltaria na semana seguinte com metade das atrações escondidas; e o dia é o do parque, não o do celular |
+| 20/09/2026 | Visitadas saem do ranking, mas com aviso e "Mostrar" | Esconder sem avisar faz o app parecer quebrado |
+| 20/09/2026 | A etiqueta "melhor escolha" pula as visitadas | Uma atração já feita não é a melhor escolha agora, por melhor que seja o número |
+| 20/09/2026 | `[hidden] { display: none !important }` no CSS | A regra do navegador perde para qualquer classe com `display`; sete elementos do projeto dependiam do atributo |
 
 ---
 
