@@ -61,12 +61,23 @@ ENV VENV=/opt/venv \
 # Um usuário sem privilégios limita o estrago.
 RUN useradd --create-home --uid 1000 nextup
 
+# O dono é o usuário sem privilégios porque, sem `NEXTUP_DATABASE_URL`, o padrão
+# do projeto é um SQLite criado aqui dentro. Sem permissão de escrita, a migração
+# do start falharia e o contêiner não subiria — inclusive no CI, que constrói a
+# imagem sem banco configurado.
 WORKDIR /app
+RUN chown nextup:nextup /app
 
 # O código não é copiado de novo: ele já veio instalado dentro do venv. Só o
 # frontend precisa existir como arquivo, porque é servido do disco.
 COPY --from=construcao $VENV $VENV
 COPY --chown=nextup:nextup web/ ./web/
+
+# As migrações, por outro lado, precisam viajar como arquivo: o Alembic lê os
+# scripts do disco, não do pacote instalado. Sem isto, `alembic upgrade head`
+# dentro do contêiner não encontraria revisão nenhuma e diria que está tudo em dia.
+COPY --chown=nextup:nextup alembic.ini ./
+COPY --chown=nextup:nextup migrations/ ./migrations/
 
 USER nextup
 
@@ -76,10 +87,19 @@ EXPOSE 8000
 # quando não estiver. Aponta para `/api/health`, que de propósito NÃO consulta a
 # ThemeParks.wiki: uma instabilidade da fonte externa não deve derrubar um
 # contêiner que está perfeitamente de pé.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+# `start-period` maior que antes: o contêiner agora aplica as migrações antes de
+# abrir a porta, e durante essa janela o healthcheck falharia sem que houvesse
+# problema nenhum.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
     CMD python -c "import os,urllib.request,sys; porta=os.getenv('PORT','8000'); sys.exit(0 if urllib.request.urlopen(f'http://127.0.0.1:{porta}/api/health', timeout=4).status == 200 else 1)"
 
-# Duas escolhas deliberadas nesta linha:
+# Três escolhas deliberadas nesta linha:
+#
+# `alembic upgrade head` antes de tudo — o banco é levado à forma que este código
+# espera, no próprio deploy. A alternativa seria rodar a migração à mão antes de
+# cada publicação, e o dia em que alguém esquecer é o dia em que a aplicação sobe
+# consultando uma coluna que ainda não existe. Com o `&&`, uma migração que falha
+# impede o servidor de subir: é falhar alto, e melhor que servir dados errados.
 #
 # `0.0.0.0` e não `127.0.0.1` — dentro do contêiner, ouvir só no endereço local
 # significaria recusar todo mundo que vem de fora dele, inclusive você.
@@ -90,4 +110,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 #
 # O `exec` importa: sem ele, o `sh` continuaria como processo principal e
 # engoliria o sinal de desligamento, fazendo o contêiner demorar a encerrar.
-CMD exec uvicorn nextup.api.main:app --host 0.0.0.0 --port ${PORT:-8000}
+CMD alembic upgrade head && exec uvicorn nextup.api.main:app --host 0.0.0.0 --port ${PORT:-8000}

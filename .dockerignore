@@ -32,6 +32,14 @@ htmlcov/
 .env
 *.local
 
+# Bancos SQLite de desenvolvimento. Além do peso, entrariam na imagem com dados
+# antigos e o `alembic upgrade head` do start os encontraria já migrados — o
+# contêiner subiria servindo um histórico que não é o de produção.
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
 # Documentação: útil no repositório, peso morto no contêiner
 docs/
 CLAUDE.md

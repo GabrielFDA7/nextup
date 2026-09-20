@@ -102,7 +102,14 @@ jobs:
         run: docker build -t nextup:ci .
 
       - name: Subir o contêiner
-        run: docker run -d --name nextup-ci -p 8000:8000 nextup:ci
+        # O coletor vai desligado de propósito. Ligado, cada build do CI passaria a
+        # consultar a ThemeParks.wiki de verdade — uma API pública, gratuita e
+        # mantida por voluntários. Verificar a imagem não justifica gerar tráfego
+        # lá, e o coletor já é testado à exaustão na suíte, com respx.
+        run: |
+          docker run -d --name nextup-ci -p 8000:8000 \
+            -e NEXTUP_COLLECTOR_ENABLED=false \
+            nextup:ci
 
       - name: Esperar ficar saudável
         # Usa o HEALTHCHECK da própria imagem: se ele nunca virar "healthy", o
@@ -135,12 +142,36 @@ jobs:
           echo "usuário do contêiner: $usuario"
           [ "$usuario" = "nextup" ]
 
+      - name: As migrações foram aplicadas no start
+        # Desde a Fase 6 o contêiner roda `alembic upgrade head` antes do uvicorn.
+        # Sem este passo, alguém poderia remover `migrations/` da imagem — ou o
+        # `alembic upgrade` do CMD — e nada quebraria: o servidor subiria igual, e
+        # o problema só apareceria no primeiro deploy que mudasse o esquema.
+        run: |
+          versao=$(docker exec nextup-ci alembic current 2>&1 | tail -n 1)
+          echo "versão do banco no contêiner: $versao"
+          echo "$versao" | grep -q "(head)"
+
+      - name: A tabela de histórico existe
+        # Confirma o efeito da migração, não só o relato dela.
+        run: |
+          docker exec nextup-ci python -c "
+          import sqlite3
+          tabelas = sqlite3.connect('/app/nextup.db').execute(
+              \"SELECT name FROM sqlite_master WHERE type='table'\"
+          ).fetchall()
+          nomes = {t[0] for t in tabelas}
+          print('tabelas:', sorted(nomes))
+          assert 'queue_snapshots' in nomes, 'a migração não criou a tabela'
+          "
+
       - name: Respeita a variável PORT
         # Plataformas de hospedagem escolhem a porta e a informam por variável de
         # ambiente — o Render usa 10000. Se a imagem ignorasse isso, o serviço
         # subiria saudável e nunca receberia uma requisição.
         run: |
-          docker run -d --name nextup-porta -e PORT=10000 -p 9000:10000 nextup:ci
+          docker run -d --name nextup-porta -e PORT=10000 -p 9000:10000 \
+            -e NEXTUP_COLLECTOR_ENABLED=false nextup:ci
           for tentativa in $(seq 1 20); do
             if curl --fail --silent http://localhost:9000/api/health > /dev/null; then
               echo "respondeu na porta informada por PORT"

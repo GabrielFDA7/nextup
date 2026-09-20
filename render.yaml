@@ -11,6 +11,12 @@
 #   3. O Render lê este arquivo e cria o serviço sozinho
 #
 # A partir daí, todo push na `main` republica automaticamente.
+#
+# ATENÇÃO — passo manual obrigatório desde a Fase 6:
+# preencher `NEXTUP_DATABASE_URL` no painel (Environment → Add Environment
+# Variable) com a connection string do Neon. Ela está marcada `sync: false` logo
+# abaixo, então o Render sabe que a variável existe mas não sabe o valor. Sem ela
+# o serviço sobe saudável e o histórico coletado é jogado fora a cada deploy.
 
 services:
   - name: nextup
@@ -55,3 +61,34 @@ services:
         value: "60"
       - key: NEXTUP_CATALOG_TTL
         value: "86400"
+
+      # --- Banco de dados (Fase 6) -----------------------------------------
+      # `sync: false` significa: esta variável existe, mas o valor é preenchido
+      # no painel do Render e **não** fica neste arquivo. É como se declara um
+      # segredo num blueprint versionado — a connection string contém a senha do
+      # banco, e um repositório público é o pior lugar possível para ela.
+      #
+      # Sem esta variável o serviço sobe funcionando, e o coletor grava num
+      # SQLite dentro do contêiner que some no próximo deploy. Coletaria por
+      # horas e perderia tudo, sem erro nenhum.
+      - key: NEXTUP_DATABASE_URL
+        sync: false
+
+      # --- Coletor de histórico (Fase 6) -----------------------------------
+      # Explícito mesmo sendo o padrão: é a chave que liga a coleta em produção,
+      # e vale que ela apareça na configuração em vez de ficar implícita no código.
+      - key: NEXTUP_COLLECTOR_ENABLED
+        value: "true"
+
+      # Cinco minutos acompanham o ritmo com que a própria fonte atualiza.
+      # Coletar mais rápido traria a mesma medição de volta, que a restrição de
+      # unicidade recusaria — gasto de requisição em troca de nada.
+      - key: NEXTUP_COLLECT_INTERVAL
+        value: "300"
+
+      # Só o Magic Kingdom por enquanto: cada parque é uma requisição por ciclo.
+      - key: NEXTUP_COLLECT_PARKS
+        value: "75ea578a-adc8-4116-a54d-dccb60765ef9"
+
+      - key: NEXTUP_HISTORY_RETENTION_DAYS
+        value: "90"
