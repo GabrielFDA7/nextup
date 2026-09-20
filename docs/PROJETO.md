@@ -703,6 +703,24 @@ a posse de `/app`, senão o SQLite padrão do CI não poderia ser criado.
 > migração rodou de fato — sem eles, alguém poderia remover `migrations/` da imagem e nada
 > quebraria, porque o servidor subiria igual.
 
+**Um risco investigado e descartado: `asyncpg` + pooler.** A URL do Neon aponta para um
+host terminado em `-pooler`, que é o PgBouncer deles. Existe uma incompatibilidade
+clássica aí: o `asyncpg` cria *prepared statements* com nomes fixos
+(`__asyncpg_stmt_N__`), e um pooler em modo transação pode entregar a mesma conexão do
+servidor a clientes diferentes, fazendo os nomes colidirem.
+
+O que torna essa falha perigosa é ela **não aparecer numa chamada isolada** — só sob
+reuso de conexão. Um teste ingênuo passa e a produção quebra semanas depois, de forma
+intermitente. Por isso a verificação forçou o cenário: 60 queries parametrizadas em
+rodadas concorrentes, com `dispose()` do pool no meio para provocar o reaproveitamento.
+Nenhuma colisão. O PgBouncer passou a suportar prepared statements em modo transação, e o
+comportamento observado confirma.
+
+> Se algum dia aparecer `prepared statement "__asyncpg_stmt_N__" already exists` nos logs,
+> a cura é uma linha em `connect_args_for`: `statement_cache_size=0`. Não está lá hoje
+> porque não há problema para corrigir, e configuração preventiva sem evidência é código
+> que ninguém sabe por que existe.
+
 **Limitação conhecida, herdada do plano gratuito:** o Render hiberna após ~15 min sem
 acesso **de entrada**, e requisições que o coletor faz para fora não contam como
 atividade. Com o serviço dormindo, não há coleta. O `keep-alive.yml`, que existia para o
@@ -827,6 +845,9 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **Idempotência** | Repetir a operação não muda o resultado — é o que a unicidade dá ao coletor |
 | **Entrypoint / `CMD`** | O comando que o contêiner roda ao subir; onde encadear migração e servidor |
 | **`sync: false`** | No Render, declara que a variável existe mas o valor vem do painel — jeito de declarar segredo |
+| **PgBouncer** | O pooler mais comum do Postgres; é o que responde no host terminado em `-pooler` |
+| **Prepared statement** | Consulta enviada uma vez e reutilizada com parâmetros diferentes; mais rápida, mas fica presa à conexão |
+| **Modo transação (pooler)** | O pooler devolve a conexão ao fim de cada transação, então clientes diferentes dividem a mesma conexão do servidor |
 
 ---
 
@@ -914,6 +935,7 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 20/09/2026 | Migrações aplicadas no `CMD` do contêiner | Passo manual antes de cada deploy é passo que alguém esquece; com `&&`, migração ruim impede o servidor de subir |
 | 20/09/2026 | Coletor **desligado** no CI | Verificar a imagem não justifica gerar tráfego numa API pública a cada build |
 | 20/09/2026 | `NEXTUP_DATABASE_URL` com `sync: false` no `render.yaml` | Declara que a variável existe sem pôr a senha num repositório público |
+| 20/09/2026 | Conectar pelo endpoint **`-pooler`** do Neon | Verificado que a colisão clássica entre `asyncpg` e PgBouncer não ocorre; o pooler aguenta mais conexões que o endpoint direto |
 
 ---
 

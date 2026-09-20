@@ -790,6 +790,36 @@ entre as duas datas se provou real na primeira vez que importou, e virou o teste
 
 ---
 
+### Prompt #035
+**Data:** 20/09/2026
+**Contexto:** Eu havia pedido que ele cadastrasse `NEXTUP_DATABASE_URL` no painel do
+Render, explicando que sem ela o coletor gravaria num SQLite efêmero. Ele voltou com a
+string para conferir antes de criar.
+
+```
+Crie a Variable com o nome que você me sugeriu e essa connection string:
+postgresql://neondb_owner:***@ep-bitter-scene-acvmxetx-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+
+Correto?
+```
+
+> **Nota:** senha substituída por `***` neste registro, como no Prompt #033.
+
+**O que resultou:**
+- **Confirmado:** nome e valor corretos. A string crua, sem editar, é justamente o caso
+  que o `normalize_database_url` cobre.
+- **Um risco investigado antes de dar o aval:** o host termina em `-pooler`, e existe uma
+  incompatibilidade conhecida entre `asyncpg` e PgBouncer por colisão de nomes de
+  *prepared statement*. É uma falha que não aparece numa chamada isolada, só sob reuso de
+  conexão — o pior tipo. Teste forçando 60 queries concorrentes com reciclagem de pool:
+  **nenhuma colisão**. Registrado na seção 7, junto com o sintoma e a cura, caso apareça.
+- Confirmado que produção responde `HTTP 200` após o deploy anterior — o que prova de
+  quebra que o `alembic upgrade head` do `CMD` funcionou, já que o `&&` impediria o
+  servidor de subir se a migração falhasse.
+- Lembrete repetido, uma vez, sobre rotacionar a senha.
+
+---
+
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 
