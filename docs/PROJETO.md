@@ -1133,6 +1133,36 @@ deles esquecê-lo.
 > `--sobre-profundo`, exatamente como o projeto já fizera com `--sobre-quente` para o
 > âmbar e o coral. É a segunda vez que a mesma armadilha aparece; o padrão agora tem nome.
 
+##### O mecanismo de seleção estava falho — crítica do Gabriel, no mesmo dia
+
+A primeira versão só deixava marcar alvos **pelo ranking**. Como a tela mostra oito de
+trinta e cinco, as outras vinte e sete eram inalcançáveis: quem veio pelo Space Mountain
+não conseguia dizer isso ao app até o Space Mountain, por acaso, aparecer entre as oito
+melhores. E a seção ficava escondida enquanto vazia, então a funcionalidade **não existia**
+para quem nunca tropeçasse nela.
+
+A correção tem três partes:
+
+1. **A seção é sempre visível**, e quando vazia traz um convite em vez de nada.
+2. **Um `<details>` com o catálogo completo** do parque: busca, a fila atual de cada
+   atração e uma caixa de seleção por linha. Marcar e desmarcar pelo mesmo lugar.
+3. **Funciona antes do GPS.** A rota `/attractions` não exige posição, então dá para montar
+   a lista de desejos a caminho do parque.
+
+O `<details>` nativo foi escolhido em vez de um painel feito à mão: abrir e fechar, foco
+pelo teclado, Enter e Espaço e o anúncio ao leitor de tela vêm de graça. Refazer isso com
+`div` e JavaScript dá errado em silêncio — o mesmo raciocínio que fez o gatilho do gráfico
+ser um `<button>`.
+
+> **Um problema de UX que só apareceu escrevendo o teste.** A primeira versão redesenhava
+> o catálogo a cada marcação, e como as marcadas sobem para o topo, a lista **se reordenava
+> sob o dedo do visitante**: ele marcava uma atração, ela saltava para cima, e quem estava
+> escolhendo várias perdia o lugar.
+>
+> Agora a linha só muda de aparência, e a reordenação espera o painel fechar e abrir de
+> novo. As marcadas no topo servem a quem veio **remover** algo — e esse é outro momento,
+> não o mesmo.
+
 ---
 
 ## 8. Riscos e Limitações
@@ -1409,6 +1439,11 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 20/09/2026 | O alvo sai do ranking | Repeti-lo gastaria uma das oito vagas com algo que o visitante acabou de ver |
 | 20/09/2026 | A etiqueta "melhor escolha" não aparece entre os alvos | Ela compara o parque inteiro; sobre três atrações diria outra coisa |
 | 20/09/2026 | `--sobre-profundo` criado, como o `--sobre-quente` | O roxo inverte no tema escuro; texto branco sobre lilás claro sumiria |
+| 20/09/2026 | Seletor de alvos com o **catálogo completo** do parque | Marcar só pelo ranking deixava 27 de 35 atrações inalcançáveis |
+| 20/09/2026 | A seção de alvos é **sempre visível**, com convite quando vazia | Escondida, a funcionalidade não existe para quem nunca tropeçou nela |
+| 20/09/2026 | `<details>` nativo em vez de painel feito à mão | Abrir, fechar, foco por teclado e anúncio ao leitor de tela vêm de graça |
+| 20/09/2026 | O catálogo **não** se reordena enquanto está aberto | Reordenar sob o dedo faz quem escolhe várias perder o lugar; espera reabrir |
+| 20/09/2026 | O seletor funciona **antes** do GPS | `/attractions` não exige posição; a lista de desejos se monta a caminho do parque |
 
 ---
 

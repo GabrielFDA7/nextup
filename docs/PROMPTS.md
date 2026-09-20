@@ -1110,6 +1110,42 @@ sumiria. Foi preciso criar `--sobre-profundo`, exatamente como o projeto já fiz
 
 ---
 
+### Prompt #044
+**Data:** 20/09/2026
+**Contexto:** A Fase 7.2 recém-entregue. O Gabriel aprovou a exibição e apontou a falha no
+mecanismo de seleção.
+
+```
+Legal, gostei da forma que são exibidas depois que o usuário seleciona. Mas o mecânismo de seleção é falho, visto que o usuário não vê a lista toda e atrações do parque.
+
+Crie abaixo do mapa uma parte onde o usuário irá entende que deve selecionar os alvos e dê a lista completa para ele.
+
+Botão de mais, onde quando clicado aparece a lista suspensa ou algo do tipo.
+
+O usuário deve conseguir remover alvos também.
+```
+
+**A crítica estava certa, e o problema era maior que o descrito.** Marcar alvos só pelo
+ranking deixava **27 de 35 atrações inalcançáveis** — quem veio pelo Space Mountain não
+conseguia dizer isso ao app até ele aparecer entre as oito melhores. E a seção ficava
+escondida enquanto vazia, então a funcionalidade **não existia** para quem nunca
+tropeçasse nela.
+
+**O que resultou:**
+- A seção passou a ser **sempre visível**, com convite quando vazia.
+- `<details>` nativo com o catálogo completo: busca, fila atual de cada atração e caixa de
+  seleção por linha. Marcar e remover pelo mesmo lugar.
+- **Funciona antes do GPS** — a rota `/attractions` não exige posição, então a lista de
+  desejos se monta a caminho do parque.
+- Suíte de 417 para **427 testes**.
+
+**Um problema de UX que só apareceu escrevendo o teste:** a primeira versão redesenhava o
+catálogo a cada marcação, e como as marcadas sobem ao topo, a lista **se reordenava sob o
+dedo do visitante**. Agora a linha só muda de aparência, e a reordenação espera o painel
+reabrir — as marcadas no topo servem a quem veio *remover* algo, que é outro momento.
+
+---
+
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 

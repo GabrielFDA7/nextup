@@ -45,7 +45,7 @@ O **6.6 terminou com um resultado negativo medido**: prever a fila por extrapola
 mais que usar a fila atual, em todo horizonte. O ranking não mudou — mas agora há número
 para sustentar a escolha. Detalhes na seção 7 de `docs/PROJETO.md`.
 
-**417 testes passando**: 355 na suíte rápida (~7s) e 62 de interface em navegador (~83s).
+**427 testes passando**: 355 na suíte rápida (~7s) e 72 de interface em navegador (~92s).
 CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
 
 Já existe e funciona:
@@ -66,7 +66,8 @@ Já existe e funciona:
   `parks/{id}/attractions` (o parque **sem** exigir posição, com `bounds` para o mapa),
   `parks/{id}/attractions/{id}/history?hours` e
   `parks/{id}/recommendations?lat&lon&limit`. Docs automáticas em `/docs`
-- `web/preferencias.js` — `VISITADAS` (por dia, com fuso do parque) e `ALVOS` (sem prazo)
+- `web/preferencias.js` — `VISITADAS` (por dia, com fuso do parque) e `ALVOS` (sem prazo).
+  Os alvos se escolhem num catálogo completo do parque, que funciona sem GPS
 - `web/` — interface em HTML/CSS/JS puro, servida pelo próprio FastAPI. Geolocation,
   mapa Leaflet, e **tocar no mapa define a posição** (saída para quem nega o GPS).
   Abre mostrando o parque antes de qualquer permissão; busca no seletor; o mapa
@@ -83,7 +84,7 @@ Já existe e funciona:
   `cli.py` porque orquestra `clients/` + `storage/`
 - `tests/test_arquitetura.py` — a regra de dependência é verificada automaticamente
 - `tests/test_migracoes.py` — aplica as migrações e compara com `tables.py`
-- `tests/test_web_e2e.py` — 62 testes em Chromium real (`pytest -m e2e`)
+- `tests/test_web_e2e.py` — 72 testes em Chromium real (`pytest -m e2e`)
 - Fixtures reais da API em `tests/fixtures/`; nenhum teste toca a internet
 - `.venv` local com **Python 3.13**, mesma versão mais alta testada no CI
 
@@ -137,6 +138,10 @@ namespaces, `VISITADAS` e `ALVOS`.
 > diferentes: o ranking diz o que compensa agora, a lista de alvos diz quando ir naquilo
 > que o visitante veio fazer. Dar bônus de custo a um alvo distorceria o número em vez de
 > assumir a mudança de critério.
+
+> ⚠️ **O catálogo de alvos não se reordena enquanto está aberto.** As marcadas sobem ao
+> topo só quando o painel é reaberto — reordenar sob o dedo faz quem está escolhendo
+> várias perder o lugar. `alternarAlvo` de propósito **não** chama `desenharCatalogo`.
 
 > ⚠️ **Todo acesso ao `localStorage` precisa de `try/catch`.** Em aba anônima ou com
 > cookies bloqueados ele **lança**, não devolve vazio.
@@ -336,7 +341,7 @@ uvicorn nextup.api.main:app --reload     # http://127.0.0.1:8000
 Testes de interface (exigem `pip install -e ".[dev,e2e]"` e `playwright install chromium`):
 
 ```bash
-pytest -m e2e          # esperado: 62 testes, ~83s
+pytest -m e2e          # esperado: 72 testes, ~92s
 ```
 
 ---
