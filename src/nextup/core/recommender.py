@@ -14,10 +14,12 @@ prontos e devolve uma ordenação. Seus testes rodam offline, em milissegundos, 
 nunca falham porque a internet caiu ou o parque fechou.
 """
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from nextup.config import DEFAULT_RESULT_LIMIT, PATH_WINDING_FACTOR, WALKING_SPEED_MPS
 from nextup.core.geo import travel_time_minutes
+from nextup.core.trends import TrendAnalysis
 from nextup.models import LiveDataResponse, Location, ParkCatalog, ParkEntity
 
 
@@ -34,6 +36,13 @@ class Recommendation:
     walking_minutes: float
     queue_minutes: int
 
+    #: Para onde a fila está indo, quando há histórico que permita dizer.
+    #:
+    #: Opcional de propósito: o ranking funciona sem ela desde a Fase 2, e continua
+    #: funcionando no primeiro dia de coleta de um parque novo. A tendência
+    #: enriquece a justificativa, não a sustenta.
+    trend: TrendAnalysis | None = None
+
     @property
     def total_minutes(self) -> float:
         """O custo que ordena o ranking: tempo até estar sentado no brinquedo."""
@@ -42,14 +51,24 @@ class Recommendation:
     def explain(self) -> str:
         """Justificativa legível, no formato do consultor humano.
 
-        Exemplo: `Big Thunder Mountain — 4 min de caminhada + 20 min de fila = 24 min`
+        Com histórico, a frase fica completa — e é esta a promessa que a seção 4 do
+        `docs/PROJETO.md` faz desde o primeiro dia:
+
+            Big Thunder Mountain — 4 min de caminhada + 20 min de fila = 24 min.
+            Caiu de 45 para 20 nos últimos 30 min.
+
+        Sem histórico, para na primeira frase. A segunda é o que explica **por que
+        agora**, e é ela que separa um número de um conselho.
         """
-        return (
+        conta = (
             f"{self.attraction.name} — "
             f"{round(self.walking_minutes)} min de caminhada + "
             f"{self.queue_minutes} min de fila = "
             f"{round(self.total_minutes)} min"
         )
+
+        movimento = self.trend.describe() if self.trend else ""
+        return f"{conta}. {movimento}" if movimento else conta
 
 
 def recommend(
@@ -60,6 +79,7 @@ def recommend(
     limit: int = DEFAULT_RESULT_LIMIT,
     speed_mps: float = WALKING_SPEED_MPS,
     winding_factor: float = PATH_WINDING_FACTOR,
+    trends: Mapping[str, TrendAnalysis] | None = None,
 ) -> list[Recommendation]:
     """Ordena as atrações pelo tempo total até o visitante estar no brinquedo.
 
@@ -73,11 +93,16 @@ def recommend(
         limit: Quantas devolver. Zero ou menos devolve todas.
         speed_mps: Velocidade de caminhada, em metros por segundo.
         winding_factor: Correção do trajeto real sobre a linha reta.
+        trends: Tendência por ID de atração, quando houver histórico. **Não muda a
+            ordem** — só enriquece a justificativa. Ordenar por tendência seria
+            outra decisão de produto, e uma fila que está caindo rápido ainda pode
+            custar mais tempo total que uma parada ao lado.
 
     Returns:
         Recomendações em ordem crescente de custo total. Lista vazia é resposta
         legítima — parque fechado de madrugada, por exemplo.
     """
+    tendencias = trends or {}
     estado_por_id = live.by_id()
     avaliadas = []
 
@@ -109,6 +134,7 @@ def recommend(
                 walking_minutes=caminhada,
                 # `is_rankable` garante que não é `None`.
                 queue_minutes=estado.wait_time_minutes,  # type: ignore[arg-type]
+                trend=tendencias.get(atracao.id),
             )
         )
 

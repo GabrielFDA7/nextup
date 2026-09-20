@@ -154,6 +154,29 @@ COLLECT_PARK_IDS = [
 #: cinco minutos para apagar quase nada.
 PURGE_INTERVAL_S = int(os.getenv("NEXTUP_PURGE_INTERVAL", str(24 * 60 * 60)))
 
+# ---------------------------------------------------------------------------
+# Tendência da fila (Fase 6.3)
+# ---------------------------------------------------------------------------
+# Estes dois valores saíram de **medição**, não de intuição. Sobre 228 snapshots
+# reais do Magic Kingdom coletados em 20/09/2026, descritos em detalhe no
+# cabeçalho de `core/trends.py`.
+
+#: Quanto olhar para trás ao calcular a tendência.
+#:
+#: Trinta minutos, e não "a medição anterior", porque **118 de 189** variações
+#: entre medições consecutivas eram zero: a fila fica parada quase dois terços do
+#: tempo. Comparar consecutivas diria "estável" sobre uma fila que caiu de 60 para
+#: 20 ao longo da manhã.
+TREND_WINDOW_MINUTES = float(os.getenv("NEXTUP_TREND_WINDOW", "30"))
+
+#: Variação mínima, em minutos, para a fila não ser considerada estável.
+#:
+#: Cinco, porque **218 de 218** medições observadas eram múltiplos de cinco — é o
+#: menor passo que a fonte reporta. Exigir mais descartaria as variações de ±5,
+#: que são três de cada quatro movimentos reais, e a tendência viveria dizendo
+#: "estável".
+TREND_THRESHOLD_MINUTES = int(os.getenv("NEXTUP_TREND_THRESHOLD", "5"))
+
 
 #: Parâmetros que só a `libpq` entende — a biblioteca C que o `psycopg` usa por
 #: baixo. O `asyncpg` não é libpq: tem implementação própria do protocolo e API
