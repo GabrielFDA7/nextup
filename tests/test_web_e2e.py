@@ -575,6 +575,141 @@ class TestJaFuiHoje:
         expect(pagina.locator(".marcar-visitada").first).to_have_attribute("aria-pressed", "true")
 
 
+class TestBrinquedosAlvo:
+    """ "Você veio por estas" — a entrega da Fase 7.2.
+
+    A seção existe fora do ranking porque responde **outra pergunta**. O ranking
+    diz o que compensa mais agora; esta lista diz quando ir naquilo que o visitante
+    veio fazer — e para isso precisa mostrar o alvo mesmo quando ele está caro.
+    """
+
+    def com_ranking(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        pagina.click("#btn-localizar")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        return pagina
+
+    def test_a_secao_nao_aparece_sem_alvos(self, navegador, servidor):
+        pagina = self.com_ranking(navegador, servidor)
+
+        expect(pagina.locator("#secao-alvos")).to_be_hidden()
+
+    def test_marcar_cria_a_secao(self, navegador, servidor):
+        pagina = self.com_ranking(navegador, servidor)
+        nome = pagina.locator("[data-modo='ranking'] .item .nome").first.inner_text()
+
+        pagina.locator("[data-modo='ranking'] .marcar-alvo").first.click()
+
+        expect(pagina.locator("#secao-alvos")).to_be_visible()
+        expect(pagina.locator("[data-modo='alvos'] .item")).to_have_count(1)
+        expect(pagina.locator("[data-modo='alvos'] .nome").first).to_have_text(nome)
+
+    def test_o_alvo_sai_do_ranking(self, navegador, servidor):
+        """Repetir o alvo nas duas listas gastaria uma das oito vagas do ranking.
+
+        E a lista não encolhe: a nona colocada sobe, como acontece ao marcar uma
+        visitada.
+        """
+        pagina = self.com_ranking(navegador, servidor)
+        nome = pagina.locator("[data-modo='ranking'] .item .nome").first.inner_text()
+
+        pagina.locator("[data-modo='ranking'] .marcar-alvo").first.click()
+
+        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(8)
+        assert nome not in pagina.locator("#lista").inner_text()
+
+    def test_o_alvo_aparece_mesmo_com_fila_alta(self, navegador, servidor):
+        """O caso que justifica a seção existir.
+
+        Marca a **última** colocada do ranking inteiro — a mais cara de todas — e
+        ela tem de ficar visível. Enterrada em vigésimo lugar, seria invisível
+        justamente para quem veio por ela.
+        """
+        pagina = self.com_ranking(navegador, servidor)
+
+        # Revela a lista toda para alcançar a pior colocada.
+        pagina.evaluate("() => { estado.mostrandoVisitadas = true; }")
+        pior = pagina.evaluate("() => estado.ultimoRanking.recommendations.at(-1).attraction.id")
+        pagina.evaluate(f"() => alternarAlvo({pior!r})")
+        pagina.wait_for_timeout(500)
+
+        expect(pagina.locator("#secao-alvos")).to_be_visible()
+        expect(pagina.locator("[data-modo='alvos'] .item")).to_have_count(1)
+
+    def test_os_alvos_saem_ordenados_por_custo(self, navegador, servidor):
+        """A tese não muda; muda o conjunto sobre o qual ela é aplicada."""
+        pagina = self.com_ranking(navegador, servidor)
+
+        for indice in (4, 0, 2):
+            pagina.locator("[data-modo='ranking'] .marcar-alvo").nth(indice).click()
+            pagina.wait_for_timeout(200)
+
+        custos = [
+            int(texto)
+            for texto in pagina.locator("[data-modo='alvos'] .custo strong").all_inner_texts()
+        ]
+
+        assert custos == sorted(custos), f"alvos fora de ordem: {custos}"
+
+    def test_a_etiqueta_de_melhor_escolha_nao_vaza_para_os_alvos(self, navegador, servidor):
+        """Ela compara o parque inteiro; repeti-la sobre três atrações mentiria."""
+        pagina = self.com_ranking(navegador, servidor)
+        pagina.locator("[data-modo='ranking'] .marcar-alvo").first.click()
+
+        expect(pagina.locator("[data-modo='alvos'] .etiqueta")).to_have_count(0)
+        expect(pagina.locator("[data-modo='ranking'] .etiqueta")).to_have_count(1)
+
+    def test_desmarcar_devolve_ao_ranking(self, navegador, servidor):
+        pagina = self.com_ranking(navegador, servidor)
+        pagina.locator("[data-modo='ranking'] .marcar-alvo").first.click()
+
+        pagina.locator("[data-modo='alvos'] .marcar-alvo").first.click()
+
+        expect(pagina.locator("#secao-alvos")).to_be_hidden()
+
+    def test_limpar_esvazia_a_lista(self, navegador, servidor):
+        pagina = self.com_ranking(navegador, servidor)
+        for _ in range(2):
+            pagina.locator("[data-modo='ranking'] .marcar-alvo").first.click()
+            pagina.wait_for_timeout(200)
+
+        pagina.click("#btn-limpar-alvos")
+
+        expect(pagina.locator("#secao-alvos")).to_be_hidden()
+
+    def test_os_alvos_sobrevivem_a_recarregar(self, navegador, servidor):
+        """Alvos não têm prazo: são desejo, não acontecimento."""
+        pagina = self.com_ranking(navegador, servidor)
+        pagina.locator("[data-modo='ranking'] .marcar-alvo").first.click()
+        nome = pagina.locator("[data-modo='alvos'] .nome").first.inner_text()
+
+        pagina.reload(wait_until="networkidle")
+        pagina.click("#btn-localizar")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
+
+        expect(pagina.locator("[data-modo='alvos'] .nome").first).to_have_text(nome)
+
+    def test_um_alvo_tambem_pode_ser_marcado_como_visitado(self, navegador, servidor):
+        """As duas marcações são independentes e convivem no mesmo item."""
+        pagina = self.com_ranking(navegador, servidor)
+        pagina.locator("[data-modo='ranking'] .marcar-alvo").first.click()
+
+        pagina.locator("[data-modo='alvos'] .marcar-visitada").first.click()
+
+        expect(pagina.locator("[data-modo='alvos'] .item--visitada")).to_have_count(1)
+        expect(pagina.locator("#alvos-resumo")).to_contain_text("1 de 1 já feitas")
+
+    def test_o_estado_e_por_parque(self, navegador, servidor):
+        pagina = self.com_ranking(navegador, servidor)
+        pagina.locator("[data-modo='ranking'] .marcar-alvo").first.click()
+        expect(pagina.locator("#secao-alvos")).to_be_visible()
+
+        pagina.select_option("#parque", PARQUE_DISTANTE)
+        pagina.wait_for_timeout(1200)
+
+        expect(pagina.locator("#secao-alvos")).to_be_hidden()
+
+
 class TestGraficoDoHistorico:
     """O gráfico — a entrega da Fase 6.5.
 

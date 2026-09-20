@@ -85,6 +85,19 @@
         <p class="dica">Toque no mapa para ajustar sua posição.</p>
       </section>
 
+      <!-- Os alvos ficam ACIMA do ranking e em seção própria.
+           Não é destaque: são perguntas diferentes. O ranking responde "o que
+           compensa mais agora"; esta lista responde "quando devo ir naquilo que
+           eu vim fazer". Misturá-las obrigaria uma das duas a mentir. -->
+      <section id="secao-alvos" aria-labelledby="titulo-alvos" hidden>
+        <div class="cabecalho-lista">
+          <h2 id="titulo-alvos">Você veio por estas</h2>
+          <button id="btn-limpar-alvos" type="button" class="link">Limpar</button>
+        </div>
+        <p id="alvos-resumo" class="resumo"></p>
+        <ol id="lista-alvos" class="lista" data-modo="alvos"></ol>
+      </section>
+
       <section aria-label="Recomendações">
         <div class="cabecalho-lista">
           <h2 id="titulo-lista">Recomendações</h2>
@@ -131,8 +144,8 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <!-- Antes do app.js: ele usa `VISITADAS` já na primeira renderização. -->
-    <script src="visitadas.js"></script>
+    <!-- Antes do app.js: ele usa `VISITADAS` e `ALVOS` já na primeira renderização. -->
+    <script src="preferencias.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

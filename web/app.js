@@ -38,6 +38,8 @@ const estado = {
   fusoDoParque: "America/New_York",
   /** IDs marcados como visitados hoje, neste parque. */
   visitadas: new Set(),
+  /** IDs que o visitante veio fazer. Sem prazo de validade. */
+  alvos: new Set(),
   /** Se as visitadas estão sendo exibidas em vez de escondidas. */
   mostrandoVisitadas: false,
   /** Última resposta do ranking, para redesenhar sem ir à rede de novo. */
@@ -60,6 +62,10 @@ const el = {
   visitadasTexto: document.getElementById("visitadas-texto"),
   btnMostrarVisitadas: document.getElementById("btn-mostrar-visitadas"),
   btnLimparVisitadas: document.getElementById("btn-limpar-visitadas"),
+  secaoAlvos: document.getElementById("secao-alvos"),
+  listaAlvos: document.getElementById("lista-alvos"),
+  alvosResumo: document.getElementById("alvos-resumo"),
+  btnLimparAlvos: document.getElementById("btn-limpar-alvos"),
 };
 
 let mapa;
@@ -380,9 +386,11 @@ function trocarParque(novoId) {
   // não diz nada sobre o EPCOT. Zerar aqui evita o estado do parque anterior
   // vazar para a primeira renderização do novo.
   estado.visitadas = new Set();
+  estado.alvos = new Set();
   estado.mostrandoVisitadas = false;
   estado.ultimoRanking = null;
   el.visitadasAviso.hidden = true;
+  el.secaoAlvos.hidden = true;
 
   // Sempre reenquadra o mapa; o ranking só vem se houver posição.
   carregarParque({ trocaDeParque: true });
@@ -409,6 +417,8 @@ async function carregarParque({ trocaDeParque = false } = {}) {
     // rota de atrações o informa, e por isso a leitura acontece aqui.
     estado.fusoDoParque = dados.timezone || estado.fusoDoParque;
     estado.visitadas = VISITADAS.doParque(estado.parqueId, estado.fusoDoParque);
+    // Alvos não dependem do fuso: valem até o visitante mudar de ideia.
+    estado.alvos = ALVOS.doParque(estado.parqueId);
 
     // Duas chamadas assíncronas disputam o mapa: esta e a do ranking. Se o
     // visitante liberar o GPS enquanto esta ainda está no ar, a resposta chega
@@ -580,6 +590,8 @@ function renderizar(dados) {
     return;
   }
 
+  desenharAlvos(dados.recommendations);
+
   const visiveis = escolherVisiveis(dados.recommendations);
   atualizarAvisoDeVisitadas(dados.recommendations);
 
@@ -623,14 +635,103 @@ function renderizar(dados) {
  * foi feito, reordenadas pelo custo.
  */
 function escolherVisiveis(recomendacoes) {
-  const disponiveis = recomendacoes.filter((r) => !estado.visitadas.has(r.attraction.id));
+  // Os alvos já têm seção própria acima. Repeti-los aqui gastaria as oito vagas
+  // do ranking com coisas que o visitante acabou de ver.
+  const semAlvos = recomendacoes.filter((r) => !estado.alvos.has(r.attraction.id));
+  const disponiveis = semAlvos.filter((r) => !estado.visitadas.has(r.attraction.id));
   const proximas = disponiveis.slice(0, LIMITE);
 
   if (!estado.mostrandoVisitadas) return proximas;
 
-  const marcadas = recomendacoes.filter((r) => estado.visitadas.has(r.attraction.id));
+  const marcadas = semAlvos.filter((r) => estado.visitadas.has(r.attraction.id));
 
   return [...proximas, ...marcadas].sort((a, b) => a.total_minutes - b.total_minutes);
+}
+
+/* A seção "Você veio por estas".
+ *
+ * Fica fora do ranking porque responde outra pergunta. O ranking diz o que
+ * compensa mais *agora*; esta lista diz **quando ir naquilo que o visitante veio
+ * fazer** — e para isso ela precisa mostrar o alvo mesmo quando ele está caro.
+ *
+ * Um alvo com 90 minutos de fila não deve sumir da tela: é justamente essa a
+ * informação que faz o visitante decidir esperar, voltar mais tarde, ou desistir.
+ * Enterrá-lo em décimo quinto lugar do ranking seria esconder a única coisa que
+ * ele veio saber.
+ *
+ * Entre si, os alvos são ordenados por custo total — a mesma régua do resto do
+ * app. A tese não muda; muda o conjunto sobre o qual ela é aplicada.
+ */
+function desenharAlvos(recomendacoes) {
+  if (estado.alvos.size === 0) {
+    el.secaoAlvos.hidden = true;
+    return;
+  }
+
+  const meus = recomendacoes
+    .filter((r) => estado.alvos.has(r.attraction.id))
+    .sort((a, b) => a.total_minutes - b.total_minutes);
+
+  el.secaoAlvos.hidden = false;
+
+  if (meus.length === 0) {
+    // Marcadas, mas nenhuma disponível: fechadas, em manutenção ou sem fila medida.
+    // Dizer isso é melhor que mostrar uma lista vazia e deixar o visitante achar
+    // que o app perdeu as marcações dele.
+    el.listaAlvos.innerHTML = "";
+    el.alvosResumo.textContent =
+      estado.alvos.size === 1
+        ? "Sua atração alvo não está disponível agora."
+        : `Nenhuma das suas ${estado.alvos.size} atrações alvo está disponível agora.`;
+    return;
+  }
+
+  const feitos = meus.filter((r) => estado.visitadas.has(r.attraction.id)).length;
+  el.alvosResumo.textContent =
+    feitos > 0
+      ? `${feitos} de ${meus.length} já feitas hoje.`
+      : `${meus.length} ${meus.length === 1 ? "atração" : "atrações"} na sua lista.`;
+
+  // Sem `idDaMelhor`: a etiqueta "melhor escolha agora" pertence ao ranking, que
+  // compara o parque inteiro. Repeti-la aqui, sobre um recorte de três atrações,
+  // diria algo diferente com as mesmas palavras.
+  el.listaAlvos.innerHTML = meus.map((item) => criarItem(item, null)).join("");
+}
+
+/** Marca ou desmarca um alvo e redesenha, sem ir à rede de novo. */
+function alternarAlvo(attractionId) {
+  estado.alvos = ALVOS.alternar(estado.parqueId, attractionId);
+
+  if (estado.ultimoRanking) renderizar(estado.ultimoRanking);
+}
+
+/* Um clique em qualquer das duas listas.
+ *
+ * Delegação: o ouvinte fica na lista, não nos botões. As listas são apagadas e
+ * redesenhadas a cada marcação, e ouvintes presos aos botões antigos morreriam
+ * junto — ou pior, ficariam vivos segurando nós que já saíram da página.
+ */
+function aoClicarNumItem(evento) {
+  const alvo = evento.target.closest(".marcar-alvo");
+  if (alvo) {
+    alternarAlvo(alvo.dataset.atracao);
+    return;
+  }
+
+  const visitada = evento.target.closest(".marcar-visitada");
+  if (visitada) {
+    alternarVisitada(visitada.dataset.atracao);
+    return;
+  }
+
+  const historico = evento.target.closest(".ver-historico");
+  if (!historico) return;
+
+  const item = historico.closest(".item");
+  const expandido = item.dataset.expandido === "true";
+
+  historico.setAttribute("aria-expanded", String(!expandido));
+  alternarHistorico(item, historico.dataset.atracao);
 }
 
 /* O aviso das visitadas: quantas são e como revê-las.
@@ -704,6 +805,12 @@ const ICONE = {
       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M20 6 9 17l-5-5" />
     </svg>`,
+  alvo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="5" />
+      <circle cx="12" cy="12" r="1.4" fill="currentColor" />
+    </svg>`,
 };
 
 /* A tendência, na linha da conta.
@@ -733,6 +840,7 @@ function criarTendencia(trend) {
 function criarItem(item, idDaMelhor) {
   const id = item.attraction.id;
   const visitada = estado.visitadas.has(id);
+  const ehAlvo = estado.alvos.has(id);
 
   // Uma atração já visitada não é "a melhor escolha agora", por melhor que seja
   // o número. Quem decide qual recebe a etiqueta é `renderizar`.
@@ -745,6 +853,7 @@ function criarItem(item, idDaMelhor) {
   const classes = ["item"];
   if (ehMelhor) classes.push("item--melhor");
   if (visitada) classes.push("item--visitada");
+  if (ehAlvo) classes.push("item--alvo");
 
   return `
     <li class="${classes.join(" ")}" data-expandido="false">
@@ -769,6 +878,13 @@ function criarItem(item, idDaMelhor) {
            papel anunciado ao leitor de tela e acionamento por Enter e Espaço.
            Refazer isso à mão num div dá errado silenciosamente. -->
       <div class="acoes">
+        <button type="button" class="marcar-alvo"
+                data-atracao="${escapar(id)}"
+                aria-pressed="${ehAlvo}"
+                title="${ehAlvo ? "Tirar da minha lista" : "Vim por esta"}">
+          ${ICONE.alvo}
+          <span>${ehAlvo ? "Na lista" : "Vim por"}</span>
+        </button>
         <button type="button" class="marcar-visitada"
                 data-atracao="${escapar(id)}"
                 aria-pressed="${visitada}"
@@ -986,21 +1102,17 @@ function iniciar() {
   // redesenhada a cada atualização, e ouvintes presos aos botões antigos
   // morreriam junto — ou pior, ficariam vivos segurando nós que já saíram da
   // página.
-  el.lista.addEventListener("click", (evento) => {
-    const marcar = evento.target.closest(".marcar-visitada");
-    if (marcar) {
-      alternarVisitada(marcar.dataset.atracao);
-      return;
-    }
+  // O mesmo tratador serve às duas listas — ranking e alvos —, porque os itens
+  // são idênticos. Um tratador por lista faria dois caminhos para o mesmo clique,
+  // e um deles acabaria esquecido numa mudança futura.
+  [el.lista, el.listaAlvos].forEach((lista) => {
+    lista.addEventListener("click", aoClicarNumItem);
+  });
 
-    const botao = evento.target.closest(".ver-historico");
-    if (!botao) return;
-
-    const item = botao.closest(".item");
-    const expandido = item.dataset.expandido === "true";
-
-    botao.setAttribute("aria-expanded", String(!expandido));
-    alternarHistorico(item, botao.dataset.atracao);
+  el.btnLimparAlvos.addEventListener("click", () => {
+    ALVOS.limpar(estado.parqueId);
+    estado.alvos = new Set();
+    if (estado.ultimoRanking) renderizar(estado.ultimoRanking);
   });
 
   el.btnMostrarVisitadas.addEventListener("click", () => {

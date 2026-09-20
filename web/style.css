@@ -45,6 +45,11 @@
   /* Roxo profundo dá o contraponto frio, usado no número do custo. */
   --profundo: #4c2a6b;
 
+  /* A tinta que vai POR CIMA do roxo — mesma história do `--sobre-quente`.
+     No tema claro o roxo é escuro e pede branco; no escuro ele vira lilás claro,
+     e o branco sumiria. */
+  --sobre-profundo: #ffffff;
+
   --alerta: #9a3412;
   --alerta-fundo: #fff2ea;
 
@@ -85,6 +90,8 @@
     --sobre-quente: #2a1a14;
 
     --profundo: #c9a6e8;
+
+    --sobre-profundo: #2a1a3a;
 
     --alerta: #ffb59a;
     --alerta-fundo: #3a2118;
@@ -442,6 +449,58 @@ h2 {
 .item--sem-posicao .custo {
   background: var(--superficie-alt);
   color: var(--tinta-suave);
+}
+
+/* --- Alvos: "você veio por estas" --------------------------------------- */
+
+#secao-alvos {
+  margin-bottom: 26px;
+  padding-bottom: 22px;
+  /* A linha separa as duas perguntas. Sem ela, a seção parece um trecho
+     destacado do ranking — e a ordem entre as listas viraria comparação. */
+  border-bottom: 1px solid var(--borda);
+}
+
+#alvos-resumo {
+  margin-top: -4px;
+}
+
+/* O alvo ganha um filete roxo à esquerda: reconhecível de relance, sem competir
+   com a moldura âmbar da melhor escolha, que carrega outro significado. */
+.item--alvo {
+  border-left: 4px solid var(--profundo);
+}
+
+.marcar-alvo {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  min-height: 0;
+  padding: 9px 10px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--tinta-suave);
+  background: var(--superficie-alt);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-p);
+}
+
+.marcar-alvo svg {
+  width: 16px;
+  height: 16px;
+}
+
+.marcar-alvo:hover {
+  color: var(--profundo);
+  border-color: var(--profundo);
+}
+
+.marcar-alvo[aria-pressed="true"] {
+  color: var(--sobre-profundo);
+  background: var(--profundo);
+  border-color: var(--profundo);
 }
 
 /* --- Visitadas ---------------------------------------------------------- */
