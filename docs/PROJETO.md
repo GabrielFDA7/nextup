@@ -1049,6 +1049,36 @@ uma entrada morta para sempre.
 > nenhuma regra `[hidden]` no CSS — a correção (`[hidden] { display: none !important }`,
 > presente em todo reset moderno) protege todos eles.
 
+##### A quarta vez do mesmo bug — encontrada pelo Gabriel usando o app
+
+Marcando as oito recomendações como visitadas e clicando em "Atualizar", a lista ficava
+**vazia** — e o app anunciava *"você já passou por todas as atrações disponíveis"*, com
+vinte atrações livres a poucos metros.
+
+A causa é o padrão que a seção de lições do `CLAUDE.md` já registra, agora pela **quarta
+vez**: a tela pedia `limit=8` ao servidor e só depois escondia as visitadas. As outras
+vinte nunca chegaram a existir para o navegador.
+
+> Pedir a lista **já cortada** e depois raciocinar sobre ela. A regra é sempre a mesma:
+> **peça tudo, corte na exibição.** As três primeiras vezes foram contagens erradas; esta
+> foi uma tela vazia e uma mensagem falsa.
+
+**A alternativa que foi considerada e recusada:** mandar os IDs visitados para a API
+filtrar. Resolveria, e custaria caro — acoplaria o servidor ao estado do navegador e
+contradiria a decisão desta mesma fase, de a personalização não sair do aparelho.
+
+**O custo medido da solução escolhida:** a resposta foi de **3,5 KB para 12,5 KB** (8 para
+29 recomendações). Nove kilobytes a mais por atualização, contra um app que declarava o
+parque esgotado. Não há dúvida no balanço.
+
+Duas consequências finas, resolvidas junto:
+
+- **Marcar não encolhe mais a lista.** A nona colocada sobe. A tela mostra oito porque
+  oito é o que cabe, não porque oito é o que existe.
+- **No modo "Mostrar", as visitadas se somam às sugestões** em vez de tomar a vaga delas.
+  Se tomassem, revelar o que já foi feito custaria uma sugestão — e quanto mais o visitante
+  andasse pelo parque, menos o app teria a dizer.
+
 ---
 
 ## 8. Riscos e Limitações
@@ -1316,6 +1346,9 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 20/09/2026 | Visitadas saem do ranking, mas com aviso e "Mostrar" | Esconder sem avisar faz o app parecer quebrado |
 | 20/09/2026 | A etiqueta "melhor escolha" pula as visitadas | Uma atração já feita não é a melhor escolha agora, por melhor que seja o número |
 | 20/09/2026 | `[hidden] { display: none !important }` no CSS | A regra do navegador perde para qualquer classe com `display`; sete elementos do projeto dependiam do atributo |
+| 20/09/2026 | A tela pede o ranking **inteiro** (`limit=0`) | Pedir 8 e filtrar depois esvaziava a lista ao marcar 8 visitadas; custo medido: 3,5 KB → 12,5 KB |
+| 20/09/2026 | Filtrar as visitadas **no navegador**, não na API | Mandar os IDs para o servidor acoplaria a API ao estado do aparelho e contradiria a decisão desta fase |
+| 20/09/2026 | No modo "Mostrar", as visitadas **somam-se** às sugestões | Se tomassem a vaga, revelar o que já foi feito custaria uma sugestão a cada marcação |
 
 ---
 

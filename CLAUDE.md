@@ -45,7 +45,7 @@ O **6.6 terminou com um resultado negativo medido**: prever a fila por extrapola
 mais que usar a fila atual, em todo horizonte. O ranking não mudou — mas agora há número
 para sustentar a escolha. Detalhes na seção 7 de `docs/PROJETO.md`.
 
-**403 testes passando**: 355 na suíte rápida (~7s) e 48 de interface em navegador (~60s).
+**406 testes passando**: 355 na suíte rápida (~7s) e 51 de interface em navegador (~67s).
 CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
 
 Já existe e funciona:
@@ -83,7 +83,7 @@ Já existe e funciona:
   `cli.py` porque orquestra `clients/` + `storage/`
 - `tests/test_arquitetura.py` — a regra de dependência é verificada automaticamente
 - `tests/test_migracoes.py` — aplica as migrações e compara com `tables.py`
-- `tests/test_web_e2e.py` — 48 testes em Chromium real (`pytest -m e2e`)
+- `tests/test_web_e2e.py` — 51 testes em Chromium real (`pytest -m e2e`)
 - Fixtures reais da API em `tests/fixtures/`; nenhum teste toca a internet
 - `.venv` local com **Python 3.13**, mesma versão mais alta testada no CI
 
@@ -215,9 +215,12 @@ TLS é configurado pelo `connect_args_for`, com verificação completa de certif
 1. `OPERATING` **não** garante tempo de fila — 9 das 35 atrações do Magic Kingdom
    estavam abertas sem fila medida. Use sempre `is_rankable`.
 2. Validar **antes** de guardar no cache. O contrário já causou bug aqui.
-3. O mesmo bug de contagem (`available` refletindo o `limit` em vez do total) apareceu
-   **três vezes**, no CLI, na API e quase no frontend. O padrão é sempre o mesmo: pedir a
-   lista já cortada e depois medir o tamanho dela. Peça tudo, corte na exibição.
+3. **Peça tudo, corte na exibição.** O mesmo padrão já mordeu **quatro vezes**: três como
+   contagem errada (`available` refletindo o `limit`), no CLI, na API e quase no frontend;
+   e a quarta, em 20/09/2026, como uma **tela vazia** — marcar as 8 recomendações como
+   visitadas esvaziava a lista, porque a tela pedia 8 e filtrava depois. O app chegava a
+   anunciar "você já passou por todas as atrações" com 20 livres. Pedir a lista já cortada
+   e depois raciocinar sobre ela dá errado de um jeito novo a cada vez.
 4. **Todo instante vai para o banco em UTC, com fuso.** O Postgres guarda o fuso, o
    SQLite não — sem normalizar na entrada, o histórico fica deslocado em horas entre os
    dois ambientes e nenhum teste reclama.
@@ -323,7 +326,7 @@ uvicorn nextup.api.main:app --reload     # http://127.0.0.1:8000
 Testes de interface (exigem `pip install -e ".[dev,e2e]"` e `playwright install chromium`):
 
 ```bash
-pytest -m e2e          # esperado: 48 testes, ~60s
+pytest -m e2e          # esperado: 51 testes, ~67s
 ```
 
 ---

@@ -1040,6 +1040,41 @@ usando `hidden` e nenhuma regra `[hidden]` no CSS.
 
 ---
 
+### Prompt #042
+**Data:** 20/09/2026
+**Contexto:** O "já fui hoje" recém-entregue. O Gabriel foi usar o app de verdade e achou
+um bug que a suíte não pegava.
+
+```
+Está funcional, porém pode melhorar.
+
+Quando o usuário marca todas as 8 primeiras recomendações como Já fui e clica no botão atualizar (para atualizar a lista de atrações), o site não mostra mais nenhuma atração nova, acredito que ele ainda esteja acreditando que as 8 melhores são as visitadas, mas elas ficam ocultas e não são mostradas. Devemos resolver isso, tirando elas da lista de atrações momentaneamente (melhor forma de solução? se não, pode fazer de outro jeito)
+```
+
+**O diagnóstico dele estava certo.** A tela pedia `limit=8` ao servidor e só depois
+escondia as visitadas — as outras vinte nunca chegaram a existir para o navegador. E a
+mensagem "você já passou por todas as atrações disponíveis" **mentia**, com vinte atrações
+livres a poucos metros.
+
+É a **quarta vez** que o projeto tropeça no mesmo padrão, e a regra já estava escrita no
+`CLAUDE.md` desde a Fase 3: *peça tudo, corte na exibição*. As três primeiras foram
+contagens erradas; esta foi uma tela vazia.
+
+**Sobre a solução que ele sugeriu** — mandar os IDs visitados para a API filtrar —, foi
+considerada e recusada: acoplaria o servidor ao estado do navegador e contradiria a decisão
+da própria Fase 7, de a personalização não sair do aparelho.
+
+**O que resultou:**
+- A tela passou a pedir `limit=0` e a cortar depois de filtrar. **Custo medido: 3,5 KB →
+  12,5 KB** por atualização.
+- Marcar deixou de encolher a lista: a nona colocada sobe.
+- No modo "Mostrar", as visitadas **somam-se** às sugestões em vez de tomar a vaga delas.
+- O mock dos testes devolvia oito fixos — um mock que entrega menos que a API real testa um
+  app que não existe. Corrigido, e três testes novos cobrem o cenário relatado.
+- Suíte de 403 para **406 testes**.
+
+---
+
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 
