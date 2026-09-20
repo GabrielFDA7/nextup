@@ -88,13 +88,42 @@
       <!-- Os alvos ficam ACIMA do ranking e em seção própria.
            Não é destaque: são perguntas diferentes. O ranking responde "o que
            compensa mais agora"; esta lista responde "quando devo ir naquilo que
-           eu vim fazer". Misturá-las obrigaria uma das duas a mentir. -->
-      <section id="secao-alvos" aria-labelledby="titulo-alvos" hidden>
+           eu vim fazer". Misturá-las obrigaria uma das duas a mentir.
+
+           A seção é SEMPRE visível, mesmo vazia: escondê-la faria a
+           funcionalidade não existir para quem nunca tropeçou nela. -->
+      <section id="secao-alvos" aria-labelledby="titulo-alvos">
         <div class="cabecalho-lista">
           <h2 id="titulo-alvos">Você veio por estas</h2>
-          <button id="btn-limpar-alvos" type="button" class="link">Limpar</button>
+          <button id="btn-limpar-alvos" type="button" class="link" hidden>Limpar</button>
         </div>
+
         <p id="alvos-resumo" class="resumo"></p>
+
+        <!-- `<details>` em vez de um menu feito à mão: abrir e fechar, foco pelo
+             teclado, Enter e Espaço e o anúncio ao leitor de tela vêm de graça.
+             Refazer isso com div e JavaScript dá errado em silêncio. -->
+        <details id="escolher-alvos" class="escolher">
+          <summary class="escolher__gatilho">
+            <span class="escolher__mais" aria-hidden="true">+</span>
+            <span>Escolher atrações</span>
+          </summary>
+
+          <div class="escolher__corpo">
+            <input
+              id="busca-atracao"
+              type="search"
+              class="busca"
+              placeholder="Buscar atração…"
+              autocomplete="off"
+            />
+            <p id="escolher-vazio" class="busca-vazia" hidden>
+              Nenhuma atração com esse nome.
+            </p>
+            <ul id="catalogo-atracoes" class="catalogo"></ul>
+          </div>
+        </details>
+
         <ol id="lista-alvos" class="lista" data-modo="alvos"></ol>
       </section>
 

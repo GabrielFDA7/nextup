@@ -465,6 +465,120 @@ h2 {
   margin-top: -4px;
 }
 
+/* --- Escolher alvos: o catálogo completo -------------------------------- */
+
+.escolher {
+  margin-bottom: 16px;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  overflow: hidden;
+}
+
+.escolher__gatilho {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  font-weight: 600;
+  color: var(--profundo);
+  cursor: pointer;
+  /* O triângulo padrão do `<details>` destoa do resto; o "+" do lado esquerdo
+     já diz o que o controle faz. */
+  list-style: none;
+}
+
+.escolher__gatilho::-webkit-details-marker {
+  display: none;
+}
+
+.escolher__gatilho:hover {
+  background: var(--superficie-alt);
+}
+
+.escolher__mais {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--sobre-profundo);
+  background: var(--profundo);
+  border-radius: 50%;
+  transition: transform 0.18s ease;
+}
+
+/* Aberto, o "+" vira "×" por rotação — sem trocar o caractere, que exigiria
+   JavaScript para uma informação que o CSS já tem. */
+.escolher[open] .escolher__mais {
+  transform: rotate(45deg);
+}
+
+.escolher__corpo {
+  display: grid;
+  gap: 10px;
+  padding: 0 16px 16px;
+}
+
+.catalogo {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  /* Trinta e cinco atrações não cabem na tela de um celular. O limite em `vh`
+     acompanha o aparelho em vez de fixar uma altura que sobra no desktop e
+     falta no celular deitado. */
+  max-height: 46vh;
+  overflow-y: auto;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-p);
+}
+
+.catalogo__item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  /* 44px é o alvo mínimo confortável para o dedo — a linha inteira é clicável,
+     e não só a caixinha. */
+  min-height: 46px;
+  padding: 8px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--borda);
+}
+
+.catalogo li:last-child .catalogo__item {
+  border-bottom: 0;
+}
+
+.catalogo__item:hover {
+  background: var(--superficie-alt);
+}
+
+.catalogo__item--marcada {
+  background: var(--destaque-fraco);
+}
+
+.catalogo__item input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--profundo);
+  cursor: pointer;
+}
+
+.catalogo__nome {
+  font-size: 0.92rem;
+  line-height: 1.3;
+}
+
+.catalogo__fila {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--tinta-suave);
+  font-variant-numeric: tabular-nums;
+}
+
 /* O alvo ganha um filete roxo à esquerda: reconhecível de relance, sem competir
    com a moldura âmbar da melhor escolha, que carrega outro significado. */
 .item--alvo {

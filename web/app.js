@@ -40,6 +40,8 @@ const estado = {
   visitadas: new Set(),
   /** IDs que o visitante veio fazer. Sem prazo de validade. */
   alvos: new Set(),
+  /** Todas as atrações do parque, para o seletor de alvos. */
+  atracoesDoParque: [],
   /** Se as visitadas estão sendo exibidas em vez de escondidas. */
   mostrandoVisitadas: false,
   /** Última resposta do ranking, para redesenhar sem ir à rede de novo. */
@@ -66,6 +68,10 @@ const el = {
   listaAlvos: document.getElementById("lista-alvos"),
   alvosResumo: document.getElementById("alvos-resumo"),
   btnLimparAlvos: document.getElementById("btn-limpar-alvos"),
+  escolherAlvos: document.getElementById("escolher-alvos"),
+  buscaAtracao: document.getElementById("busca-atracao"),
+  catalogoAtracoes: document.getElementById("catalogo-atracoes"),
+  escolherVazio: document.getElementById("escolher-vazio"),
 };
 
 let mapa;
@@ -387,10 +393,12 @@ function trocarParque(novoId) {
   // vazar para a primeira renderização do novo.
   estado.visitadas = new Set();
   estado.alvos = new Set();
+  estado.atracoesDoParque = [];
   estado.mostrandoVisitadas = false;
   estado.ultimoRanking = null;
   el.visitadasAviso.hidden = true;
-  el.secaoAlvos.hidden = true;
+  el.buscaAtracao.value = "";
+  el.escolherAlvos.open = false;
 
   // Sempre reenquadra o mapa; o ranking só vem se houver posição.
   carregarParque({ trocaDeParque: true });
@@ -419,6 +427,14 @@ async function carregarParque({ trocaDeParque = false } = {}) {
     estado.visitadas = VISITADAS.doParque(estado.parqueId, estado.fusoDoParque);
     // Alvos não dependem do fuso: valem até o visitante mudar de ideia.
     estado.alvos = ALVOS.doParque(estado.parqueId);
+
+    // O catálogo alimenta o seletor de alvos, que funciona **sem** posição: dá
+    // para montar a lista de desejos a caminho do parque.
+    estado.atracoesDoParque = [...dados.attractions].sort((a, b) =>
+      a.name.localeCompare(b.name, "pt-BR")
+    );
+    desenharCatalogo(el.buscaAtracao.value);
+    desenharAlvos(estado.ultimoRanking ? estado.ultimoRanking.recommendations : []);
 
     // Duas chamadas assíncronas disputam o mapa: esta e a do ranking. Se o
     // visitante liberar o GPS enquanto esta ainda está no ar, a resposta chega
@@ -663,8 +679,14 @@ function escolherVisiveis(recomendacoes) {
  * app. A tese não muda; muda o conjunto sobre o qual ela é aplicada.
  */
 function desenharAlvos(recomendacoes) {
+  el.btnLimparAlvos.hidden = estado.alvos.size === 0;
+
   if (estado.alvos.size === 0) {
-    el.secaoAlvos.hidden = true;
+    // Convite, e não vazio. Escondida, a seção faria a funcionalidade não existir
+    // para quem nunca tropeçou nela por acaso.
+    el.listaAlvos.innerHTML = "";
+    el.alvosResumo.textContent =
+      "Marque o que você veio fazer e o NextUp mostra o melhor momento de cada uma.";
     return;
   }
 
@@ -672,17 +694,14 @@ function desenharAlvos(recomendacoes) {
     .filter((r) => estado.alvos.has(r.attraction.id))
     .sort((a, b) => a.total_minutes - b.total_minutes);
 
-  el.secaoAlvos.hidden = false;
-
   if (meus.length === 0) {
-    // Marcadas, mas nenhuma disponível: fechadas, em manutenção ou sem fila medida.
-    // Dizer isso é melhor que mostrar uma lista vazia e deixar o visitante achar
-    // que o app perdeu as marcações dele.
+    // Marcadas, mas nenhuma no ranking: fechadas, em manutenção, sem fila medida —
+    // ou o visitante ainda não disse onde está. Dizer isso é melhor que mostrar
+    // uma lista vazia e deixar o visitante achar que o app perdeu as marcações.
     el.listaAlvos.innerHTML = "";
-    el.alvosResumo.textContent =
-      estado.alvos.size === 1
-        ? "Sua atração alvo não está disponível agora."
-        : `Nenhuma das suas ${estado.alvos.size} atrações alvo está disponível agora.`;
+    el.alvosResumo.textContent = estado.posicao
+      ? `Nenhuma das suas ${estado.alvos.size} marcadas está disponível agora.`
+      : `${estado.alvos.size} marcadas. Diga onde você está para ver o custo de cada uma.`;
     return;
   }
 
@@ -698,11 +717,71 @@ function desenharAlvos(recomendacoes) {
   el.listaAlvos.innerHTML = meus.map((item) => criarItem(item, null)).join("");
 }
 
+/* O catálogo completo do parque, para escolher alvos.
+ *
+ * Existe porque marcar alvos só no ranking era um mecanismo falho: a tela mostra
+ * oito de trinta e cinco, e as outras vinte e sete eram inalcançáveis. Quem veio
+ * pelo Space Mountain não conseguia dizer isso ao app até o Space Mountain,
+ * por acaso, aparecer entre as oito melhores.
+ *
+ * A lista sai de `/attractions`, que **não** exige posição — então dá para montar
+ * a lista de desejos a caminho do parque, antes de liberar o GPS.
+ */
+function desenharCatalogo(termo = "") {
+  const busca = termo.trim().toLowerCase();
+  const encontradas = busca
+    ? estado.atracoesDoParque.filter((a) => a.name.toLowerCase().includes(busca))
+    : estado.atracoesDoParque;
+
+  el.escolherVazio.hidden = encontradas.length > 0;
+
+  // Marcadas primeiro, para remover ser tão fácil quanto adicionar: quem abriu a
+  // lista para tirar algo não deveria ter de procurar entre trinta e cinco.
+  const ordenadas = [...encontradas].sort((a, b) => {
+    const marcadaA = estado.alvos.has(a.id);
+    const marcadaB = estado.alvos.has(b.id);
+    if (marcadaA !== marcadaB) return marcadaA ? -1 : 1;
+    return a.name.localeCompare(b.name, "pt-BR");
+  });
+
+  el.catalogoAtracoes.innerHTML = ordenadas.map(criarLinhaDoCatalogo).join("");
+}
+
+function criarLinhaDoCatalogo(atracao) {
+  const marcada = estado.alvos.has(atracao.id);
+
+  // A fila de agora ajuda a escolher, mas nem toda atração tem uma — fechada ou
+  // sem medida. Dizer "—" é mais honesto que omitir a linha ou inventar um zero.
+  const fila =
+    atracao.queue_minutes === null ? "—" : `${atracao.queue_minutes} min`;
+
+  return `
+    <li>
+      <label class="catalogo__item${marcada ? " catalogo__item--marcada" : ""}">
+        <input type="checkbox" data-atracao="${escapar(atracao.id)}"
+               ${marcada ? "checked" : ""} />
+        <span class="catalogo__nome">${escapar(atracao.name)}</span>
+        <span class="catalogo__fila">${fila}</span>
+      </label>
+    </li>
+  `;
+}
+
 /** Marca ou desmarca um alvo e redesenha, sem ir à rede de novo. */
 function alternarAlvo(attractionId) {
   estado.alvos = ALVOS.alternar(estado.parqueId, attractionId);
 
-  if (estado.ultimoRanking) renderizar(estado.ultimoRanking);
+  if (estado.ultimoRanking) {
+    renderizar(estado.ultimoRanking);
+  } else {
+    // Sem ranking ainda: a seção de alvos se atualiza sozinha, para marcar
+    // funcionar antes de o visitante liberar o GPS.
+    desenharAlvos([]);
+  }
+
+  // O catálogo **não** é redesenhado aqui: quem chamou já cuida da própria
+  // aparência, e redesenhar reordenaria a lista sob o dedo de quem está
+  // escolhendo. Ver o ouvinte de `toggle` em `iniciar`.
 }
 
 /* Um clique em qualquer das duas listas.
@@ -1112,7 +1191,46 @@ function iniciar() {
   el.btnLimparAlvos.addEventListener("click", () => {
     ALVOS.limpar(estado.parqueId);
     estado.alvos = new Set();
-    if (estado.ultimoRanking) renderizar(estado.ultimoRanking);
+    if (estado.ultimoRanking) {
+      renderizar(estado.ultimoRanking);
+    } else {
+      desenharAlvos([]);
+    }
+    desenharCatalogo(el.buscaAtracao.value);
+  });
+
+  // Delegação também aqui: a lista é redesenhada a cada marcação, e ouvintes
+  // presos às caixas antigas morreriam junto.
+  el.catalogoAtracoes.addEventListener("change", (evento) => {
+    const caixa = evento.target.closest("input[type='checkbox']");
+    if (!caixa) return;
+
+    alternarAlvo(caixa.dataset.atracao);
+
+    // Só a linha muda de aparência. Redesenhar a lista aqui a reordenaria **sob o
+    // dedo do visitante** — ele marca uma atração, ela salta para o topo, e quem
+    // estava escolhendo várias perde o lugar. A reordenação espera o painel
+    // fechar e abrir de novo.
+    caixa.closest(".catalogo__item").classList.toggle(
+      "catalogo__item--marcada",
+      caixa.checked
+    );
+  });
+
+  // Reordenar ao ABRIR: aí as marcadas estão no topo para quem veio remover
+  // alguma, sem que a lista tenha se mexido enquanto ele escolhia.
+  el.escolherAlvos.addEventListener("toggle", () => {
+    if (el.escolherAlvos.open) desenharCatalogo(el.buscaAtracao.value);
+  });
+
+  el.buscaAtracao.addEventListener("input", (evento) => {
+    desenharCatalogo(evento.target.value);
+  });
+
+  // Enter num campo de busca dentro de `<details>` fecharia o painel em alguns
+  // navegadores. Aqui não há o que submeter: a lista já filtra a cada tecla.
+  el.buscaAtracao.addEventListener("keydown", (evento) => {
+    if (evento.key === "Enter") evento.preventDefault();
   });
 
   el.btnMostrarVisitadas.addEventListener("click", () => {

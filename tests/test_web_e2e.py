@@ -589,18 +589,24 @@ class TestBrinquedosAlvo:
         pagina.wait_for_selector("[data-modo='ranking'] .item")
         return pagina
 
-    def test_a_secao_nao_aparece_sem_alvos(self, navegador, servidor):
+    def test_a_secao_convida_mesmo_vazia(self, navegador, servidor):
+        """Escondida, a funcionalidade não existiria para quem nunca tropeçou nela.
+
+        Foi a crítica do Gabriel em 20/09/2026: marcar alvos só pelo ranking é um
+        mecanismo falho, porque a tela mostra oito de trinta e cinco.
+        """
         pagina = self.com_ranking(navegador, servidor)
 
-        expect(pagina.locator("#secao-alvos")).to_be_hidden()
+        expect(pagina.locator("#secao-alvos")).to_be_visible()
+        expect(pagina.locator("#alvos-resumo")).to_contain_text("Marque o que você veio")
+        expect(pagina.locator("#escolher-alvos")).to_be_visible()
 
-    def test_marcar_cria_a_secao(self, navegador, servidor):
+    def test_marcar_preenche_a_secao(self, navegador, servidor):
         pagina = self.com_ranking(navegador, servidor)
         nome = pagina.locator("[data-modo='ranking'] .item .nome").first.inner_text()
 
         pagina.locator("[data-modo='ranking'] .marcar-alvo").first.click()
 
-        expect(pagina.locator("#secao-alvos")).to_be_visible()
         expect(pagina.locator("[data-modo='alvos'] .item")).to_have_count(1)
         expect(pagina.locator("[data-modo='alvos'] .nome").first).to_have_text(nome)
 
@@ -665,7 +671,8 @@ class TestBrinquedosAlvo:
 
         pagina.locator("[data-modo='alvos'] .marcar-alvo").first.click()
 
-        expect(pagina.locator("#secao-alvos")).to_be_hidden()
+        expect(pagina.locator("[data-modo='alvos'] .item")).to_have_count(0)
+        expect(pagina.locator("#alvos-resumo")).to_contain_text("Marque o que você veio")
 
     def test_limpar_esvazia_a_lista(self, navegador, servidor):
         pagina = self.com_ranking(navegador, servidor)
@@ -675,7 +682,8 @@ class TestBrinquedosAlvo:
 
         pagina.click("#btn-limpar-alvos")
 
-        expect(pagina.locator("#secao-alvos")).to_be_hidden()
+        expect(pagina.locator("[data-modo='alvos'] .item")).to_have_count(0)
+        expect(pagina.locator("#btn-limpar-alvos")).to_be_hidden()
 
     def test_os_alvos_sobrevivem_a_recarregar(self, navegador, servidor):
         """Alvos não têm prazo: são desejo, não acontecimento."""
@@ -702,12 +710,147 @@ class TestBrinquedosAlvo:
     def test_o_estado_e_por_parque(self, navegador, servidor):
         pagina = self.com_ranking(navegador, servidor)
         pagina.locator("[data-modo='ranking'] .marcar-alvo").first.click()
-        expect(pagina.locator("#secao-alvos")).to_be_visible()
+        expect(pagina.locator("[data-modo='alvos'] .item")).to_have_count(1)
 
         pagina.select_option("#parque", PARQUE_DISTANTE)
         pagina.wait_for_timeout(1200)
 
-        expect(pagina.locator("#secao-alvos")).to_be_hidden()
+        expect(pagina.locator("[data-modo='alvos'] .item")).to_have_count(0)
+
+
+class TestCatalogoDeAlvos:
+    """O seletor com a lista completa do parque — a correção de 20/09/2026.
+
+    Marcar alvos só pelo ranking era um mecanismo falho: a tela mostra oito de
+    trinta e cinco, e quem veio pelo Space Mountain não conseguia dizer isso ao
+    app até ele, por acaso, aparecer entre as oito melhores.
+    """
+
+    def abrir_catalogo(self, navegador, servidor, *, com_gps=True):
+        pagina = abrir(navegador, servidor, com_gps=com_gps)
+        # `state="attached"`, e não o padrão "visible": dentro de um `<details>`
+        # fechado os itens existem no DOM mas não são visíveis, e esperar por
+        # visibilidade antes de abrir o painel espera para sempre.
+        pagina.wait_for_selector("#catalogo-atracoes .catalogo__item", state="attached")
+        pagina.click(".escolher__gatilho")
+        return pagina
+
+    def test_lista_o_parque_inteiro(self, navegador, servidor):
+        """Trinta e cinco atrações, não as oito do ranking."""
+        pagina = self.abrir_catalogo(navegador, servidor)
+
+        expect(pagina.locator(".catalogo__item")).to_have_count(35)
+
+    def test_mostra_a_fila_de_cada_uma(self, navegador, servidor):
+        """Ajuda a escolher — e "—" para quem não tem fila medida é mais honesto
+        que omitir a linha ou inventar um zero."""
+        pagina = self.abrir_catalogo(navegador, servidor)
+        filas = pagina.locator(".catalogo__fila").all_inner_texts()
+
+        assert any("min" in f for f in filas)
+        assert any(f == "—" for f in filas)
+
+    def test_marcar_pelo_catalogo_cria_o_alvo(self, navegador, servidor):
+        """Com posição, o alvo vira item completo — com o custo até ele.
+
+        O `localizar` é necessário: sem posição não há ranking, e a seção de alvos
+        mostra só a contagem. É o que `test_funciona_antes_de_dar_a_posicao`
+        verifica do outro lado.
+        """
+        pagina = self.abrir_catalogo(navegador, servidor)
+        pagina.click("#btn-localizar")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
+
+        nome = pagina.locator(".catalogo__nome").first.inner_text()
+        pagina.locator(".catalogo__item input").first.check()
+        pagina.wait_for_timeout(300)
+
+        expect(pagina.locator("[data-modo='alvos'] .nome").first).to_have_text(nome)
+
+    def test_desmarcar_pelo_catalogo_remove_o_alvo(self, navegador, servidor):
+        """Remover tem de ser tão fácil quanto adicionar."""
+        pagina = self.abrir_catalogo(navegador, servidor)
+        pagina.locator(".catalogo__item input").first.check()
+        pagina.wait_for_timeout(300)
+
+        pagina.locator(".catalogo__item input").first.uncheck()
+        pagina.wait_for_timeout(300)
+
+        expect(pagina.locator("[data-modo='alvos'] .item")).to_have_count(0)
+
+    def test_a_lista_nao_se_reordena_sob_o_dedo(self, navegador, servidor):
+        """Marcar não pode fazer a atração saltar para o topo na mesma hora.
+
+        Quem está escolhendo várias perderia o lugar a cada clique. A linha muda
+        de aparência; a ordem espera o painel fechar.
+        """
+        pagina = self.abrir_catalogo(navegador, servidor)
+        nome = pagina.locator(".catalogo__nome").nth(20).inner_text()
+
+        pagina.locator(".catalogo__item input").nth(20).check()
+        pagina.wait_for_timeout(300)
+
+        expect(pagina.locator(".catalogo__nome").nth(20)).to_have_text(nome)
+        expect(pagina.locator(".catalogo__item").nth(20)).to_have_class(
+            re.compile("catalogo__item--marcada")
+        )
+
+    def test_as_marcadas_sobem_ao_reabrir(self, navegador, servidor):
+        """Quem abriu a lista para tirar algo não deveria procurar entre 35."""
+        pagina = self.abrir_catalogo(navegador, servidor)
+        nome = pagina.locator(".catalogo__nome").nth(20).inner_text()
+        pagina.locator(".catalogo__item input").nth(20).check()
+
+        pagina.click(".escolher__gatilho")  # fecha
+        pagina.click(".escolher__gatilho")  # abre de novo
+        pagina.wait_for_timeout(300)
+
+        expect(pagina.locator(".catalogo__nome").first).to_have_text(nome)
+        expect(pagina.locator(".catalogo__item input").first).to_be_checked()
+
+    def test_a_busca_filtra_a_lista(self, navegador, servidor):
+        pagina = self.abrir_catalogo(navegador, servidor)
+
+        pagina.fill("#busca-atracao", "mountain")
+        pagina.wait_for_timeout(300)
+
+        nomes = pagina.locator(".catalogo__nome").all_inner_texts()
+
+        assert nomes, "a busca não encontrou nada"
+        assert all("mountain" in n.lower() for n in nomes)
+
+    def test_busca_sem_resultado_avisa(self, navegador, servidor):
+        pagina = self.abrir_catalogo(navegador, servidor)
+
+        pagina.fill("#busca-atracao", "zzzznaoexiste")
+        pagina.wait_for_timeout(300)
+
+        expect(pagina.locator("#escolher-vazio")).to_be_visible()
+
+    def test_funciona_antes_de_dar_a_posicao(self, navegador, servidor):
+        """Montar a lista de desejos é algo que se faz a caminho do parque.
+
+        A rota `/attractions` não exige posição, então o seletor também não.
+        """
+        pagina = self.abrir_catalogo(navegador, servidor, com_gps=False)
+
+        expect(pagina.locator(".catalogo__item")).to_have_count(35)
+
+        pagina.locator(".catalogo__item input").first.check()
+        pagina.wait_for_timeout(300)
+
+        expect(pagina.locator("#alvos-resumo")).to_contain_text("Diga onde você está")
+
+    def test_o_estado_do_catalogo_sobrevive_a_recarregar(self, navegador, servidor):
+        pagina = self.abrir_catalogo(navegador, servidor)
+        pagina.locator(".catalogo__item input").first.check()
+        pagina.wait_for_timeout(300)
+
+        pagina.reload(wait_until="networkidle")
+        pagina.wait_for_selector("#catalogo-atracoes .catalogo__item", state="attached")
+        pagina.click(".escolher__gatilho")
+
+        expect(pagina.locator(".catalogo__item input").first).to_be_checked()
 
 
 class TestGraficoDoHistorico:
