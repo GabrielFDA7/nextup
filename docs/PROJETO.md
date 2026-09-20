@@ -6,9 +6,9 @@
 > **Status atual: Fases 0 a 5 concluídas.** O projeto está no ar em
 > <https://nextup-rcux.onrender.com>.
 >
-> **Fase 6 em andamento** — passos 6.1 (storage) e 6.2 (coletor) concluídos; o histórico
-> já está sendo gravado. Próximo passo: **6.3, tendência como função pura no `core/`**.
-> 242 testes na suíte rápida, 21 de interface em navegador.
+> **Fase 6 quase fechada** — passos 6.1 a 6.5 concluídos: o histórico é coletado,
+> persistido, analisado, exposto pela API e desenhado na tela. Falta só o **6.6, previsão
+> da fila na chegada**. 326 testes na suíte rápida, 38 de interface em navegador.
 
 ---
 
@@ -647,8 +647,8 @@ o coletor vem cedo — ele enche o banco enquanto o resto é construído.
 | — | Banco de produção provisionado no Neon, migração aplicada | ✅ 15/09/2026 |
 | 6.2 | Coletor periódico gravando o Magic Kingdom | ✅ 20/09/2026 |
 | 6.3 | `core/trends.py` — tendência como função pura | ✅ 20/09/2026 |
-| 6.4 | Rota `GET /api/.../history` | pendente |
-| 6.5 | Gráfico da fila na interface | pendente |
+| 6.4 | Rota `GET /api/.../history` | ✅ 20/09/2026 |
+| 6.5 | Gráfico da fila na interface | ✅ 20/09/2026 |
 | 6.6 | Previsão da fila **na chegada** | pendente |
 
 O 6.3 torna verdadeira uma frase que a seção 4 deste documento promete desde o começo e
@@ -841,6 +841,47 @@ tela usada de pé, no meio do parque.
 > cobertura melhora sozinha a cada dia de coleta, e é exatamente por isso que o coletor
 > veio antes.
 
+#### 6.4 e 6.5 — Histórico exposto e desenhado ✅ *concluídas em 20/09/2026*
+
+`GET /api/parks/{id}/attractions/{id}/history?hours=6` é o **primeiro endpoint do NextUp
+que serve dado nosso**. Todos os outros são a ThemeParks.wiki reempacotada; este só existe
+porque o coletor rodou — e é exatamente o que o objetivo da Fase 6 promete: sair de
+"consome uma API" para "produz conhecimento próprio".
+
+Devolve a série de pontos, um resumo (mín, média, máx, atual, amplitude) e a tendência
+recalculada sobre a janela pedida — quem pede 24h quer o movimento do dia, não o do último
+quarto de hora.
+
+**Uma regra se inverte aqui.** Na recomendação, o histórico é enfeite e a falha do banco é
+engolida de propósito: melhor um ranking sem a frase "caiu de 45 para 20" do que erro
+nenhum. Nesta rota o histórico **é** a resposta, então banco fora do ar devolve 503.
+Servir uma série vazia seria pior que falhar — diria que a fila ficou parada.
+
+O nome da atração vem do catálogo em cache, e não do banco: guardá-lo em cada snapshot
+seriam centenas de milhares de cópias da mesma string.
+
+**O gráfico é SVG escrito à mão**, sem biblioteca. Não é teimosia: uma biblioteca de
+gráficos custa 50–200 KB para desenhar uma linha e alguns eixos, num projeto cuja decisão
+registrada é não ter etapa de build. As coordenadas são calculadas num sistema de 0–100 e
+o `viewBox` cuida do resto.
+
+> **O erro de visualização que só apareceu ao olhar a captura de tela.** A primeira versão
+> escalava o eixo vertical do **menor** ao maior valor da série — o padrão de muitas
+> bibliotecas. O resultado: a linha de uma atração cuja fila foi de 10 a 5 minutos ficava
+> colada no fundo, e uma oscilação de cinco minutos desenhava a mesma queda dramática que
+> um desabamento de 90 para 5.
+>
+> Escala truncada **exagera variação pequena e apaga magnitude**. Para fila, que é um dado
+> de grandeza, o eixo tem de começar em zero: assim a altura da linha *é* a fila.
+> Inclinação responde "está melhorando?", altura responde "está grande?", e as duas
+> perguntas convivem sem uma mentir sobre a outra.
+
+Detalhes de acessibilidade que valem registro: o `<svg>` leva `aria-label` com uma frase
+que descreve a curva, porque um gráfico sem rótulo é **invisível** para leitor de tela — e
+aqui não há alternativa textual em lugar nenhum, já que os números do resumo não contam a
+forma da linha. E o gatilho é um `<button>` de verdade, que já vem com foco pelo teclado e
+acionamento por Enter e Espaço; refazer isso num `<div>` clicável dá errado em silêncio.
+
 **Limitação conhecida, herdada do plano gratuito:** o Render hiberna após ~15 min sem
 acesso **de entrada**, e requisições que o coletor faz para fora não contam como
 atividade. Com o serviço dormindo, não há coleta. O `keep-alive.yml`, que existia para o
@@ -973,6 +1014,13 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **Série temporal** | Sequência de medições do mesmo valor ao longo do tempo — é o que o histórico de filas é |
 | **Degradação graciosa** | Perder um enfeite quando uma dependência cai, em vez de perder a resposta inteira |
 | **Acessibilidade de cor** | Não deixar a cor ser o único portador da informação; ~8% dos homens não distinguem verde de vermelho |
+| **SVG** | Desenho descrito por coordenadas, não por pixels; escala sem borrar e herda a cor do texto |
+| **`viewBox`** | O sistema de coordenadas interno do SVG; permite desenhar em 0–100 e exibir em qualquer tamanho |
+| **Escala truncada** | Eixo que não começa em zero. Exagera variações pequenas — erro clássico de gráfico |
+| **`aria-label`** | Rótulo que só o leitor de tela lê; é a única versão acessível de um gráfico |
+| **`aria-expanded`** | Diz ao leitor de tela se o botão abriu ou fechou algo, em vez de deixá-lo adivinhar |
+| **Delegação de evento** | Um ouvinte no elemento pai em vez de um por filho; sobrevive à lista ser redesenhada |
+| **Amplitude (spread)** | Pico menos vale. Mede se vale a pena escolher a hora de ir |
 
 ---
 
@@ -1078,6 +1126,13 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 20/09/2026 | `park_history()` em vez de um `history()` por atração | 35 idas ao banco para montar uma resposta; num Postgres remoto, cada ida custa a latência inteira |
 | 20/09/2026 | "Estável" não aparece na tela | Ocupar uma linha para dizer que nada mudou é ruído num app usado de pé |
 | 20/09/2026 | A cor da tendência não carrega a informação sozinha | Seta e texto dizem o mesmo; quem não distingue verde de vermelho lê igual |
+| 20/09/2026 | Banco fora do ar dá **503** na rota de histórico | Aqui o histórico *é* a resposta; série vazia mentiria dizendo que a fila ficou parada |
+| 20/09/2026 | Teto de 168h na janela de histórico | Sem limite, `?hours=99999` pediria a tabela inteira e montaria um JSON de megabytes |
+| 20/09/2026 | Nome da atração vem do catálogo, não do banco | Guardá-lo em cada snapshot seriam centenas de milhares de cópias da mesma string |
+| 20/09/2026 | **Gráfico em SVG à mão**, sem biblioteca | 50–200 KB para desenhar uma linha, num projeto sem etapa de build |
+| 20/09/2026 | Eixo vertical do gráfico **começa em zero** | Escala truncada exagera variação pequena e apaga magnitude; para fila, altura da linha tem de ser a fila |
+| 20/09/2026 | O `<svg>` leva `aria-label` descrevendo a curva | Gráfico sem rótulo é invisível para leitor de tela, e os números do resumo não contam a forma |
+| 20/09/2026 | O gatilho do gráfico é um `<button>`, não um `<div>` | Foco por teclado e acionamento por Enter/Espaço vêm de graça; refazer num div falha em silêncio |
 
 ---
 

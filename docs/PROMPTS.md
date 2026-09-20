@@ -933,6 +933,38 @@ nos últimos 30 min."*
 
 ---
 
+### Prompt #039
+**Data:** 20/09/2026
+**Contexto:** Tendência entregue e no ar. Restavam os passos 6.4 (rota de histórico),
+6.5 (gráfico) e 6.6 (previsão).
+
+```
+Vamos nessa!
+```
+
+**O que resultou:** os passos **6.4 e 6.5** de uma vez — a rota sozinha seria invisível, a
+mesma lição do 6.3.
+
+- `core/history.py` — resumo de uma série (mín, média, máx, atual, amplitude).
+- `GET /parks/{id}/attractions/{id}/history?hours=6` — **o primeiro endpoint do NextUp que
+  serve dado nosso.** Todos os outros são a ThemeParks.wiki reempacotada.
+- Gráfico em **SVG escrito à mão**, sem biblioteca: 50–200 KB para desenhar uma linha não
+  se justificam num projeto sem etapa de build.
+- Suíte de 339 para **364 testes**.
+
+**Uma regra se inverteu entre as rotas.** Na recomendação, banco fora do ar é engolido e a
+resposta sai sem tendência. Na rota de histórico dá **503** — ali o histórico *é* a
+resposta, e servir série vazia mentiria dizendo que a fila ficou parada.
+
+**O erro de visualização percebido só ao olhar a captura:** a primeira versão escalava o
+eixo vertical do menor ao maior valor da série, que é o padrão de muitas bibliotecas. A
+linha de uma atração cujo histórico foi de 10 a 5 minutos ficava colada no fundo, e uma
+oscilação de cinco minutos desenhava a mesma queda dramática que um desabamento de 90 para
+5. Escala truncada exagera variação pequena e apaga magnitude; para fila, o eixo tem de
+começar em zero, e aí a altura da linha *é* a fila.
+
+---
+
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 

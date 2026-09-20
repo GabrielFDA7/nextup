@@ -38,12 +38,12 @@ documentação de decisões **fazem parte da entrega** — não são extras opci
 
 ## Estado atual
 
-**Fases 0 a 5 concluídas.** A Fase 6 está em andamento: **6.1 (storage), 6.2 (coletor) e
-6.3 (tendência)** estão prontos — o histórico é gravado no Neon e a justificativa já diz
-"caiu de 45 para 20". O próximo é o **6.4 (rota de histórico) ou o 6.5 (gráfico)**. O
-fatiamento da fase está na seção 7 de `docs/PROJETO.md`.
+**Fases 0 a 5 concluídas. Fase 6 quase fechada:** os passos **6.1 a 6.5** estão prontos —
+o histórico é coletado, persistido, analisado, exposto pela API e desenhado na tela. Falta
+só o **6.6, previsão da fila na chegada**. O fatiamento está na seção 7 de
+`docs/PROJETO.md`.
 
-**339 testes passando**: 309 na suíte rápida (~5s) e 30 de interface em navegador (~35s).
+**364 testes passando**: 326 na suíte rápida (~6s) e 38 de interface em navegador (~46s).
 CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
 
 Já existe e funciona:
@@ -57,8 +57,10 @@ Já existe e funciona:
 - `core/trends.py` — tendência da fila (subindo/caindo/estável), função pura
 - `cli.py` — comando `nextup`. Sem coordenadas lista filas; com `--lat/--lon` recomenda.
   `nextup --parks` lista os IDs de parque
-- `api/` — FastAPI com 4 rotas sob `/api`: `health`, `destinations`,
-  `parks/{id}/attractions` (o parque **sem** exigir posição, com `bounds` para o mapa) e
+- `core/history.py` — resumo de uma série de filas (mín, média, máx, amplitude)
+- `api/` — FastAPI com 5 rotas sob `/api`: `health`, `destinations`,
+  `parks/{id}/attractions` (o parque **sem** exigir posição, com `bounds` para o mapa),
+  `parks/{id}/attractions/{id}/history?hours` e
   `parks/{id}/recommendations?lat&lon&limit`. Docs automáticas em `/docs`
 - `web/` — interface em HTML/CSS/JS puro, servida pelo próprio FastAPI. Geolocation,
   mapa Leaflet, e **tocar no mapa define a posição** (saída para quem nega o GPS).
@@ -75,7 +77,7 @@ Já existe e funciona:
   `cli.py` porque orquestra `clients/` + `storage/`
 - `tests/test_arquitetura.py` — a regra de dependência é verificada automaticamente
 - `tests/test_migracoes.py` — aplica as migrações e compara com `tables.py`
-- `tests/test_web_e2e.py` — 30 testes em Chromium real (`pytest -m e2e`)
+- `tests/test_web_e2e.py` — 38 testes em Chromium real (`pytest -m e2e`)
 - Fixtures reais da API em `tests/fixtures/`; nenhum teste toca a internet
 - `.venv` local com **Python 3.13**, mesma versão mais alta testada no CI
 
@@ -104,8 +106,22 @@ arredondados, ícones SVG e marcadores numerados no mapa. Tema escuro revisado: 
 quentes clareiam nele, então a tinta por cima inverte via `--sobre-quente` — sem isso, o
 botão principal ficaria branco sobre coral claro.
 
-**Pendência:** **Fase 6**, passos 6.4 a 6.6 — rota de histórico, gráfico e previsão na
-chegada.
+**Pendência:** **Fase 6**, passo **6.6** — previsão da fila na chegada. O `/live` traz um
+campo `forecast` (previsão horária da própria fonte) que serve de **baseline**: medir o
+nosso modelo contra ele é bem mais forte que só entregar uma previsão.
+
+**O histórico na API e na tela (6.4 e 6.5).** A rota de histórico é o primeiro endpoint
+que serve **dado nosso**. O gráfico é SVG escrito à mão — sem biblioteca, coerente com a
+decisão de não ter etapa de build.
+
+> ⚠️ **A regra de falha se inverte entre as duas rotas.** Na recomendação, banco fora do
+> ar é engolido e a resposta sai sem tendência. Na rota de histórico, banco fora do ar dá
+> **503** — ali o histórico *é* a resposta, e série vazia mentiria dizendo que a fila
+> ficou parada.
+
+> ⚠️ **O eixo vertical do gráfico começa em zero**, e não no menor valor da série. Escala
+> truncada exagera variação pequena e apaga magnitude; para fila, a altura da linha tem de
+> *ser* a fila. Isso foi um bug real, percebido só ao olhar a captura de tela.
 
 **A tendência (6.3).** `core/trends.py`, função pura. Os dois números do algoritmo vieram
 de **medição sobre dados reais**, não de intuição: o limiar é 5 min porque 218 de 218
@@ -241,7 +257,7 @@ pip install -e ".[dev]"
 Verificar que tudo está de pé:
 
 ```bash
-pytest -m "not e2e"    # esperado: 309 testes, ~5s
+pytest -m "not e2e"    # esperado: 326 testes, ~6s
 ruff check .
 ruff format --check .
 ```
@@ -261,7 +277,7 @@ uvicorn nextup.api.main:app --reload     # http://127.0.0.1:8000
 Testes de interface (exigem `pip install -e ".[dev,e2e]"` e `playwright install chromium`):
 
 ```bash
-pytest -m e2e          # esperado: 30 testes, ~35s
+pytest -m e2e          # esperado: 38 testes, ~46s
 ```
 
 ---
