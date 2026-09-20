@@ -434,10 +434,20 @@ async function buscarRecomendacoes() {
   estado.carregando = true;
   mostrarEsqueleto();
 
+  // `limit=0` pede o ranking INTEIRO, e quem corta é a exibição.
+  //
+  // Pedir só oito parecia econômico e escondia um bug: marcar as oito como "já
+  // fui" esvaziava a tela, porque as outras dezoito nunca haviam sido enviadas.
+  // Pior, o app então anunciava "você já passou por todas as atrações
+  // disponíveis" — uma mentira, com vinte atrações livres a poucos metros.
+  //
+  // É a terceira vez que este projeto tropeça no mesmo padrão: pedir a lista já
+  // cortada e depois tentar raciocinar sobre ela. A regra registrada no CLAUDE.md
+  // é justamente esta — **peça tudo, corte na exibição**.
   const parametros = new URLSearchParams({
     lat: estado.posicao.lat,
     lon: estado.posicao.lon,
-    limit: LIMITE,
+    limit: 0,
   });
 
   try {
@@ -570,17 +580,13 @@ function renderizar(dados) {
     return;
   }
 
-  // As já visitadas saem do ranking — é o que o consultor de parque faz: ele não
-  // manda você de volta para onde você acabou de ir. Mas saem do ranking, não da
-  // existência: o aviso abaixo diz quantas são e deixa revê-las.
-  const visiveis = estado.mostrandoVisitadas
-    ? dados.recommendations
-    : dados.recommendations.filter((r) => !estado.visitadas.has(r.attraction.id));
-
+  const visiveis = escolherVisiveis(dados.recommendations);
   atualizarAvisoDeVisitadas(dados.recommendations);
 
   if (visiveis.length === 0) {
     el.lista.innerHTML = "";
+    // Agora esta frase é verdade. Antes ela aparecia com oito marcadas de vinte e
+    // oito disponíveis, porque a lista pedida ao servidor já vinha cortada.
     mostrarAviso(
       "Você já passou por todas as atrações disponíveis agora. Nada mal.",
       "info"
@@ -602,6 +608,29 @@ function renderizar(dados) {
 
   el.atualizado.textContent = `Dado da fonte às ${formatarHora(dados.data_updated_at)}.`;
   el.atualizado.hidden = false;
+}
+
+/* Quais recomendações vão para a tela, a partir do ranking inteiro.
+ *
+ * O corte acontece **depois** de tirar as visitadas, e é essa ordem que conserta
+ * o bug: cortar antes deixaria a tela vazia assim que as oito primeiras fossem
+ * marcadas, escondendo as vinte seguintes.
+ *
+ * No modo "Mostrar", as visitadas voltam **sem empurrar as outras para fora**. Se
+ * o corte fosse aplicado à lista já misturada, revelar oito visitadas expulsaria
+ * as oito sugestões — e o visitante perderia de vista justamente o que precisa
+ * decidir. Aqui as duas coisas convivem: as melhores disponíveis, mais o que já
+ * foi feito, reordenadas pelo custo.
+ */
+function escolherVisiveis(recomendacoes) {
+  const disponiveis = recomendacoes.filter((r) => !estado.visitadas.has(r.attraction.id));
+  const proximas = disponiveis.slice(0, LIMITE);
+
+  if (!estado.mostrandoVisitadas) return proximas;
+
+  const marcadas = recomendacoes.filter((r) => estado.visitadas.has(r.attraction.id));
+
+  return [...proximas, ...marcadas].sort((a, b) => a.total_minutes - b.total_minutes);
 }
 
 /* O aviso das visitadas: quantas são e como revê-las.

@@ -276,10 +276,16 @@ def _recomendacoes_como_a_api_devolve(*, com_tendencia: bool = False) -> dict:
             trends=tendencias,
         )
 
+    # Limite zero: devolve o ranking INTEIRO, que é o que a tela passou a pedir.
+    #
+    # O mock devolvia oito fixos, e isso escondia o bug que o Gabriel encontrou em
+    # 20/09/2026: marcando as oito como visitadas, a tela ficava vazia porque as
+    # outras dezoito nunca tinham sido enviadas. Um mock que devolve menos que a
+    # API real testa um app que não existe.
     resposta = RecommendationsOut.from_domain(
         catalogo,
         ranking,
-        8,
+        0,
         max((i.last_updated for i in ao_vivo.live_data), default=None),
     )
     return json.loads(resposta.model_dump_json())
@@ -407,14 +413,19 @@ class TestJaFuiHoje:
         pagina.wait_for_selector("[data-modo='ranking'] .item")
         return pagina
 
-    def test_marcar_tira_a_atracao_do_ranking(self, navegador, servidor):
-        """É o que o consultor de parque faz: não te manda de volta onde já foi."""
+    def test_marcar_tira_a_atracao_e_promove_outra(self, navegador, servidor):
+        """É o que o consultor de parque faz: não te manda de volta onde já foi.
+
+        E a lista **não encolhe** — a nona colocada sobe. A tela mostra oito
+        sugestões porque oito é o que cabe, não porque oito é o que existe.
+        """
         pagina = self.com_ranking(navegador, servidor)
-        antes = pagina.locator("[data-modo='ranking'] .item").count()
+        marcada = pagina.locator(".item .nome").first.inner_text()
 
         pagina.locator(".marcar-visitada").first.click()
 
-        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(antes - 1)
+        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(8)
+        assert marcada not in pagina.locator("#lista").inner_text()
 
     def test_avisa_quantas_foram_escondidas(self, navegador, servidor):
         """Esconder sem dizer que escondeu é a diferença entre ajudar e parecer quebrado."""
@@ -431,13 +442,17 @@ class TestJaFuiHoje:
         expect(pagina.locator("#visitadas-aviso")).to_be_hidden()
 
     def test_mostrar_traz_as_visitadas_de_volta(self, navegador, servidor):
+        """A visitada **se soma** às oito sugestões, em vez de ocupar a vaga de uma.
+
+        Se ela tomasse o lugar, revelar o que já foi feito custaria uma sugestão —
+        e quanto mais o visitante andasse pelo parque, menos o app teria a dizer.
+        """
         pagina = self.com_ranking(navegador, servidor)
-        antes = pagina.locator("[data-modo='ranking'] .item").count()
 
         pagina.locator(".marcar-visitada").first.click()
         pagina.click("#btn-mostrar-visitadas")
 
-        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(antes)
+        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(9)
         expect(pagina.locator(".item--visitada")).to_have_count(1)
 
     def test_a_visitada_nao_e_a_melhor_escolha(self, navegador, servidor):
@@ -496,6 +511,56 @@ class TestJaFuiHoje:
         pagina.wait_for_timeout(1200)
 
         expect(pagina.locator("#visitadas-aviso")).to_be_hidden()
+
+    def test_marcar_as_oito_revela_as_proximas(self, navegador, servidor):
+        """O bug relatado pelo Gabriel em 20/09/2026.
+
+        A tela mostra oito, e a tela **pedia** oito ao servidor. Marcando as oito
+        como visitadas, a lista esvaziava — e o app anunciava "você já passou por
+        todas as atrações disponíveis", com vinte atrações livres a poucos metros.
+
+        A causa é o padrão que este projeto já tropeçou três vezes: pedir a lista
+        cortada e depois raciocinar sobre ela. A correção é a regra registrada no
+        CLAUDE.md — peça tudo, corte na exibição.
+        """
+        pagina = self.com_ranking(navegador, servidor)
+        primeiros = pagina.locator("[data-modo='ranking'] .item .nome").all_inner_texts()
+
+        for _ in range(8):
+            pagina.locator(".marcar-visitada").first.click()
+            pagina.wait_for_timeout(120)
+
+        # A lista continua cheia, e com nomes que não estavam lá antes.
+        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(8)
+
+        novos = pagina.locator("[data-modo='ranking'] .item .nome").all_inner_texts()
+
+        assert not set(novos) & set(primeiros), "as visitadas voltaram para a lista"
+        expect(pagina.locator("#visitadas-texto")).to_contain_text("8 atrações")
+
+    def test_a_melhor_escolha_e_promovida_a_cada_marcacao(self, navegador, servidor):
+        """Sempre há uma melhor escolha enquanto houver atração disponível."""
+        pagina = self.com_ranking(navegador, servidor)
+
+        for _ in range(8):
+            pagina.locator(".marcar-visitada").first.click()
+            pagina.wait_for_timeout(120)
+            expect(pagina.locator(".etiqueta")).to_have_count(1)
+
+    def test_mostrar_nao_expulsa_as_sugestoes(self, navegador, servidor):
+        """Revelar as visitadas não pode empurrar para fora o que interessa decidir."""
+        pagina = self.com_ranking(navegador, servidor)
+
+        for _ in range(3):
+            pagina.locator(".marcar-visitada").first.click()
+            pagina.wait_for_timeout(120)
+
+        disponiveis = pagina.locator("[data-modo='ranking'] .item").count()
+        pagina.click("#btn-mostrar-visitadas")
+
+        # As oito sugestões continuam, e as três visitadas se somam a elas.
+        expect(pagina.locator(".item--visitada")).to_have_count(3)
+        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(disponiveis + 3)
 
     def test_o_botao_anuncia_o_estado(self, navegador, servidor):
         """`aria-pressed` leva a mesma informação que a cor, para quem não a vê."""
