@@ -1,4 +1,4 @@
-# NextUp — Assistente Inteligente de Filas em Parques
+﻿# NextUp — Assistente Inteligente de Filas em Parques
 
 > Documento vivo. Nasceu em 11/09/2026 e é atualizado a cada decisão tomada.
 > Registro de contexto, decisões e arquitetura. Se algo mudar, muda aqui primeiro.
@@ -6,9 +6,9 @@
 > **Status atual: Fases 0 a 5 concluídas.** O projeto está no ar em
 > <https://nextup-rcux.onrender.com>.
 >
-> **Fase 6 em andamento** — o passo 6.1 (fundação do storage) foi concluído em
-> 15/09/2026. Próximo passo: **6.2, o coletor periódico**. 201 testes na suíte rápida,
-> 21 de interface em navegador.
+> **Fase 6 em andamento** — passos 6.1 (storage) e 6.2 (coletor) concluídos; o histórico
+> já está sendo gravado. Próximo passo: **6.3, tendência como função pura no `core/`**.
+> 242 testes na suíte rápida, 21 de interface em navegador.
 
 ---
 
@@ -572,7 +572,7 @@ o coletor vem cedo — ele enche o banco enquanto o resto é construído.
 |---|---|---|
 | 6.1 | `QueueSnapshot`, pasta `storage/`, SQLAlchemy, Alembic | ✅ 15/09/2026 |
 | — | Banco de produção provisionado no Neon, migração aplicada | ✅ 15/09/2026 |
-| 6.2 | Coletor periódico gravando o Magic Kingdom | pendente |
+| 6.2 | Coletor periódico gravando o Magic Kingdom | ✅ 20/09/2026 |
 | 6.3 | `core/trends.py` — tendência como função pura | pendente |
 | 6.4 | Rota `GET /api/.../history` | pendente |
 | 6.5 | Gráfico da fila na interface | pendente |
@@ -649,6 +649,66 @@ não confia em nenhuma CA precisa ser recusado, senão a verificação seria dec
 > explícita para apagar dados reais. O `conftest.py` sobrescreve a URL para SQLite em
 > memória antes de qualquer `import nextup`, e `tests/test_trava_de_seguranca.py` existe
 > para que remover essa trava quebre a suíte em vez de passar em silêncio.
+
+#### 6.2 — O coletor ✅ *concluída em 20/09/2026*
+
+`src/nextup/collector.py`, no mesmo nível do `cli.py`. A posição é deliberada: o coletor
+*orquestra* — pede ao `clients/` e entrega ao `storage/`. Não é `core/`, porque não é
+lógica pura; não é `api/`, porque não traduz HTTP.
+
+Sobe como tarefa de fundo no `lifespan` do FastAPI e **compartilha o cliente com as
+rotas**, de propósito: os dois passam a dividir o mesmo cache, e uma coleta que caia
+dentro dos 60 segundos do `/live` reaproveita o que uma visita ao site acabou de buscar.
+
+Verificado contra a API ao vivo e o Neon real: 35 atrações lidas, 35 gravadas, e a segunda
+coleta imediata gravou **zero** — a defesa contra duplicata funcionando em produção, não
+só em teste. Das 35, sete estavam abertas sem fila medida, confirmando de novo a primeira
+lição do projeto.
+
+**Quatro decisões que um processo de fundo erra com frequência**, e que aqui estão
+resolvidas explicitamente:
+
+1. **A primeira coleta acontece antes da primeira espera.** Parece detalhe e não é: o
+   Render hiberna, e o serviço só acorda quando chega uma requisição. Esperar o intervalo
+   antes de agir faria cada despertar render menos dado — num dia de pouco acesso, quase
+   nenhum.
+2. **Nenhuma falha derruba o laço.** A fonte é de terceiros e gratuita; vai cair algum
+   dia. Um coletor que morre na primeira falha só é descoberto semanas depois, quando
+   alguém repara no buraco do gráfico.
+3. **O cancelamento atravessa intacto.** `CancelledError` herda de `BaseException`
+   justamente para não ser pega por um `except Exception` distraído — mas o `except`
+   explícito documenta a intenção. Engolir o cancelamento faria o servidor travar ao
+   desligar.
+4. **Só atrações entram no histórico.** O `/live` devolve o parque inteiro, shows e
+   restaurantes junto. Guardar o Castelo da Cinderela — sempre aberto, nunca com fila —
+   seriam dezenas de milhares de linhas idênticas. O tipo vem do catálogo, que tem cache
+   de 24h: o filtro custa uma requisição por dia, não uma por coleta.
+
+**A armadilha que pegou quem a escreveu.** O primeiro teste do laço procurou os snapshots
+numa janela ao redor do relógio de teste e não achou nada. Motivo: `observed_at` vem do
+`lastUpdated` da fonte — e as fixtures foram capturadas em 12/09, não no dia do teste. É a
+distinção entre as duas datas se provando real logo na primeira vez que importou. Virou o
+teste `test_o_instante_gravado_e_o_da_fonte`.
+
+**Migrações passaram a ser aplicadas no deploy.** O `CMD` do contêiner agora roda
+`alembic upgrade head && exec uvicorn ...`. O `&&` importa: migração que falha impede o
+servidor de subir, o que é falhar alto — e muito melhor que subir consultando uma coluna
+que ainda não existe. Isso exigiu copiar `migrations/` e `alembic.ini` para a imagem (o
+Alembic lê os scripts do disco, não do pacote instalado) e dar ao usuário sem privilégios
+a posse de `/app`, senão o SQLite padrão do CI não poderia ser criado.
+
+> **Duas coisas que não valem para o CI.** O coletor sobe **desligado** lá
+> (`NEXTUP_COLLECTOR_ENABLED=false`): verificar a imagem não justifica gerar tráfego numa
+> API pública mantida por voluntários a cada build. E dois passos novos conferem que a
+> migração rodou de fato — sem eles, alguém poderia remover `migrations/` da imagem e nada
+> quebraria, porque o servidor subiria igual.
+
+**Limitação conhecida, herdada do plano gratuito:** o Render hiberna após ~15 min sem
+acesso **de entrada**, e requisições que o coletor faz para fora não contam como
+atividade. Com o serviço dormindo, não há coleta. O `keep-alive.yml`, que existia para o
+link de portfólio não abrir em tela branca, passou a ser o que mantém o histórico contínuo
+— uma responsabilidade bem maior que a original. Se o GitHub desativar o agendamento por
+inatividade do repositório, o histórico ganha buracos silenciosos.
 
 ---
 
@@ -759,6 +819,14 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **Pooler** | Intermediário que reaproveita conexões do banco; o `-pooler` no host do Neon indica que se está falando com ele |
 | **Variável de ambiente** | Configuração que vem de fora do código, o jeito padrão de entregar segredo a uma aplicação |
 | **`.env`** | Arquivo local com as variáveis de ambiente do projeto. **Nunca vai para o git** |
+| **Tarefa de fundo** | Trabalho que roda em paralelo ao servidor, sem ninguém ter pedido por requisição |
+| **`asyncio.Task`** | Uma corrotina posta para rodar sozinha; dá para cancelar e esperar terminar |
+| **Cancelamento** | Pedido para uma tarefa parar. Só tem efeito no próximo ponto em que ela espera por algo |
+| **`CancelledError`** | O aviso de cancelamento. Herda de `BaseException` de propósito, para não ser pega por engano |
+| **`BaseException` vs. `Exception`** | Quase todo erro é `Exception`; o que não deve ser pego por acidente fica fora dela |
+| **Idempotência** | Repetir a operação não muda o resultado — é o que a unicidade dá ao coletor |
+| **Entrypoint / `CMD`** | O comando que o contêiner roda ao subir; onde encadear migração e servidor |
+| **`sync: false`** | No Render, declara que a variável existe mas o valor vem do painel — jeito de declarar segredo |
 
 ---
 
@@ -835,6 +903,17 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 15/09/2026 | `config.py` carrega o `.env` com `override=False` | Evita exportar variável na mão a cada comando, e variável do ambiente continua vencendo o arquivo em produção |
 | 15/09/2026 | Trava no `conftest.py` forçando SQLite na suíte | Com o `.env` carregado, a URL padrão passou a apontar para produção — um teste distraído apagaria dados reais |
 | 15/09/2026 | CLI do Neon e `neon.ts` **descartados** | Fluxo Node/TypeScript; o NextUp é Python e faz deploy pelo Render. Do Neon o projeto só precisa da connection string |
+| 20/09/2026 | Coletor em `collector.py`, nível do `cli.py` | Ele orquestra `clients/` + `storage/`; não é lógica pura nem tradução de HTTP |
+| 20/09/2026 | Coletor como tarefa de fundo do FastAPI | Mais simples que agendador externo, e o `keep-alive` já mantém o serviço acordado. Cron do Render é plano pago |
+| 20/09/2026 | Coletor **compartilha o cliente** com as rotas | Os dois dividem o cache: coleta dentro dos 60s reaproveita o que uma visita ao site buscou |
+| 20/09/2026 | Coletor **ligado por padrão** | Desligado pareceria seguro, mas troca falha barulhenta por silenciosa — histórico não coletado não se recupera |
+| 20/09/2026 | Intervalo de 5 minutos | Acompanha o ritmo da fonte; mais rápido traria a mesma medição, que a unicidade recusaria |
+| 20/09/2026 | Primeira coleta antes da primeira espera | O Render hiberna; esperar o intervalo faria cada despertar render menos dado |
+| 20/09/2026 | Só atrações entram no histórico | Shows e restaurantes nunca têm fila; guardá-los seriam dezenas de milhares de linhas idênticas |
+| 20/09/2026 | `attraction_ids()` ignora a coordenada | Coordenada é requisito para *ranquear*, não para *ter histórico* — e passado descartado não volta |
+| 20/09/2026 | Migrações aplicadas no `CMD` do contêiner | Passo manual antes de cada deploy é passo que alguém esquece; com `&&`, migração ruim impede o servidor de subir |
+| 20/09/2026 | Coletor **desligado** no CI | Verificar a imagem não justifica gerar tráfego numa API pública a cada build |
+| 20/09/2026 | `NEXTUP_DATABASE_URL` com `sync: false` no `render.yaml` | Declara que a variável existe sem pôr a senha num repositório público |
 
 ---
 

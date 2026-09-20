@@ -38,11 +38,11 @@ documentação de decisões **fazem parte da entrega** — não são extras opci
 
 ## Estado atual
 
-**Fases 0 a 5 concluídas.** A Fase 6 está em andamento: o passo **6.1 (fundação do
-storage) foi concluído em 15/09/2026**; o próximo é o **6.2, o coletor periódico**.
-O fatiamento da fase está na seção 7 de `docs/PROJETO.md`.
+**Fases 0 a 5 concluídas.** A Fase 6 está em andamento: **6.1 (storage) e 6.2 (coletor)
+concluídos** — o histórico já está sendo gravado no Neon. O próximo é o **6.3, tendência
+como função pura no `core/`**. O fatiamento da fase está na seção 7 de `docs/PROJETO.md`.
 
-**246 testes passando**: 225 na suíte rápida (~3s) e 21 de interface em navegador (~46s).
+**263 testes passando**: 242 na suíte rápida (~4s) e 21 de interface em navegador (~46s).
 CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
 
 Já existe e funciona:
@@ -63,7 +63,11 @@ Já existe e funciona:
   `engine.py` (conexão) e `snapshots.py` (gravar, consultar, limpar). SQLAlchemy Core,
   assíncrono, SQLite no desenvolvimento e Postgres na produção
 - `migrations/` — Alembic com template assíncrono. A URL vem do ambiente, **nunca** do
-  `alembic.ini`, que é versionado num repositório público
+  `alembic.ini`, que é versionado num repositório público. O contêiner aplica
+  `alembic upgrade head` no start, antes do uvicorn
+- `collector.py` — **o coletor** (Fase 6.2). Sobe como tarefa de fundo no `lifespan`,
+  coleta a cada 5 min, guarda só atrações e compartilha o cliente com as rotas. Nível do
+  `cli.py` porque orquestra `clients/` + `storage/`
 - `tests/test_arquitetura.py` — a regra de dependência é verificada automaticamente
 - `tests/test_migracoes.py` — aplica as migrações e compara com `tables.py`
 - `tests/test_web_e2e.py` — 21 testes em Chromium real (`pytest -m e2e`)
@@ -95,8 +99,18 @@ arredondados, ícones SVG e marcadores numerados no mapa. Tema escuro revisado: 
 quentes clareiam nele, então a tinta por cima inverte via `--sobre-quente` — sem isso, o
 botão principal ficaria branco sobre coral claro.
 
-**Pendência:** **Fase 6**, passos 6.2 a 6.6 — coletor, tendência, rota de histórico,
-gráfico e previsão na chegada.
+**Pendência:** **Fase 6**, passos 6.3 a 6.6 — tendência, rota de histórico, gráfico e
+previsão na chegada.
+
+**O coletor (6.2).** Ligado por padrão (`NEXTUP_COLLECTOR_ENABLED`), a cada 5 min, só
+Magic Kingdom. A suíte o desliga no `conftest.py`, e o CI também — bater na ThemeParks.wiki
+a cada build seria má educação com uma API pública mantida por voluntários.
+
+> ⚠️ **O Render hiberna após ~15 min sem acesso *de entrada*.** As requisições que o
+> coletor faz para fora **não** contam como atividade. Com o serviço dormindo não há
+> coleta, então o `keep-alive.yml` deixou de ser só cosmético: é ele que mantém o
+> histórico contínuo. Se o GitHub desativar o agendamento por inatividade do repositório,
+> aparecem buracos silenciosos no histórico.
 
 **O banco (Fase 6).** Produção é um **Postgres no Neon** — projeto
 `mute-forest-48970873`, branch `production`, região `sa-east-1` — com a migração já
@@ -202,7 +216,7 @@ pip install -e ".[dev]"
 Verificar que tudo está de pé:
 
 ```bash
-pytest -m "not e2e"    # esperado: 225 testes, ~3s
+pytest -m "not e2e"    # esperado: 242 testes, ~4s
 ruff check .
 ruff format --check .
 ```

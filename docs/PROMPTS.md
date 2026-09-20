@@ -751,6 +751,45 @@ export default defineConfig({});
 
 ---
 
+## Sessão 006 — 20/09/2026
+
+### Prompt #034
+**Data:** 20/09/2026
+**Contexto:** Cinco dias após a sessão anterior. O push pendente já tinha sido feito pelo
+Gabriel, e o banco no Neon estava provisionado e vazio.
+
+```
+Voltamos!
+Temos um próximo passo definido?
+```
+
+**O que resultou:** o passo **6.2 — o coletor** foi implementado por inteiro.
+
+- `src/nextup/collector.py`, no nível do `cli.py` porque orquestra `clients/` + `storage/`.
+- Sobe como tarefa de fundo no `lifespan` do FastAPI, compartilhando o cliente com as
+  rotas para os dois dividirem o mesmo cache.
+- `ParkCatalog.attraction_ids()` — mais permissivo que `attractions()`, porque coordenada
+  é requisito para ranquear, não para ter histórico.
+- Quatro variáveis novas no `config.py`, com `_env_bool` (sem ele, `"false"` seria
+  verdadeiro em Python).
+- **Validado contra a API ao vivo e o Neon real:** 35 atrações lidas, 35 gravadas, e a
+  segunda coleta imediata gravou zero. Sete estavam abertas sem fila medida.
+- `render.yaml` ganhou `NEXTUP_DATABASE_URL` com `sync: false` e as variáveis do coletor.
+- **Decisão do Gabriel:** automatizar as migrações no contêiner. O `CMD` virou
+  `alembic upgrade head && exec uvicorn ...`, o que exigiu copiar `migrations/` e
+  `alembic.ini` para a imagem e dar ao usuário sem privilégios a posse de `/app`.
+- CI: coletor desligado nos contêineres de teste (não gerar tráfego numa API pública a
+  cada build) e dois passos novos confirmando que a migração rodou.
+- Suíte de **225 para 242 testes** na parte rápida.
+
+**A armadilha que pegou quem escreveu o teste:** a primeira versão do teste do laço
+procurou os snapshots numa janela ao redor do relógio de teste e não achou nada, porque
+`observed_at` vem do `lastUpdated` da fonte — e as fixtures são de 12/09. A distinção
+entre as duas datas se provou real na primeira vez que importou, e virou o teste
+`test_o_instante_gravado_e_o_da_fonte`.
+
+---
+
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 
