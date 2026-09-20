@@ -890,6 +890,49 @@ explicitamente.
 
 ---
 
+### Prompt #038
+**Data:** 20/09/2026
+**Contexto:** Testando a busca de parques recém-implementada, o Gabriel encontrou um bug
+e liberou o passo seguinte na mesma mensagem.
+
+```
+Uma correção a ser feita:
+
+Quando digitamos o nome do parque a lista suspensa se ajusta a opção com o nome mais próximo e isso é ótimo. Porém, quando damos enter, o mapa não se ajusta ao parque. 
+
+Podemos seguir com a tendência.
+```
+
+**O que resultou — a correção:**
+- Causa: filtrar reconstrói o `<select>` e o navegador passa a **exibir** a primeira
+  opção, mas exibir não é selecionar. Nenhum `change` disparava, e a tela mentia — dizia
+  "EPCOT" enquanto o app continuava no Magic Kingdom.
+- A troca de parque virou função própria, usada pelos dois caminhos.
+- Dois problemas achados ao escrever os testes desta correção: os E2E **não interceptavam
+  `/attractions`**, então tocavam a ThemeParks.wiki de verdade; e vários esperavam por
+  `.item` sem qualificar o modo, o que criou um teste que passava sozinho e falhava na
+  suíte. Ambos corrigidos.
+
+**O que resultou — a Fase 6.3, tendência:**
+- `core/trends.py`, função pura. **Os dois números do algoritmo saíram de medição sobre
+  os 228 snapshots já coletados**, não de intuição:
+  - 218 de 218 medições são múltiplos de 5 → limiar de 5 min.
+  - 118 de 189 variações consecutivas eram zero → janela de 30 min, comparando com o
+    início e não com a medição anterior.
+- Integrada ao ranking, à API (`TrendOut`) e à tela (seta + cor + texto).
+- **A tendência não reordena** o ranking: seria trocar a tese do projeto por heurística.
+- Degradação graciosa verificada em três cenários: sem banco, banco fora do ar, e banco
+  sem a tabela.
+- `park_history()` novo, para não fazer 35 idas ao banco por resposta.
+- Verificado na tela com dados reais do Neon: *"Subiu de 10 para 15 nos últimos 22 min."*
+- Suíte de 294 para **339 testes**.
+
+**A frase prometida desde 11/09/2026 agora existe de verdade:**
+*"Swiss Family Treehouse — 3 min de caminhada + 5 min de fila = 8 min. Caiu de 45 para 20
+nos últimos 30 min."*
+
+---
+
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 

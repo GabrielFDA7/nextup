@@ -646,7 +646,7 @@ o coletor vem cedo — ele enche o banco enquanto o resto é construído.
 | 6.1 | `QueueSnapshot`, pasta `storage/`, SQLAlchemy, Alembic | ✅ 15/09/2026 |
 | — | Banco de produção provisionado no Neon, migração aplicada | ✅ 15/09/2026 |
 | 6.2 | Coletor periódico gravando o Magic Kingdom | ✅ 20/09/2026 |
-| 6.3 | `core/trends.py` — tendência como função pura | pendente |
+| 6.3 | `core/trends.py` — tendência como função pura | ✅ 20/09/2026 |
 | 6.4 | Rota `GET /api/.../history` | pendente |
 | 6.5 | Gráfico da fila na interface | pendente |
 | 6.6 | Previsão da fila **na chegada** | pendente |
@@ -794,6 +794,53 @@ comportamento observado confirma.
 > porque não há problema para corrigir, e configuração preventiva sem evidência é código
 > que ninguém sabe por que existe.
 
+#### 6.3 — Tendência ✅ *concluída em 20/09/2026*
+
+A frase que a seção 4 deste documento promete desde 11/09/2026 finalmente existe:
+
+> Swiss Family Treehouse — 3 min de caminhada + 5 min de fila = 8 min.
+> **Caiu de 45 para 20 nos últimos 30 min.**
+
+`core/trends.py` é lógica pura — entra lista de `QueueSnapshot`, sai uma direção. Não
+conhece banco nem rede, e o `test_arquitetura.py` garante que continue assim.
+
+**Os dois números do algoritmo saíram de medição, não de intuição.** Sobre os 228
+snapshots reais já coletados:
+
+| Achado | Consequência no desenho |
+|---|---|
+| **218 de 218** medições são múltiplos de 5 | O limiar é 5 — o menor passo que a fonte reporta |
+| **118 de 189** variações consecutivas são **zero** | A janela é de 30 min, não "a medição anterior" |
+
+A segunda descoberta é a que decidiu tudo. A intuição mandaria comparar a medição atual
+com a anterior — e isso devolveria "estável" em quase dois terços dos casos, inclusive
+sobre uma fila que caiu de 60 para 20 ao longo da manhã. A comparação é contra o **início
+da janela**.
+
+O primeiro achado desmonta a tentação oposta: filtrar variações de ±5 como ruído. Elas são
+**53 das 71** variações não-nulas — três de cada quatro movimentos reais. Descartá-las
+faria a tendência viver dizendo que nada muda.
+
+**A tendência não reordena o ranking.** Uma fila caindo rápido ainda pode custar mais
+tempo total que uma parada ao lado; deixar a tendência mandar seria trocar a tese do
+projeto por uma heurística, sem ninguém decidir isso. Ela enriquece a justificativa e
+para por aí.
+
+**Degradação graciosa, verificada.** O ranking existe desde a Fase 2 e não podia passar a
+depender do banco. Sem banco configurado, com o Postgres fora do ar, ou antes de a
+migração rodar, a recomendação sai igual — só sem a frase. Três testes cobrem exatamente
+esses três cenários.
+
+Na tela, a tendência ganha seta e cor. A cor **não carrega a informação sozinha**: a seta
+aponta e o texto diz por extenso, então quem não distingue verde de vermelho lê a mesma
+coisa. E "estável" não aparece — ocupar uma linha para dizer que nada mudou é ruído numa
+tela usada de pé, no meio do parque.
+
+> **Onde isso ainda é fraco:** com poucas horas de histórico, apenas 2 das 8 atrações
+> exibidas têm tendência calculável. Não é defeito do algoritmo — é o banco enchendo. A
+> cobertura melhora sozinha a cada dia de coleta, e é exatamente por isso que o coletor
+> veio antes.
+
 **Limitação conhecida, herdada do plano gratuito:** o Render hiberna após ~15 min sem
 acesso **de entrada**, e requisições que o coletor faz para fora não contam como
 atividade. Com o serviço dormindo, não há coleta. O `keep-alive.yml`, que existia para o
@@ -921,6 +968,11 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **PgBouncer** | O pooler mais comum do Postgres; é o que responde no host terminado em `-pooler` |
 | **Prepared statement** | Consulta enviada uma vez e reutilizada com parâmetros diferentes; mais rápida, mas fica presa à conexão |
 | **Modo transação (pooler)** | O pooler devolve a conexão ao fim de cada transação, então clientes diferentes dividem a mesma conexão do servidor |
+| **Janela deslizante** | Olhar só para os últimos N minutos, descartando o que é velho demais para dizer algo sobre agora |
+| **Limiar (threshold)** | A variação mínima para algo contar como mudança, em vez de ruído |
+| **Série temporal** | Sequência de medições do mesmo valor ao longo do tempo — é o que o histórico de filas é |
+| **Degradação graciosa** | Perder um enfeite quando uma dependência cai, em vez de perder a resposta inteira |
+| **Acessibilidade de cor** | Não deixar a cor ser o único portador da informação; ~8% dos homens não distinguem verde de vermelho |
 
 ---
 
@@ -1017,6 +1069,15 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 20/09/2026 | Busca no seletor de parques | Com 198 parques, digitar "magic" é mais curto que rolar até o M |
 | 20/09/2026 | Destinos ordenados por número de parques | Alfabético punha "Aquatica" acima de "Walt Disney World"; o porte é o melhor sinal que a API dá sem inventar dado |
 | 20/09/2026 | Radicalidade **descartada**; popularidade em seu lugar | O catálogo não traz intensidade nem altura mínima. Fila média histórica é dado real que já coletamos |
+| 20/09/2026 | Tendência compara com o **início da janela**, não com a medição anterior | 118 de 189 variações consecutivas medidas eram zero; comparar consecutivas diria "estável" sobre uma queda de dois terços |
+| 20/09/2026 | Limiar de tendência = **5 minutos** | 218 de 218 medições são múltiplos de 5; exigir mais descartaria 3 de cada 4 movimentos reais |
+| 20/09/2026 | A tendência **não reordena** o ranking | Fila caindo rápido ainda pode custar mais tempo total; reordenar trocaria a tese do projeto por uma heurística |
+| 20/09/2026 | `UNKNOWN` não vira campo na API — vira ausência | Contrato público não deve ter estado que significa "não sei"; quem consome checa se o campo existe |
+| 20/09/2026 | Histórico indisponível **nunca** derruba a recomendação | O ranking existe desde a Fase 2 e não pode passar a depender do banco estar de pé |
+| 20/09/2026 | O engine do banco nasce sempre, não junto com o coletor | Amarrar os dois faria a tendência sumir sempre que alguém desligasse a coleta |
+| 20/09/2026 | `park_history()` em vez de um `history()` por atração | 35 idas ao banco para montar uma resposta; num Postgres remoto, cada ida custa a latência inteira |
+| 20/09/2026 | "Estável" não aparece na tela | Ocupar uma linha para dizer que nada mudou é ruído num app usado de pé |
+| 20/09/2026 | A cor da tendência não carrega a informação sozinha | Seta e texto dizem o mesmo; quem não distingue verde de vermelho lê igual |
 
 ---
 

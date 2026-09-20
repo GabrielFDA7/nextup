@@ -1,4 +1,4 @@
-﻿# NextUp — Contexto para o Claude Code
+# NextUp — Contexto para o Claude Code
 
 Este arquivo é lido automaticamente ao abrir o projeto. Ele existe para que qualquer
 sessão, em qualquer máquina, continue de onde a anterior parou.
@@ -38,11 +38,12 @@ documentação de decisões **fazem parte da entrega** — não são extras opci
 
 ## Estado atual
 
-**Fases 0 a 5 concluídas.** A Fase 6 está em andamento: **6.1 (storage) e 6.2 (coletor)
-concluídos** — o histórico já está sendo gravado no Neon. O próximo é o **6.3, tendência
-como função pura no `core/`**. O fatiamento da fase está na seção 7 de `docs/PROJETO.md`.
+**Fases 0 a 5 concluídas.** A Fase 6 está em andamento: **6.1 (storage), 6.2 (coletor) e
+6.3 (tendência)** estão prontos — o histórico é gravado no Neon e a justificativa já diz
+"caiu de 45 para 20". O próximo é o **6.4 (rota de histórico) ou o 6.5 (gráfico)**. O
+fatiamento da fase está na seção 7 de `docs/PROJETO.md`.
 
-**294 testes passando**: 272 na suíte rápida (~5s) e 22 de interface em navegador (~25s).
+**339 testes passando**: 309 na suíte rápida (~5s) e 30 de interface em navegador (~35s).
 CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
 
 Já existe e funciona:
@@ -53,6 +54,7 @@ Já existe e funciona:
 - `clients/cache.py` — cache com TTL, relógio injetável
 - `clients/themeparks.py` — cliente assíncrono, backoff exponencial, erros próprios
 - `core/recommender.py` — **o coração**: ranqueia por `custo_total = caminhada + fila`
+- `core/trends.py` — tendência da fila (subindo/caindo/estável), função pura
 - `cli.py` — comando `nextup`. Sem coordenadas lista filas; com `--lat/--lon` recomenda.
   `nextup --parks` lista os IDs de parque
 - `api/` — FastAPI com 4 rotas sob `/api`: `health`, `destinations`,
@@ -73,7 +75,7 @@ Já existe e funciona:
   `cli.py` porque orquestra `clients/` + `storage/`
 - `tests/test_arquitetura.py` — a regra de dependência é verificada automaticamente
 - `tests/test_migracoes.py` — aplica as migrações e compara com `tables.py`
-- `tests/test_web_e2e.py` — 22 testes em Chromium real (`pytest -m e2e`)
+- `tests/test_web_e2e.py` — 30 testes em Chromium real (`pytest -m e2e`)
 - Fixtures reais da API em `tests/fixtures/`; nenhum teste toca a internet
 - `.venv` local com **Python 3.13**, mesma versão mais alta testada no CI
 
@@ -102,8 +104,19 @@ arredondados, ícones SVG e marcadores numerados no mapa. Tema escuro revisado: 
 quentes clareiam nele, então a tinta por cima inverte via `--sobre-quente` — sem isso, o
 botão principal ficaria branco sobre coral claro.
 
-**Pendência:** **Fase 6**, passos 6.3 a 6.6 — tendência, rota de histórico, gráfico e
-previsão na chegada.
+**Pendência:** **Fase 6**, passos 6.4 a 6.6 — rota de histórico, gráfico e previsão na
+chegada.
+
+**A tendência (6.3).** `core/trends.py`, função pura. Os dois números do algoritmo vieram
+de **medição sobre dados reais**, não de intuição: o limiar é 5 min porque 218 de 218
+medições são múltiplos de 5, e a janela é de 30 min porque 118 de 189 variações
+consecutivas eram zero — comparar com a medição anterior diria "estável" quase sempre.
+Ela **não reordena** o ranking, só enriquece a justificativa.
+
+> ⚠️ **O histórico nunca pode derrubar a recomendação.** `_tendencias()` em `routes.py`
+> engole falha de banco de propósito: sem banco, com o Postgres fora do ar, ou antes da
+> migração, o ranking sai igual — só sem a frase. `tests/test_api_tendencia.py` vigia os
+> três cenários.
 
 **O coletor (6.2).** Ligado por padrão (`NEXTUP_COLLECTOR_ENABLED`), a cada 5 min, só
 Magic Kingdom. A suíte o desliga no `conftest.py`, e o CI também — bater na ThemeParks.wiki
@@ -228,7 +241,7 @@ pip install -e ".[dev]"
 Verificar que tudo está de pé:
 
 ```bash
-pytest -m "not e2e"    # esperado: 272 testes, ~5s
+pytest -m "not e2e"    # esperado: 309 testes, ~5s
 ruff check .
 ruff format --check .
 ```
@@ -248,7 +261,7 @@ uvicorn nextup.api.main:app --reload     # http://127.0.0.1:8000
 Testes de interface (exigem `pip install -e ".[dev,e2e]"` e `playwright install chromium`):
 
 ```bash
-pytest -m e2e          # esperado: 22 testes, ~25s
+pytest -m e2e          # esperado: 30 testes, ~35s
 ```
 
 ---
