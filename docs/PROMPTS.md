@@ -820,6 +820,76 @@ Correto?
 
 ---
 
+### Prompt #036
+**Data:** 20/09/2026
+**Contexto:** Variável criada no Render, coletor confirmado rodando em produção. Eu havia
+apontado o 6.3 como próximo passo, e ele sinalizou que tinha ideias próprias.
+
+```
+Beleza, qual o próximo passo? 
+Tenho algumas ideias que precisamos cobrir...
+```
+
+**O que resultou:** verificação de que o coletor está vivo em produção — três gravações
+do serviço no Render, de 19, 5 e 16 linhas. Não serem 35 a cada vez é a deduplicação
+funcionando com dados reais. E 21 atrações já tinham duas ou mais medições.
+
+---
+
+### Prompt #037
+**Data:** 20/09/2026
+**Contexto:** As ideias, em dois grupos.
+
+```
+São algumas coisas:
+
+Presonalização
+-> Adicionar Filtros 
+-> Escolha de radicalidade
+-> Brinquedos Alvo
+-> Repetir brinquedos (Sim ou não, escolha do usuário).
+
+Features
+-> Ao selecionar um parque, mapa muda automaticamente para as coordenadas do mapa
+-> Melhorar a aparência do seletor e como ele funciona (hoje está em ordem alfabética. Será que é a melhor forma de ordenar?)
+->Tela inicial apenas para selecionar o Parque
+-> Pensar em mais coisas que entregam mais do que uma simples API (o que faz o site ser diferenciado?).
+
+Essas são as ideias atuais.
+```
+
+**O que resultou — triagem, antes de implementar:**
+- **Investigação dos campos reais da API**, em vez de supor. Dois achados:
+  - O `/live` traz um campo **`forecast`** não usado: previsão de fila de hora em hora,
+    em 25 das 40 entidades. Reposiciona a Fase 6.6 — o caminho interessante passa a ser
+    usar a previsão deles como **baseline** e medir a nossa contra ela.
+  - O catálogo traz só `entityType, externalId, id, location, name, parentId, slug`.
+    **Radicalidade é impossível** com os dados atuais.
+- **Decisões do Gabriel:** atacar a UX barata primeiro; trocar radicalidade por
+  **popularidade** (fila média histórica).
+- Correção de um diagnóstico meu: o seletor **já** era agrupado por destino.
+
+**O que resultou — implementação:**
+- Rota `GET /api/parks/{id}/attractions`, que responde sem exigir posição, com `bounds`.
+- `core/geo.py` ganhou `bounding_box`; o mapa passou a usar `fitBounds`.
+- Busca no seletor, casando parque **e** destino; destinos ordenados por porte.
+- O app abre mostrando o parque, em vez de tela vazia.
+- Suíte de 263 para **294 testes**.
+
+**O bug que só apareceu ao rodar o app:** trocar para Disneyland Paris devolvia **502**.
+A ThemeParks.wiki manda `location: {latitude: null, longitude: null}` para atrações sem
+GPS, e como o `pydantic` valida a lista inteira de uma vez, **uma** atração sem coordenada
+derrubava as outras oitenta. O parque estava inacessível **desde a Fase 1**, e sobreviveu
+a 261 testes porque todas as fixtures são do Magic Kingdom, onde 86 de 86 entidades têm
+coordenada.
+
+**A armadilha percebida só ao olhar a captura de tela:** a lista sem posição ordenava
+pela menor fila — a pergunta que o projeto existe para contestar — e no Disneyland Paris
+os primeiros colocados eram playgrounds com fila zero. O texto passou a dizer isso
+explicitamente.
+
+---
+
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 

@@ -552,6 +552,79 @@ commits.
 > As Fases 3 a 5 formam o MVP completo. É o ponto em que o projeto já pode ir para o
 > LinkedIn.
 
+### Fase 6.5 — Correções de UX e um bug de três fases ✅ *20/09/2026*
+
+Rodada intercalada na Fase 6, a partir de ideias trazidas pelo Gabriel. Duas entregas de
+produto e **um bug sério encontrado ao rodar o app de verdade** — não pelos testes.
+
+#### O bug: o Disneyland Paris nunca funcionou
+
+Ao trocar de parque na interface, o app respondeu **502**. A causa:
+
+```
+34 validation errors for ParkCatalog
+children.11.location.latitude
+  Input should be a valid number [input_value=None]
+```
+
+A ThemeParks.wiki tem **duas** formas de dizer que não sabe onde algo fica: omitir o campo
+`location`, ou mandá-lo preenchido com `null` dentro. O projeto só entendia a primeira.
+
+O estrago era desproporcional à causa. O `pydantic` valida a lista inteira de uma vez,
+então **uma** atração sem GPS invalidava as outras oitenta e o parque inteiro sumia. O
+NextUp respondia "a fonte respondeu em formato inesperado" — culpando a fonte por um
+limite nosso.
+
+> **Por que isso sobreviveu a seis fases e 261 testes:** todas as fixtures são do Magic
+> Kingdom, onde 86 de 86 entidades têm coordenada. O bug era invisível para a suíte
+> inteira e só aparecia em parques que ninguém testava — que são 197 dos 198 do seletor.
+> Nenhum teste unitário o encontraria; **encontrá-lo exigiu abrir o app e clicar.**
+
+A correção é a mesma degradação graciosa do `EntityType._missing_`: coordenada incompleta
+vira ausência, a entidade continua no catálogo com nome e tipo, e só fica de fora do
+ranking — onde de fato não haveria distância a calcular. Verificado depois: Disneyland
+Paris responde 200, com 38 atrações e 29 filas.
+
+#### Ver o parque antes de dar a localização
+
+Até aqui, quem não liberasse o GPS via uma tela em branco. A rota nova
+`GET /api/parks/{id}/attractions` responde *"como está o parque?"*, que é pergunta
+legítima e não precisa saber onde o visitante está.
+
+Ela devolve também `bounds`, o retângulo que contém as atrações — e é o que conserta um
+comportamento que era quase um bug: escolher Disneyland Paris deixava o mapa parado na
+Flórida, sem nenhuma pista de que o parque tinha mudado. Enquadrar é melhor que
+centralizar, porque o zoom sai junto.
+
+> **A armadilha da tela nova, percebida só ao olhar a captura.** A lista sem posição é
+> ordenada pela menor fila — exatamente a pergunta que o projeto existe para contestar. No
+> Disneyland Paris os primeiros colocados eram *playgrounds com fila zero*: verdadeiros e
+> inúteis. Sem qualificação, seriam lidos como recomendação. O resumo agora diz, com
+> todas as letras, que aquilo está ordenado pela menor fila e que isso raramente é a
+> melhor escolha. A ressalva não é modéstia — é a tese do produto.
+
+O modo da lista virou atributo no DOM (`data-modo="panorama"` / `"ranking"`), porque os
+dois significados são diferentes demais para conviverem sem rótulo. Os testes E2E que
+falharam ao introduzir o panorama falharam **por estarem certos**: procuravam `.item` e
+encontravam o item errado.
+
+#### Seletor de parques
+
+Busca por nome, casando contra parque **e** destino — quem digita "disney" espera ver o
+Magic Kingdom, embora a palavra não apareça no nome dele. E os destinos passaram a ser
+ordenados por número de parques: alfabético punha "Aquatica" acima de "Walt Disney World
+Resort", que é o oposto do que a maioria procura.
+
+#### Radicalidade: descartada por falta de dado
+
+O catálogo inteiro traz apenas `entityType, externalId, id, location, name, parentId,
+slug`. Não há intensidade, altura mínima ou categoria. Filtrar por radicalidade exigiria
+curar 35 atrações à mão — dado nosso, que não escala para 198 parques. Decisão do Gabriel:
+trocar por **popularidade**, derivada da fila média histórica, que é dado real e já está
+sendo coletado. Fica para quando houver histórico suficiente.
+
+---
+
 ### Fase 6 — Inteligência Histórica *em andamento*
 Persistir snapshots de fila ao longo do tempo. Com histórico vêm as análises que mais
 valorizam o projeto: detecção de tendência, melhor horário por atração e previsão da fila
@@ -936,6 +1009,14 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 20/09/2026 | Coletor **desligado** no CI | Verificar a imagem não justifica gerar tráfego numa API pública a cada build |
 | 20/09/2026 | `NEXTUP_DATABASE_URL` com `sync: false` no `render.yaml` | Declara que a variável existe sem pôr a senha num repositório público |
 | 20/09/2026 | Conectar pelo endpoint **`-pooler`** do Neon | Verificado que a colisão clássica entre `asyncpg` e PgBouncer não ocorre; o pooler aguenta mais conexões que o endpoint direto |
+| 20/09/2026 | **`location` com nulos vira "sem coordenada"** | Uma atração sem GPS derrubava o catálogo inteiro; o Disneyland Paris estava inacessível desde a Fase 1 |
+| 20/09/2026 | Rota `/parks/{id}/attractions`, sem exigir posição | "Como está o parque?" e "para onde eu vou?" são perguntas diferentes, e só a segunda precisa de GPS |
+| 20/09/2026 | `bounds` na resposta, e `fitBounds` no mapa | Centralizar exigiria adivinhar o zoom; o certo para o Magic Kingdom é errado para um parque maior |
+| 20/09/2026 | O modo da lista vai no DOM (`data-modo`) | "Menores filas" e "o que compensa mais" são coisas diferentes; confundi-las é o erro que o projeto combate |
+| 20/09/2026 | O panorama **diz** que ordena pela menor fila | Sem a ressalva, os primeiros colocados seriam playgrounds com fila zero, lidos como recomendação |
+| 20/09/2026 | Busca no seletor de parques | Com 198 parques, digitar "magic" é mais curto que rolar até o M |
+| 20/09/2026 | Destinos ordenados por número de parques | Alfabético punha "Aquatica" acima de "Walt Disney World"; o porte é o melhor sinal que a API dá sem inventar dado |
+| 20/09/2026 | Radicalidade **descartada**; popularidade em seu lugar | O catálogo não traz intensidade nem altura mínima. Fila média histórica é dado real que já coletamos |
 
 ---
 

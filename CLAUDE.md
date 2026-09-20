@@ -42,7 +42,7 @@ documentação de decisões **fazem parte da entrega** — não são extras opci
 concluídos** — o histórico já está sendo gravado no Neon. O próximo é o **6.3, tendência
 como função pura no `core/`**. O fatiamento da fase está na seção 7 de `docs/PROJETO.md`.
 
-**263 testes passando**: 242 na suíte rápida (~4s) e 21 de interface em navegador (~46s).
+**294 testes passando**: 272 na suíte rápida (~5s) e 22 de interface em navegador (~25s).
 CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
 
 Já existe e funciona:
@@ -55,10 +55,13 @@ Já existe e funciona:
 - `core/recommender.py` — **o coração**: ranqueia por `custo_total = caminhada + fila`
 - `cli.py` — comando `nextup`. Sem coordenadas lista filas; com `--lat/--lon` recomenda.
   `nextup --parks` lista os IDs de parque
-- `api/` — FastAPI com 3 rotas sob `/api`: `health`, `destinations` e
+- `api/` — FastAPI com 4 rotas sob `/api`: `health`, `destinations`,
+  `parks/{id}/attractions` (o parque **sem** exigir posição, com `bounds` para o mapa) e
   `parks/{id}/recommendations?lat&lon&limit`. Docs automáticas em `/docs`
 - `web/` — interface em HTML/CSS/JS puro, servida pelo próprio FastAPI. Geolocation,
-  mapa Leaflet, e **tocar no mapa define a posição** (saída para quem nega o GPS)
+  mapa Leaflet, e **tocar no mapa define a posição** (saída para quem nega o GPS).
+  Abre mostrando o parque antes de qualquer permissão; busca no seletor; o mapa
+  reenquadra ao trocar de parque
 - `storage/` — persistência do histórico de filas (Fase 6). `tables.py` (desenho),
   `engine.py` (conexão) e `snapshots.py` (gravar, consultar, limpar). SQLAlchemy Core,
   assíncrono, SQLite no desenvolvimento e Postgres na produção
@@ -70,7 +73,7 @@ Já existe e funciona:
   `cli.py` porque orquestra `clients/` + `storage/`
 - `tests/test_arquitetura.py` — a regra de dependência é verificada automaticamente
 - `tests/test_migracoes.py` — aplica as migrações e compara com `tables.py`
-- `tests/test_web_e2e.py` — 21 testes em Chromium real (`pytest -m e2e`)
+- `tests/test_web_e2e.py` — 22 testes em Chromium real (`pytest -m e2e`)
 - Fixtures reais da API em `tests/fixtures/`; nenhum teste toca a internet
 - `.venv` local com **Python 3.13**, mesma versão mais alta testada no CI
 
@@ -146,6 +149,15 @@ TLS é configurado pelo `connect_args_for`, com verificação completa de certif
 5. **Medição duplicada não dá erro, só envenena a média.** Por isso a unicidade é
    `(attraction_id, observed_at)`, usando o `lastUpdated` da fonte e não a hora em que
    gravamos. O coletor roda num ritmo que escolhemos; a fonte atualiza no dela.
+6. **As fixtures são todas do Magic Kingdom, e isso esconde bugs.** Lá 86 de 86 entidades
+   têm coordenada; em outros parques não. Um bug que deixou o **Disneyland Paris
+   inacessível desde a Fase 1** sobreviveu a 261 testes e só apareceu ao abrir o app e
+   clicar. Ao mexer em parsing de catálogo, teste contra um parque que **não** seja o MK.
+
+> ⚠️ **A fonte tem duas formas de dizer "não sei onde isto fica":** omitir `location` ou
+> mandá-lo com `null` dentro. `ParkEntity` trata as duas como ausência — não reverta isso,
+> `tests/test_models_coordenada_ausente.py` vigia. Uma atração sem GPS não pode derrubar
+> o parque inteiro, pelo mesmo motivo do `EntityType._missing_`.
 
 ---
 
@@ -216,7 +228,7 @@ pip install -e ".[dev]"
 Verificar que tudo está de pé:
 
 ```bash
-pytest -m "not e2e"    # esperado: 242 testes, ~4s
+pytest -m "not e2e"    # esperado: 272 testes, ~5s
 ruff check .
 ruff format --check .
 ```
@@ -236,7 +248,7 @@ uvicorn nextup.api.main:app --reload     # http://127.0.0.1:8000
 Testes de interface (exigem `pip install -e ".[dev,e2e]"` e `playwright install chromium`):
 
 ```bash
-pytest -m e2e          # esperado: 21 testes, ~50s
+pytest -m e2e          # esperado: 22 testes, ~25s
 ```
 
 ---
