@@ -11,8 +11,9 @@ sobre o que o objeto é. Quem quer só as atrações pede por elas em
 """
 
 from enum import StrEnum
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class EntityType(StrEnum):
@@ -71,6 +72,32 @@ class ParkEntity(BaseModel):
     #: mas se um dia faltar uma, é melhor perder uma atração do ranking do que
     #: derrubar o catálogo inteiro.
     location: Location | None = None
+
+    @field_validator("location", mode="before")
+    @classmethod
+    def coordenada_incompleta_vira_ausente(cls, valor: Any) -> Any:
+        """Trata `{"latitude": null, "longitude": null}` como "sem coordenada".
+
+        A API tem duas formas de dizer que não sabe onde algo fica: omitir o campo
+        `location` — que o `| None` acima já cobre — **ou** mandá-lo preenchido com
+        nulos dentro. A segunda forma derrubava o catálogo inteiro.
+
+        E derrubava o parque todo, não só o item: o `pydantic` valida a lista de
+        uma vez, então uma entidade sem coordenada invalidava as outras oitenta.
+        Foi o que manteve o **Disneyland Paris inacessível** no NextUp desde a
+        Fase 1 — o app respondia 502 e a interface dizia "formato inesperado",
+        sem que ninguém desconfiasse de que o problema era uma atração sem GPS.
+
+        É a mesma degradação graciosa do `EntityType._missing_`: perder um item é
+        aceitável, perder o parque não. Aqui a entidade continua no catálogo, com
+        nome e tipo — só fica de fora do ranking, onde de fato não daria para
+        calcular distância.
+        """
+        if isinstance(valor, dict) and (
+            valor.get("latitude") is None or valor.get("longitude") is None
+        ):
+            return None
+        return valor
 
 
 class ParkCatalog(BaseModel):
