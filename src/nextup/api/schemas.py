@@ -18,8 +18,9 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from nextup.core.geo import bounding_box
 from nextup.core.recommender import Recommendation
-from nextup.models import Destination, ParkCatalog
+from nextup.models import Destination, LiveDataResponse, LiveStatus, ParkCatalog
 
 
 class AttractionOut(BaseModel):
@@ -107,6 +108,114 @@ class RecommendationsOut(BaseModel):
             available=len(recomendacoes),
             data_updated_at=data_updated_at,
             recommendations=[RecommendationOut.from_domain(r) for r in mostradas],
+        )
+
+
+class BoundsOut(BaseModel):
+    """Os quatro cantos que enquadram o parque no mapa.
+
+    Vai para a resposta porque o navegador não tem como calcular isto sem antes
+    receber todas as atrações — e no momento em que ele precisa do enquadramento,
+    ainda não recebeu.
+    """
+
+    south: float
+    west: float
+    north: float
+    east: float
+
+
+class ParkAttractionOut(BaseModel):
+    """Uma atração do parque, com o estado de agora e **sem** distância.
+
+    A ausência de `walking_minutes` é o ponto: esta resposta existe justamente
+    para quem ainda não disse onde está.
+    """
+
+    id: str
+    name: str
+    latitude: float
+    longitude: float
+
+    status: str = Field(description="OPERATING, CLOSED, DOWN ou REFURBISHMENT.")
+
+    #: Nulo é resposta legítima, não falha: atração fechada, ou aberta sem fila
+    #: medida — o que acontece com cerca de uma em cada cinco.
+    queue_minutes: int | None = Field(
+        default=None, description="Fila comum em minutos, ou nulo se não houver medida."
+    )
+
+
+class ParkAttractionsOut(BaseModel):
+    """Resposta de `/parks/{id}/attractions`.
+
+    Complementa a rota de recomendações em vez de substituí-la. A de recomendações
+    responde *"para onde eu vou agora?"* e exige saber onde o visitante está; esta
+    responde *"como está o parque?"*, que é uma pergunta legítima antes disso —
+    e era impossível de fazer ao NextUp até agora.
+    """
+
+    park_id: str
+    park_name: str
+    timezone: str = Field(description="Fuso do parque, como America/New_York.")
+
+    bounds: BoundsOut | None = Field(
+        default=None, description="Retângulo que contém as atrações. Nulo se não houver nenhuma."
+    )
+
+    total_attractions: int
+    available: int = Field(description="Quantas estão operando e com fila informada.")
+    data_updated_at: datetime | None = None
+
+    attractions: list[ParkAttractionOut]
+
+    @classmethod
+    def from_domain(
+        cls,
+        catalogo: ParkCatalog,
+        ao_vivo: LiveDataResponse,
+        data_updated_at: datetime | None,
+    ) -> "ParkAttractionsOut":
+        estado_por_id = ao_vivo.by_id()
+        atracoes = catalogo.attractions()
+
+        saida = []
+        disponiveis = 0
+
+        for atracao in atracoes:
+            # `attractions()` já garante a coordenada; a checagem é o que permite
+            # ao verificador de tipos saber disso também.
+            if atracao.location is None:
+                continue
+
+            estado = estado_por_id.get(atracao.id)
+            if estado is not None and estado.is_rankable:
+                disponiveis += 1
+
+            saida.append(
+                ParkAttractionOut(
+                    id=atracao.id,
+                    name=atracao.name,
+                    latitude=atracao.location.latitude,
+                    longitude=atracao.location.longitude,
+                    status=str(estado.status) if estado else str(LiveStatus.UNKNOWN),
+                    queue_minutes=estado.wait_time_minutes if estado else None,
+                )
+            )
+
+        caixa = bounding_box(
+            (a.location.latitude, a.location.longitude) for a in atracoes if a.location is not None
+        )
+
+        return cls(
+            park_id=catalogo.id,
+            park_name=catalogo.name,
+            timezone=catalogo.timezone,
+            bounds=BoundsOut(**vars(caixa)) if caixa else None,
+            total_attractions=len(atracoes),
+            available=disponiveis,
+            data_updated_at=data_updated_at,
+            attractions=saida,
         )
 
 

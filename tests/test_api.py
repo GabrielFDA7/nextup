@@ -262,12 +262,19 @@ class TestContratoPublico:
     def test_documentacao_interativa_no_ar(self, cliente_http):
         assert cliente_http.get("/docs").status_code == 200
 
-    def test_openapi_descreve_as_tres_rotas(self, cliente_http):
+    def test_openapi_descreve_todas_as_rotas(self, cliente_http):
+        """Comparação exata, e não `>=`, de propósito.
+
+        Assim uma rota nova **quebra este teste** e obriga quem a criou a decidir
+        conscientemente que ela faz parte do contrato público — em vez de aparecer
+        na documentação sem ninguém ter reparado.
+        """
         caminhos = cliente_http.get("/openapi.json").json()["paths"]
 
         assert set(caminhos) == {
             "/api/health",
             "/api/destinations",
+            "/api/parks/{park_id}/attractions",
             "/api/parks/{park_id}/recommendations",
         }
 

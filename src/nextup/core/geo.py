@@ -9,11 +9,70 @@ milissegundos, e nunca falham porque a internet caiu ou o parque fechou.
 """
 
 import math
+from collections.abc import Iterable
+from dataclasses import dataclass
 
 from nextup.config import PATH_WINDING_FACTOR, WALKING_SPEED_MPS
 
 #: Raio médio da Terra em metros, usado pela fórmula de Haversine.
 EARTH_RADIUS_M = 6_371_000.0
+
+
+@dataclass(frozen=True)
+class BoundingBox:
+    """O retângulo que contém todos os pontos dados.
+
+    Serve para enquadrar um parque no mapa. Enquadrar é melhor que centralizar:
+    centralizar exige adivinhar o zoom, e o zoom certo para o Magic Kingdom é o
+    errado para um parque três vezes maior. Com os quatro cantos, quem desenha o
+    mapa calcula o zoom sozinho.
+    """
+
+    south: float
+    west: float
+    north: float
+    east: float
+
+    @property
+    def center(self) -> tuple[float, float]:
+        """O meio do retângulo, como (latitude, longitude)."""
+        return ((self.south + self.north) / 2, (self.west + self.east) / 2)
+
+
+def bounding_box(points: Iterable[tuple[float, float]]) -> BoundingBox | None:
+    """O retângulo que contém todos os pontos.
+
+    Args:
+        points: Pares (latitude, longitude).
+
+    Returns:
+        O retângulo, ou `None` se não houver ponto nenhum — caso legítimo para um
+        parque cujo catálogo veio sem coordenadas. Devolver `None` obriga quem
+        chama a decidir o que fazer, em vez de receber um retângulo no meio do
+        oceano, que é onde ficaria um "zero, zero" tratado como dado válido.
+
+    Note:
+        Não trata a travessia do antimeridiano (longitude ±180). Um parque
+        temático tem menos de dois quilômetros de ponta a ponta, e nenhum deles
+        fica sobre essa linha — mas se algum dia o NextUp enquadrar algo maior que
+        um parque, isto precisa de atenção.
+    """
+    latitudes = []
+    longitudes = []
+
+    for latitude, longitude in points:
+        latitudes.append(latitude)
+        longitudes.append(longitude)
+
+    if not latitudes:
+        return None
+
+    return BoundingBox(
+        south=min(latitudes),
+        west=min(longitudes),
+        north=max(latitudes),
+        east=max(longitudes),
+    )
 
 
 def haversine_distance_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:

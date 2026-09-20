@@ -20,6 +20,7 @@ from nextup.api.schemas import (
     DestinationOut,
     DestinationsOut,
     HealthOut,
+    ParkAttractionsOut,
     RecommendationsOut,
 )
 from nextup.clients.themeparks import ThemeParksClient
@@ -54,6 +55,35 @@ async def listar_destinos(cliente: ClienteThemeParks) -> DestinationsOut:
     return DestinationsOut(
         destinations=[DestinationOut.from_domain(d) for d in destinos.destinations]
     )
+
+
+@router.get(
+    "/parks/{park_id}/attractions",
+    response_model=ParkAttractionsOut,
+    tags=["catálogo"],
+)
+async def listar_atracoes(
+    cliente: ClienteThemeParks,
+    park_id: Annotated[str, Path(description="ID do parque, obtido em `/destinations`.")],
+) -> ParkAttractionsOut:
+    """Como está o parque agora — **sem** precisar saber onde o visitante está.
+
+    Existe porque "para onde eu vou?" e "como está o parque?" são perguntas
+    diferentes, e só a primeira exige uma posição. Até aqui o NextUp só sabia
+    responder a primeira, então quem abrisse o site sem liberar o GPS não via nada.
+
+    Também devolve `bounds`, o retângulo que contém as atrações: é o que permite
+    ao mapa enquadrar o parque escolhido em vez de continuar apontando para onde
+    estava antes.
+    """
+    catalogo, ao_vivo = await asyncio.gather(
+        cliente.get_park_catalog(park_id),
+        cliente.get_live_data(park_id),
+    )
+
+    atualizado_em = max((item.last_updated for item in ao_vivo.live_data), default=None)
+
+    return ParkAttractionsOut.from_domain(catalogo, ao_vivo, atualizado_em)
 
 
 @router.get(
