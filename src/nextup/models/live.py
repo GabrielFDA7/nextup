@@ -58,6 +58,24 @@ class Queue(BaseModel):
     standby: StandbyQueue | None = Field(alias="STANDBY", default=None)
 
 
+class ForecastPoint(BaseModel):
+    """A fila que a **fonte** prevê para um horário do dia.
+
+    A ThemeParks.wiki publica isto de hora em hora, cobrindo o dia inteiro. É a
+    única previsão de fila que o NextUp tem de graça — e, por isso, o baseline
+    contra o qual qualquer modelo nosso precisa se justificar.
+    """
+
+    model_config = ConfigDict(frozen=True, populate_by_name=True)
+
+    time: datetime
+    wait_time: int = Field(alias="waitTime", ge=0)
+
+    #: Quão cheia a fonte espera que a atração esteja, de 0 a 100. Guardado porque
+    #: é uma segunda opinião sobre a mesma previsão, em outra escala.
+    percentage: float | None = None
+
+
 class LiveData(BaseModel):
     """Estado atual de uma entidade do parque."""
 
@@ -70,6 +88,10 @@ class LiveData(BaseModel):
     #: Ausente em boa parte dos itens — shows e restaurantes não têm fila.
     queue: Queue | None = None
 
+    #: Previsão horária da fonte. Presente em cerca de 25 das 71 entidades do
+    #: Magic Kingdom; ausente não é erro.
+    forecast: list[ForecastPoint] = Field(default_factory=list)
+
     #: Quando a fonte atualizou este dado. Serve para avisar o usuário que a
     #: informação está velha, em vez de apresentar dado defasado como se fosse atual.
     last_updated: datetime = Field(alias="lastUpdated")
@@ -80,6 +102,18 @@ class LiveData(BaseModel):
         if self.queue is None or self.queue.standby is None:
             return None
         return self.queue.standby.wait_time
+
+    def future_forecast(self, now: datetime) -> list[ForecastPoint]:
+        """Só os pontos da previsão que ainda não aconteceram.
+
+        A fonte devolve o dia inteiro, incluindo horas já passadas. Para prever a
+        fila na chegada, só o futuro interessa — e guardar o passado seria gravar
+        de novo, como previsão, um horário que já virou fato medido.
+        """
+        return sorted(
+            (ponto for ponto in self.forecast if ponto.time > now),
+            key=lambda ponto: ponto.time,
+        )
 
     @property
     def is_rankable(self) -> bool:

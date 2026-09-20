@@ -13,17 +13,27 @@ do `core/`, e o `tests/test_arquitetura.py` verifica as duas.
 """
 
 from nextup.storage.engine import connection, create_engine, create_schema
-from nextup.storage.snapshots import history, park_history, purge_older_than, save_many
-from nextup.storage.tables import metadata, queue_snapshots
+from nextup.storage.snapshots import (
+    forecasts_for,
+    history,
+    park_history,
+    purge_older_than,
+    save_forecasts,
+    save_many,
+)
+from nextup.storage.tables import metadata, queue_forecasts, queue_snapshots
 
 __all__ = [
     "connection",
     "create_engine",
     "create_schema",
+    "forecasts_for",
     "history",
     "metadata",
     "park_history",
     "purge_older_than",
+    "queue_forecasts",
     "queue_snapshots",
+    "save_forecasts",
     "save_many",
 ]

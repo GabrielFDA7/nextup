@@ -15,6 +15,7 @@ from sqlalchemy import (
     BigInteger,
     Column,
     DateTime,
+    Float,
     Index,
     Integer,
     MetaData,
@@ -72,4 +73,33 @@ queue_snapshots = Table(
     Index("ix_queue_snapshots_historico", "attraction_id", "observed_at"),
     # E a versão do parque inteiro, para gráficos comparativos.
     Index("ix_queue_snapshots_parque", "park_id", "observed_at"),
+)
+
+
+queue_forecasts = Table(
+    "queue_forecasts",
+    metadata,
+    Column(
+        "id",
+        BigInteger().with_variant(Integer, "sqlite"),
+        primary_key=True,
+        autoincrement=True,
+    ),
+    Column("park_id", String(64), nullable=False),
+    Column("attraction_id", String(64), nullable=False),
+    # O horário que a previsão descreve.
+    Column("forecast_for", DateTime(timezone=True), nullable=False),
+    Column("predicted_minutes", Integer, nullable=False),
+    Column("percentage", Float, nullable=True),
+    # Quando **nós** vimos esta previsão pela primeira vez. Junto com
+    # `forecast_for`, diz com quanta antecedência ela foi feita — e previsão de
+    # três horas antes vale mais que previsão de cinco minutos antes.
+    Column("recorded_at", DateTime(timezone=True), nullable=False),
+    # Guarda a PRIMEIRA vez que vimos cada previsão, e ignora as repetições.
+    #
+    # A fonte republica o mesmo perfil horário a cada consulta: sem esta
+    # restrição, prever "18h → 40 min" viraria 288 linhas idênticas por dia. Com
+    # ela, fica uma — e `recorded_at` passa a registrar a antecedência real.
+    UniqueConstraint("attraction_id", "forecast_for", name="uq_queue_forecasts_previsao"),
+    Index("ix_queue_forecasts_avaliacao", "attraction_id", "forecast_for"),
 )

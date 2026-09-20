@@ -12,8 +12,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from nextup.models import LiveStatus, QueueSnapshot
-from nextup.storage.tables import queue_snapshots
+from nextup.models import LiveStatus, QueueForecast, QueueSnapshot
+from nextup.storage.tables import queue_forecasts, queue_snapshots
 
 #: Quantos snapshots por comando `INSERT`. Um parque tem dezenas de atrações, e
 #: mandar tudo numa tacada só é muito mais rápido que uma ida ao banco por linha.
@@ -64,7 +64,7 @@ def _como_utc(valor: datetime) -> datetime:
     return valor.replace(tzinfo=UTC) if valor.tzinfo is None else valor.astimezone(UTC)
 
 
-def _insert_ignorando_duplicatas(dialeto: str):
+def _insert_ignorando_duplicatas(dialeto: str, tabela=queue_snapshots):
     """Monta o `INSERT ... ON CONFLICT DO NOTHING` do banco em uso.
 
     Esta é a costura que o SQLAlchemy **não** esconde. Ele uniformiza `SELECT`,
@@ -76,9 +76,9 @@ def _insert_ignorando_duplicatas(dialeto: str):
     a restrição de unicidade, é a única forma que não tem essa janela.
     """
     if dialeto == "postgresql":
-        return postgresql.insert(queue_snapshots)
+        return postgresql.insert(tabela)
     if dialeto == "sqlite":
-        return sqlite.insert(queue_snapshots)
+        return sqlite.insert(tabela)
     raise NotImplementedError(
         f"banco '{dialeto}' não suportado: o NextUp usa SQLite em desenvolvimento "
         "e PostgreSQL em produção"
@@ -196,6 +196,87 @@ async def park_history(
 
     resultado = await conexao.execute(consulta)
     return [_para_modelo(linha) for linha in resultado]
+
+
+async def save_forecasts(conexao: AsyncConnection, forecasts: Iterable[QueueForecast]) -> int:
+    """Guarda previsões da fonte, ignorando as que já conhecíamos.
+
+    A deduplicação aqui tem propósito diferente da dos snapshots. Lá, ela impede
+    contar a mesma medição duas vezes na média. Aqui, ela preserva a
+    **antecedência**: a fonte republica o mesmo perfil horário a cada consulta, e
+    guardar só a primeira aparição é o que faz `recorded_at` significar "quando a
+    fonte se comprometeu com esse número" em vez de "a última vez que a vimos".
+
+    Returns:
+        Quantas previsões eram novidade.
+    """
+    pendentes = list(forecasts)
+    inseridas = 0
+
+    for inicio in range(0, len(pendentes), BATCH_SIZE):
+        lote = pendentes[inicio : inicio + BATCH_SIZE]
+
+        comando = (
+            _insert_ignorando_duplicatas(conexao.dialect.name, queue_forecasts)
+            .values(
+                [
+                    {
+                        "park_id": f.park_id,
+                        "attraction_id": f.attraction_id,
+                        "forecast_for": f.forecast_for,
+                        "predicted_minutes": f.predicted_minutes,
+                        "percentage": f.percentage,
+                        "recorded_at": f.recorded_at,
+                    }
+                    for f in lote
+                ]
+            )
+            .on_conflict_do_nothing(index_elements=["attraction_id", "forecast_for"])
+            .returning(queue_forecasts.c.id)
+        )
+
+        resultado = await conexao.execute(comando)
+        inseridas += len(resultado.fetchall())
+
+    return inseridas
+
+
+async def forecasts_for(
+    conexao: AsyncConnection,
+    *,
+    attraction_id: str,
+    since: datetime,
+    until: datetime | None = None,
+) -> Sequence[QueueForecast]:
+    """As previsões que a fonte fez para uma atração, dentro da janela.
+
+    Serve à avaliação: cruzada com `history()` do mesmo período, dá os pares
+    (previsto, realizado) que medem se a fonte acerta.
+    """
+    consulta = (
+        select(queue_forecasts)
+        .where(
+            queue_forecasts.c.attraction_id == attraction_id,
+            queue_forecasts.c.forecast_for >= since,
+        )
+        .order_by(queue_forecasts.c.forecast_for)
+    )
+
+    if until is not None:
+        consulta = consulta.where(queue_forecasts.c.forecast_for <= until)
+
+    resultado = await conexao.execute(consulta)
+    return [
+        QueueForecast(
+            park_id=linha.park_id,
+            attraction_id=linha.attraction_id,
+            forecast_for=_como_utc(linha.forecast_for),
+            predicted_minutes=linha.predicted_minutes,
+            percentage=linha.percentage,
+            recorded_at=_como_utc(linha.recorded_at),
+        )
+        for linha in resultado
+    ]
 
 
 async def purge_older_than(conexao: AsyncConnection, cutoff: datetime) -> int:

@@ -15,8 +15,16 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from nextup.models import LiveData, LiveStatus, QueueSnapshot
-from nextup.storage import connection, create_schema, history, purge_older_than, save_many
+from nextup.models import LiveData, LiveStatus, QueueForecast, QueueSnapshot
+from nextup.storage import (
+    connection,
+    create_schema,
+    forecasts_for,
+    history,
+    purge_older_than,
+    save_forecasts,
+    save_many,
+)
 from nextup.storage.engine import create_engine
 
 PARQUE = "75ea578a-adc8-4116-a54d-dccb60765ef9"
@@ -232,6 +240,114 @@ class TestRetencao:
     async def test_banco_vazio_nao_quebra(self, engine):
         async with connection(engine) as conexao:
             assert await purge_older_than(conexao, AGORA) == 0
+
+
+class TestPrevisoesDaFonte:
+    """A tabela que torna a previsão da fonte auditável.
+
+    A deduplicação aqui tem propósito diferente da dos snapshots. Lá, impede contar
+    a mesma medição duas vezes na média. Aqui, **preserva a antecedência**: a fonte
+    republica o mesmo perfil horário a cada consulta, e guardar só a estreia é o que
+    faz `recorded_at` significar "quando a fonte se comprometeu com esse número".
+    """
+
+    def previsao(self, *, para_daqui_a: float, minutos: int = 40, vista_em=None):
+        return QueueForecast(
+            park_id=PARQUE,
+            attraction_id=SPACE_MOUNTAIN,
+            forecast_for=AGORA + timedelta(hours=para_daqui_a),
+            predicted_minutes=minutos,
+            recorded_at=vista_em or AGORA,
+        )
+
+    async def test_grava_as_previsoes(self, engine):
+        async with connection(engine) as conexao:
+            gravadas = await save_forecasts(
+                conexao,
+                [self.previsao(para_daqui_a=1), self.previsao(para_daqui_a=2)],
+            )
+
+        assert gravadas == 2
+
+    async def test_a_republicacao_nao_vira_linha_nova(self, engine):
+        """A fonte republica o mesmo perfil a cada consulta — 288 vezes por dia."""
+        async with connection(engine) as conexao:
+            primeira = await save_forecasts(conexao, [self.previsao(para_daqui_a=3)])
+            repetida = await save_forecasts(
+                conexao,
+                [self.previsao(para_daqui_a=3, vista_em=AGORA + timedelta(minutes=5))],
+            )
+
+        assert (primeira, repetida) == (1, 0)
+
+    async def test_preserva_a_antecedencia_da_primeira_vez(self, engine):
+        """O ponto da deduplicação.
+
+        Se a repetição sobrescrevesse, `recorded_at` passaria a dizer "a última vez
+        que vimos" — e a antecedência, que é o que dá valor à previsão, viraria
+        sempre alguns minutos.
+        """
+        async with connection(engine) as conexao:
+            await save_forecasts(conexao, [self.previsao(para_daqui_a=3)])
+            await save_forecasts(
+                conexao,
+                [self.previsao(para_daqui_a=3, vista_em=AGORA + timedelta(hours=2))],
+            )
+
+            guardadas = await forecasts_for(conexao, attraction_id=SPACE_MOUNTAIN, since=AGORA)
+
+        assert len(guardadas) == 1
+        assert guardadas[0].recorded_at == AGORA
+        assert guardadas[0].lead_time_minutes == pytest.approx(180)
+
+    async def test_consulta_respeita_a_janela(self, engine):
+        async with connection(engine) as conexao:
+            await save_forecasts(
+                conexao,
+                [self.previsao(para_daqui_a=1), self.previsao(para_daqui_a=8)],
+            )
+
+            proximas = await forecasts_for(
+                conexao,
+                attraction_id=SPACE_MOUNTAIN,
+                since=AGORA,
+                until=AGORA + timedelta(hours=4),
+            )
+
+        assert len(proximas) == 1
+
+    async def test_so_o_futuro_e_convertido(self):
+        """A fonte devolve o dia inteiro; o passado já virou fato medido."""
+        live = LiveData.model_validate(
+            {
+                "id": SPACE_MOUNTAIN,
+                "name": "Space Mountain",
+                "status": "OPERATING",
+                "queue": {"STANDBY": {"waitTime": 45}},
+                "lastUpdated": "2026-09-15T14:30:00Z",
+                "forecast": [
+                    {"time": "2026-09-15T13:00:00Z", "waitTime": 20, "percentage": 30},
+                    {"time": "2026-09-15T16:00:00Z", "waitTime": 60, "percentage": 80},
+                ],
+            }
+        )
+
+        previsoes = QueueForecast.from_live(park_id=PARQUE, live=live, recorded_at=AGORA)
+
+        assert [p.predicted_minutes for p in previsoes] == [60]
+
+    async def test_atracao_sem_forecast_nao_gera_nada(self):
+        """Cerca de dois terços das entidades não têm previsão. Não é erro."""
+        live = LiveData.model_validate(
+            {
+                "id": SPACE_MOUNTAIN,
+                "name": "Space Mountain",
+                "status": "OPERATING",
+                "lastUpdated": "2026-09-15T14:30:00Z",
+            }
+        )
+
+        assert QueueForecast.from_live(park_id=PARQUE, live=live, recorded_at=AGORA) == []
 
 
 class TestConversaoDoLiveData:

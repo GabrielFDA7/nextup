@@ -36,8 +36,8 @@ from nextup.config import (
     HISTORY_RETENTION_DAYS,
     PURGE_INTERVAL_S,
 )
-from nextup.models import QueueSnapshot
-from nextup.storage import connection, purge_older_than, save_many
+from nextup.models import QueueForecast, QueueSnapshot
+from nextup.storage import connection, purge_older_than, save_forecasts, save_many
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +64,11 @@ class CollectionResult:
     park_id: str
     read: int
     stored: int
+
+    #: Previsões da fonte guardadas nesta coleta. Quase sempre zero depois da
+    #: primeira do dia: a fonte republica o mesmo perfil horário, e só a estreia
+    #: de cada previsão entra.
+    forecasts_stored: int = 0
 
     @property
     def skipped(self) -> int:
@@ -107,16 +112,33 @@ async def collect_once(
     ids_de_atracao = catalogo.attraction_ids()
     instante = now()
 
+    relevantes = [item for item in ao_vivo.live_data if item.id in ids_de_atracao]
+
     snapshots = [
         QueueSnapshot.from_live(park_id=park_id, live=item, recorded_at=instante)
-        for item in ao_vivo.live_data
-        if item.id in ids_de_atracao
+        for item in relevantes
+    ]
+
+    # A previsão que a **fonte** publica, guardada para depois conferirmos se ela
+    # acerta. Sem isto não há como avaliá-la — e foi exatamente a lacuna que o
+    # backtest de 20/09/2026 encontrou: extrapolar tendência piora a previsão, e o
+    # único candidato restante não podia ser testado porque ninguém o guardava.
+    previsoes = [
+        previsao
+        for item in relevantes
+        for previsao in QueueForecast.from_live(park_id=park_id, live=item, recorded_at=instante)
     ]
 
     async with connection(engine) as conexao:
         gravados = await save_many(conexao, snapshots)
+        previsoes_gravadas = await save_forecasts(conexao, previsoes)
 
-    return CollectionResult(park_id=park_id, read=len(snapshots), stored=gravados)
+    return CollectionResult(
+        park_id=park_id,
+        read=len(snapshots),
+        stored=gravados,
+        forecasts_stored=previsoes_gravadas,
+    )
 
 
 async def purge_expired(
@@ -197,11 +219,12 @@ async def run_collector(
                 logger.exception("falha ao coletar o parque %s; segue no próximo ciclo", park_id)
             else:
                 logger.info(
-                    "parque %s: %d lidas, %d gravadas, %d repetidas",
+                    "parque %s: %d lidas, %d gravadas, %d repetidas, %d previsoes",
                     park_id,
                     resultado.read,
                     resultado.stored,
                     resultado.skipped,
+                    resultado.forecasts_stored,
                 )
 
         if now() >= proxima_limpeza:

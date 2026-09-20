@@ -25,6 +25,26 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from nextup.models.live import LiveData, LiveStatus
 
 
+def para_utc(valor: datetime) -> datetime:
+    """Converte para UTC e recusa data sem fuso.
+
+    Sem isso o projeto acumularia uma bomba-relógio: o Postgres guarda o fuso, o
+    SQLite não. Um `datetime` ingênuo gravado em produção e lido em
+    desenvolvimento viraria outro horário, e o histórico ficaria deslocado em
+    algumas horas — erro que não aparece em teste nenhum, só no gráfico torto.
+    Normalizando na entrada, todo instante do banco está em UTC por construção.
+
+    Vive no nível do módulo, e não dentro de um modelo, porque `QueueSnapshot` e
+    `QueueForecast` precisam exatamente da mesma garantia.
+    """
+    if valor.tzinfo is None:
+        raise ValueError(
+            "instante sem fuso horário; use datetime com timezone "
+            "(ex.: datetime.now(UTC)) para o histórico não ficar deslocado"
+        )
+    return valor.astimezone(UTC)
+
+
 class QueueSnapshot(BaseModel):
     """O estado de uma atração num instante, pronto para ser persistido."""
 
@@ -49,23 +69,7 @@ class QueueSnapshot(BaseModel):
     #: Quando *nós* gravamos.
     recorded_at: datetime
 
-    @field_validator("observed_at", "recorded_at")
-    @classmethod
-    def exigir_utc(cls, valor: datetime) -> datetime:
-        """Converte para UTC e recusa data sem fuso.
-
-        Sem isso o projeto acumularia uma bomba-relógio: o Postgres guarda o fuso,
-        o SQLite não. Um `datetime` ingênuo gravado em produção e lido em
-        desenvolvimento viraria outro horário, e o histórico ficaria deslocado em
-        algumas horas — erro que não aparece em teste nenhum, só no gráfico torto.
-        Normalizando na entrada, todo instante do banco está em UTC por construção.
-        """
-        if valor.tzinfo is None:
-            raise ValueError(
-                "instante sem fuso horário; use datetime com timezone "
-                "(ex.: datetime.now(UTC)) para o histórico não ficar deslocado"
-            )
-        return valor.astimezone(UTC)
+    _utc = field_validator("observed_at", "recorded_at")(para_utc)
 
     @classmethod
     def from_live(cls, *, park_id: str, live: LiveData, recorded_at: datetime) -> "QueueSnapshot":
@@ -88,3 +92,65 @@ class QueueSnapshot(BaseModel):
             observed_at=live.last_updated,
             recorded_at=recorded_at,
         )
+
+
+class QueueForecast(BaseModel):
+    """O que a **fonte** previu, guardado para depois conferirmos se acertou.
+
+    Existe por um motivo específico e registrado: em 20/09/2026, um backtest sobre
+    o histórico real mostrou que extrapolar a tendência **piora** a previsão em
+    todos os horizontes testados. Sobrou um candidato não testado — a previsão
+    horária da própria ThemeParks.wiki — e ele não podia ser avaliado porque
+    ninguém a estava guardando.
+
+    Esta tabela é a resposta a isso. Cada linha é uma previsão que a fonte fez, com
+    `recorded_at` dizendo **com quanta antecedência** ela foi feita. Cruzando com
+    `QueueSnapshot` mais tarde, dá para medir o erro de verdade — em vez de
+    confiar ou desconfiar por intuição.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    park_id: str = Field(min_length=1)
+    attraction_id: str = Field(min_length=1)
+
+    #: O horário que esta previsão descreve.
+    forecast_for: datetime
+
+    predicted_minutes: int = Field(ge=0)
+    percentage: float | None = Field(default=None, ge=0, le=100)
+
+    #: Quando vimos esta previsão pela primeira vez.
+    recorded_at: datetime
+
+    _utc = field_validator("forecast_for", "recorded_at")(para_utc)
+
+    @property
+    def lead_time_minutes(self) -> float:
+        """Com quanta antecedência a previsão foi feita.
+
+        É o que separa uma previsão valiosa de uma trivial: acertar a fila de
+        daqui a cinco minutos não impressiona ninguém.
+        """
+        return (self.forecast_for - self.recorded_at).total_seconds() / 60
+
+    @classmethod
+    def from_live(
+        cls, *, park_id: str, live: LiveData, recorded_at: datetime
+    ) -> list["QueueForecast"]:
+        """As previsões **futuras** publicadas para esta atração.
+
+        Só o futuro: a fonte devolve o dia inteiro, e guardar as horas já passadas
+        seria registrar como previsão um horário que já virou fato medido.
+        """
+        return [
+            cls(
+                park_id=park_id,
+                attraction_id=live.id,
+                forecast_for=ponto.time,
+                predicted_minutes=ponto.wait_time,
+                percentage=ponto.percentage,
+                recorded_at=recorded_at,
+            )
+            for ponto in live.future_forecast(recorded_at)
+        ]
