@@ -21,6 +21,14 @@ import os
 # a primeira coisa a rodar na suíte inteira.
 os.environ["NEXTUP_DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 
+# Pelo mesmo motivo, o coletor não sobe sozinho na suíte. Ele é uma tarefa de fundo
+# infinita: deixá-lo ligado faria cada teste da API disparar coletas de verdade por
+# baixo dos panos, competindo com o teste e sujando a saída.
+#
+# Quem verifica que o `lifespan` realmente o inicia é `test_collector.py`, religando
+# a chave explicitamente — o que é mais honesto que depender do padrão global.
+os.environ["NEXTUP_COLLECTOR_ENABLED"] = "false"
+
 import httpx
 import pytest
 

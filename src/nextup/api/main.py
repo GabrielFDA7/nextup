@@ -15,9 +15,11 @@ Para subir em desenvolvimento:
 A documentação interativa fica em `/docs`, gerada sozinha a partir dos schemas.
 """
 
+import asyncio
+import logging
 import os
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 import httpx
@@ -35,6 +37,11 @@ from nextup.clients.errors import (
     ThemeParksUnavailableError,
 )
 from nextup.clients.themeparks import ThemeParksClient
+from nextup.collector import run_collector
+from nextup.config import COLLECTOR_ENABLED
+from nextup.storage import create_engine
+
+logger = logging.getLogger(__name__)
 
 #: Origens liberadas para chamar a API pelo navegador. Em produção deve apontar
 #: para o domínio do frontend; `*` só faz sentido enquanto a API é pública e
@@ -49,15 +56,59 @@ WEB_DIR = Path(os.getenv("NEXTUP_WEB_DIR", str(Path(__file__).resolve().parents[
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Cria o cliente ao subir e o fecha ao desligar.
+    """Cria o cliente e o coletor ao subir, e desmonta os dois ao desligar.
 
     O `yield` separa as duas metades: o que vem antes roda na inicialização, o
     que vem depois roda no encerramento — inclusive quando o servidor é derrubado
     por um erro. É o mesmo mecanismo do `with`, aplicado ao ciclo de vida do app.
+
+    **O coletor compartilha o cliente com as rotas**, e isso é intencional: os dois
+    passam a dividir o mesmo cache. Uma coleta que caia dentro dos 60 segundos de
+    cache do `/live` reaproveita o que uma visita ao site acabou de buscar, em vez
+    de pedir de novo à ThemeParks.wiki.
     """
     async with httpx.AsyncClient() as conexao:
         app.state.themeparks_client = ThemeParksClient(http_client=conexao)
-        yield
+        app.state.db_engine = None
+        app.state.collector_task = None
+
+        if COLLECTOR_ENABLED:
+            app.state.db_engine = create_engine()
+            app.state.collector_task = asyncio.create_task(
+                run_collector(
+                    client=app.state.themeparks_client,
+                    engine=app.state.db_engine,
+                )
+            )
+        else:
+            logger.info("coletor desligado por NEXTUP_COLLECTOR_ENABLED")
+
+        try:
+            yield
+        finally:
+            await _encerrar_coletor(app)
+
+
+async def _encerrar_coletor(app: FastAPI) -> None:
+    """Cancela a tarefa de coleta e fecha o banco, sem travar o desligamento.
+
+    Cancelar é pedir, não mandar: a tarefa só para no próximo ponto em que espera
+    por algo. Por isso o `await` logo em seguida — sem ele o processo poderia
+    morrer com uma transação pela metade.
+
+    O `CancelledError` que volta aqui é a confirmação de que o cancelamento
+    funcionou, não um erro a propagar. Deixá-lo subir faria o encerramento de um
+    servidor saudável parecer uma falha nos logs.
+    """
+    tarefa = getattr(app.state, "collector_task", None)
+    if tarefa is not None:
+        tarefa.cancel()
+        with suppress(asyncio.CancelledError):
+            await tarefa
+
+    motor = getattr(app.state, "db_engine", None)
+    if motor is not None:
+        await motor.dispose()
 
 
 def criar_app() -> FastAPI:
