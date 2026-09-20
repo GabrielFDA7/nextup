@@ -177,6 +177,20 @@ TREND_WINDOW_MINUTES = float(os.getenv("NEXTUP_TREND_WINDOW", "30"))
 #: "estável".
 TREND_THRESHOLD_MINUTES = int(os.getenv("NEXTUP_TREND_THRESHOLD", "5"))
 
+# ---------------------------------------------------------------------------
+# Histórico exposto pela API (Fase 6.4)
+# ---------------------------------------------------------------------------
+
+#: Janela padrão do endpoint de histórico. Seis horas cobrem meio dia de parque e
+#: cabem em ~72 pontos com a coleta de 5 minutos — densidade boa para um gráfico
+#: de celular, onde cada ponto tem poucos pixels de largura.
+DEFAULT_HISTORY_HOURS = int(os.getenv("NEXTUP_HISTORY_HOURS", "6"))
+
+#: Teto da janela. Sete dias já são ~2000 pontos por atração; sem limite, um
+#: `?hours=99999` pediria a tabela inteira e o servidor montaria um JSON de
+#: megabytes para um gráfico que ninguém consegue ler.
+MAX_HISTORY_HOURS = int(os.getenv("NEXTUP_MAX_HISTORY_HOURS", "168"))
+
 
 #: Parâmetros que só a `libpq` entende — a biblioteca C que o `psycopg` usa por
 #: baixo. O `asyncpg` não é libpq: tem implementação própria do protocolo e API

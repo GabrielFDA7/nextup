@@ -14,14 +14,22 @@ promete devolver. São coisas diferentes, e misturá-las causa dois problemas:
 Com a fronteira aqui, a API pode manter sua forma mesmo que tudo mude por dentro.
 """
 
+from collections.abc import Sequence
 from datetime import datetime
 
 from pydantic import BaseModel, Field
 
 from nextup.core.geo import bounding_box
+from nextup.core.history import HistorySummary
 from nextup.core.recommender import Recommendation
 from nextup.core.trends import Trend, TrendAnalysis
-from nextup.models import Destination, LiveDataResponse, LiveStatus, ParkCatalog
+from nextup.models import (
+    Destination,
+    LiveDataResponse,
+    LiveStatus,
+    ParkCatalog,
+    QueueSnapshot,
+)
 
 
 class AttractionOut(BaseModel):
@@ -263,6 +271,92 @@ class ParkAttractionsOut(BaseModel):
             available=disponiveis,
             data_updated_at=data_updated_at,
             attractions=saida,
+        )
+
+
+class HistoryPointOut(BaseModel):
+    """Uma medição na linha do tempo.
+
+    Nomes curtos de propósito: numa janela de 24 horas isto se repete quase
+    trezentas vezes, e `observed_at`/`wait_time_minutes` repetidos trezentas vezes
+    são quilobytes gastos em rótulo. O gráfico consome os dois campos e nada mais.
+    """
+
+    at: datetime = Field(description="Quando a fonte mediu.")
+    minutes: int = Field(description="Fila comum, em minutos.")
+
+
+class HistorySummaryOut(BaseModel):
+    """Os números que resumem a janela."""
+
+    measurements: int = Field(description="Medições com fila na janela.")
+    min_minutes: int
+    max_minutes: int
+    average_minutes: float
+    current_minutes: int
+    spread: int = Field(description="Pico menos vale. Mede se vale escolher a hora.")
+
+    @classmethod
+    def from_domain(cls, resumo: HistorySummary) -> "HistorySummaryOut":
+        return cls(
+            measurements=resumo.measurements,
+            min_minutes=resumo.min_minutes,
+            max_minutes=resumo.max_minutes,
+            average_minutes=resumo.average_minutes,
+            current_minutes=resumo.current_minutes,
+            spread=resumo.spread,
+        )
+
+
+class AttractionHistoryOut(BaseModel):
+    """Resposta de `/parks/{id}/attractions/{id}/history`.
+
+    O primeiro endpoint do NextUp que serve **dado nosso**: tudo que veio antes era
+    a ThemeParks.wiki reempacotada. Isto aqui só existe porque o coletor rodou.
+    """
+
+    park_id: str
+    attraction_id: str
+    attraction_name: str
+
+    hours: int = Field(description="Tamanho da janela pedida.")
+
+    #: Vazio é resposta legítima e comum: atração que ficou fechada na janela, ou
+    #: parque cuja coleta começou depois. Não é erro, e a tela avisa em vez de
+    #: mostrar um gráfico em branco.
+    points: list[HistoryPointOut]
+
+    #: Nulo quando não houve medição com fila. Ver `points`.
+    summary: HistorySummaryOut | None = None
+
+    #: A mesma tendência que aparece na recomendação, recalculada sobre a janela
+    #: pedida — que pode ser bem maior que os 30 minutos padrão.
+    trend: TrendOut | None = None
+
+    @classmethod
+    def from_domain(
+        cls,
+        *,
+        park_id: str,
+        attraction_id: str,
+        attraction_name: str,
+        hours: int,
+        snapshots: Sequence[QueueSnapshot],
+        resumo: HistorySummary | None,
+        tendencia: TrendAnalysis | None,
+    ) -> "AttractionHistoryOut":
+        return cls(
+            park_id=park_id,
+            attraction_id=attraction_id,
+            attraction_name=attraction_name,
+            hours=hours,
+            points=[
+                HistoryPointOut(at=s.observed_at, minutes=s.wait_time_minutes)
+                for s in snapshots
+                if s.wait_time_minutes is not None
+            ],
+            summary=HistorySummaryOut.from_domain(resumo) if resumo else None,
+            trend=TrendOut.from_domain(tendencia) if tendencia else None,
         )
 
 

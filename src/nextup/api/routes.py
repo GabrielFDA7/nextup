@@ -14,25 +14,33 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from nextup import __version__
 from nextup.api.dependencies import obter_cliente, obter_engine
 from nextup.api.schemas import (
+    AttractionHistoryOut,
     DestinationOut,
     DestinationsOut,
     HealthOut,
     ParkAttractionsOut,
     RecommendationsOut,
 )
+from nextup.clients.errors import EntityNotFoundError
 from nextup.clients.themeparks import ThemeParksClient
-from nextup.config import DEFAULT_RESULT_LIMIT, TREND_WINDOW_MINUTES
+from nextup.config import (
+    DEFAULT_HISTORY_HOURS,
+    DEFAULT_RESULT_LIMIT,
+    MAX_HISTORY_HOURS,
+    TREND_WINDOW_MINUTES,
+)
+from nextup.core.history import summarize
 from nextup.core.recommender import recommend
-from nextup.core.trends import TrendAnalysis, analyze_many
+from nextup.core.trends import TrendAnalysis, analyze, analyze_many
 from nextup.models import Location
-from nextup.storage import connection, park_history
+from nextup.storage import connection, history, park_history
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +103,74 @@ async def listar_atracoes(
     atualizado_em = max((item.last_updated for item in ao_vivo.live_data), default=None)
 
     return ParkAttractionsOut.from_domain(catalogo, ao_vivo, atualizado_em)
+
+
+@router.get(
+    "/parks/{park_id}/attractions/{attraction_id}/history",
+    response_model=AttractionHistoryOut,
+    tags=["histórico"],
+)
+async def historico_da_atracao(
+    cliente: ClienteThemeParks,
+    motor: MotorDoBanco,
+    park_id: Annotated[str, Path(description="ID do parque.")],
+    attraction_id: Annotated[str, Path(description="ID da atração.")],
+    hours: Annotated[
+        int,
+        Query(ge=1, le=MAX_HISTORY_HOURS, description="Tamanho da janela, em horas."),
+    ] = DEFAULT_HISTORY_HOURS,
+) -> AttractionHistoryOut:
+    """Como a fila desta atração se comportou nas últimas horas.
+
+    **O primeiro endpoint que serve dado nosso.** Tudo que veio antes era a
+    ThemeParks.wiki reempacotada; isto só existe porque o coletor rodou — e é o
+    que tira o projeto de "consome uma API" para "produz conhecimento próprio".
+
+    O nome da atração vem do catálogo, não do banco: guardá-lo em cada snapshot
+    seriam centenas de milhares de cópias da mesma string, e o catálogo já está em
+    cache por 24 horas.
+
+    Raises:
+        HTTPException: 503 quando não há banco, ou ele está fora do ar. Aqui o
+            histórico **é** a resposta — ao contrário da recomendação, onde ele é
+            enfeite e a falha é engolida de propósito.
+    """
+    catalogo = await cliente.get_park_catalog(park_id)
+
+    nomes = {entidade.id: entidade.name for entidade in catalogo.children}
+    if attraction_id not in nomes:
+        raise EntityNotFoundError(attraction_id)
+
+    if motor is None:
+        raise HTTPException(
+            status_code=503,
+            detail="O histórico ainda não está disponível neste ambiente.",
+        )
+
+    agora = datetime.now(UTC)
+    desde = agora - timedelta(hours=hours)
+
+    try:
+        async with connection(motor) as conexao:
+            serie = await history(conexao, attraction_id=attraction_id, since=desde)
+    except SQLAlchemyError as erro:
+        logger.warning("falha ao ler o histórico de %s", attraction_id, exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail="O histórico está indisponível no momento. Tente novamente em instantes.",
+        ) from erro
+
+    return AttractionHistoryOut.from_domain(
+        park_id=park_id,
+        attraction_id=attraction_id,
+        attraction_name=nomes[attraction_id],
+        hours=hours,
+        snapshots=serie,
+        resumo=summarize(serie),
+        # Recalculada sobre a janela inteira, e não sobre os 30 min padrão: quem
+        # pede 24 horas quer saber o movimento do dia, não o do último quarto de hora.
+        tendencia=analyze(serie, now=agora, window_minutes=hours * 60),
+    )
 
 
 @router.get(

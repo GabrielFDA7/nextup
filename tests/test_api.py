@@ -275,6 +275,7 @@ class TestContratoPublico:
             "/api/health",
             "/api/destinations",
             "/api/parks/{park_id}/attractions",
+            "/api/parks/{park_id}/attractions/{attraction_id}/history",
             "/api/parks/{park_id}/recommendations",
         }
 
