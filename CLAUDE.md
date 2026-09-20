@@ -45,7 +45,7 @@ O **6.6 terminou com um resultado negativo medido**: prever a fila por extrapola
 mais que usar a fila atual, em todo horizonte. O ranking não mudou — mas agora há número
 para sustentar a escolha. Detalhes na seção 7 de `docs/PROJETO.md`.
 
-**406 testes passando**: 355 na suíte rápida (~7s) e 51 de interface em navegador (~67s).
+**417 testes passando**: 355 na suíte rápida (~7s) e 62 de interface em navegador (~83s).
 CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
 
 Já existe e funciona:
@@ -66,7 +66,7 @@ Já existe e funciona:
   `parks/{id}/attractions` (o parque **sem** exigir posição, com `bounds` para o mapa),
   `parks/{id}/attractions/{id}/history?hours` e
   `parks/{id}/recommendations?lat&lon&limit`. Docs automáticas em `/docs`
-- `web/visitadas.js` — o `já fui hoje`, em `localStorage`, com carimbo do dia do parque
+- `web/preferencias.js` — `VISITADAS` (por dia, com fuso do parque) e `ALVOS` (sem prazo)
 - `web/` — interface em HTML/CSS/JS puro, servida pelo próprio FastAPI. Geolocation,
   mapa Leaflet, e **tocar no mapa define a posição** (saída para quem nega o GPS).
   Abre mostrando o parque antes de qualquer permissão; busca no seletor; o mapa
@@ -83,7 +83,7 @@ Já existe e funciona:
   `cli.py` porque orquestra `clients/` + `storage/`
 - `tests/test_arquitetura.py` — a regra de dependência é verificada automaticamente
 - `tests/test_migracoes.py` — aplica as migrações e compara com `tables.py`
-- `tests/test_web_e2e.py` — 51 testes em Chromium real (`pytest -m e2e`)
+- `tests/test_web_e2e.py` — 62 testes em Chromium real (`pytest -m e2e`)
 - Fixtures reais da API em `tests/fixtures/`; nenhum teste toca a internet
 - `.venv` local com **Python 3.13**, mesma versão mais alta testada no CI
 
@@ -113,20 +113,30 @@ quentes clareiam nele, então a tinta por cima inverte via `--sobre-quente` — 
 botão principal ficaria branco sobre coral claro.
 
 **Fase 7 — Personalização, em andamento.** Nasce das ideias do Gabriel, não do roadmap
-original. **7.1 ("já fui hoje") concluída em 20/09/2026**; faltam 7.2 (brinquedos alvo),
+original. **7.1 ("já fui hoje") e 7.2 (brinquedos alvo) concluídas em 20/09/2026**; faltam
 7.3 (filtros) e 7.4 (popularidade). Detalhes na seção 7 de `docs/PROJETO.md`.
 
-**7.1 e 7.2 são a fundação do roteiro do dia** (evolução 3 da seção 4): não dá para montar
-a sequência ótima sem saber onde o visitante esteve e aonde quer chegar. Parecem as mais
-simples da lista e são as mais estruturais.
+**Com 7.1 e 7.2 prontas, a fundação do roteiro do dia existe** (evolução 3 da seção 4): já
+se sabe onde o visitante esteve e aonde ele quer chegar. Essa é a frente que mais
+diferencia tecnicamente — otimização combinatória, parente do Caixeiro Viajante.
 
-**A personalização mora no `localStorage`** (`web/visitadas.js`), sem conta de usuário: o
+**A personalização mora no `localStorage`** (`web/preferencias.js`), sem conta de usuário: o
 app é usado no celular dentro do parque por algumas horas, e exigir cadastro antes de
-responder "para onde vou agora" mataria o produto.
+responder "para onde vou agora" mataria o produto. O arquivo tem uma base comum e dois
+namespaces, `VISITADAS` e `ALVOS`.
+
+> ⚠️ **As duas marcações têm regras OPOSTAS.** Visitadas valem por **dia** e carregam
+> carimbo de data; alvos valem **até o visitante mudar de ideia**. Alvo é desejo, não
+> acontecimento — uma lista de desejos que se apaga à meia-noite é um app que esquece.
 
 > ⚠️ **"Já fui hoje" carimba a data DO PARQUE, não a do celular.** Quem está em Orlando às
 > 23h ainda está no mesmo dia de visita. Sem o carimbo, o visitante voltaria na semana
 > seguinte com metade das atrações escondidas e nenhuma pista do porquê.
+
+> ⚠️ **Os alvos ficam em seção própria e NÃO reordenam o ranking.** São perguntas
+> diferentes: o ranking diz o que compensa agora, a lista de alvos diz quando ir naquilo
+> que o visitante veio fazer. Dar bônus de custo a um alvo distorceria o número em vez de
+> assumir a mudança de critério.
 
 > ⚠️ **Todo acesso ao `localStorage` precisa de `try/catch`.** Em aba anônima ou com
 > cookies bloqueados ele **lança**, não devolve vazio.
@@ -326,7 +336,7 @@ uvicorn nextup.api.main:app --reload     # http://127.0.0.1:8000
 Testes de interface (exigem `pip install -e ".[dev,e2e]"` e `playwright install chromium`):
 
 ```bash
-pytest -m e2e          # esperado: 51 testes, ~67s
+pytest -m e2e          # esperado: 62 testes, ~83s
 ```
 
 ---

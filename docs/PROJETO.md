@@ -985,7 +985,7 @@ Mountain hoje, o outro veio ao parque só por causa dele. Sem saber disso, a rec
 | # | Entrega | Situação |
 |---|---|---|
 | 7.1 | **"Já fui hoje"** — marcar visitadas e tirá-las do ranking | ✅ 20/09/2026 |
-| 7.2 | **Brinquedos alvo** — a lista do que o visitante veio fazer | pendente |
+| 7.2 | **Brinquedos alvo** — a lista do que o visitante veio fazer | ✅ 20/09/2026 |
 | 7.3 | Filtros — fila máxima, distância máxima, "vai fechar logo" | pendente |
 | 7.4 | Popularidade, derivada da fila média histórica | pendente |
 
@@ -1078,6 +1078,60 @@ Duas consequências finas, resolvidas junto:
 - **No modo "Mostrar", as visitadas se somam às sugestões** em vez de tomar a vaga delas.
   Se tomassem, revelar o que já foi feito custaria uma sugestão — e quanto mais o visitante
   andasse pelo parque, menos o app teria a dizer.
+
+#### 7.2 — Brinquedos alvo ✅ *concluída em 20/09/2026*
+
+Uma seção **"Você veio por estas"**, acima do ranking e separada dele por uma linha.
+
+**A decisão de produto que molda tudo:** o que um alvo faz com o ranking?
+
+| Alternativa | Por que não |
+|---|---|
+| Alvos sobem no topo | Quebra a tese do projeto — a ordem deixa de ser por custo total |
+| Alvos ganham bônus no custo | Pior ainda: distorce o número em vez de assumir a mudança de critério |
+| Alvos só destacados na lista | Não resolve nada — o alvo continua enterrado em décimo quinto lugar |
+
+O que se escolheu foi reconhecer que são **perguntas diferentes**:
+
+- O ranking responde *"o que compensa mais agora?"*
+- A lista de alvos responde *"quando devo ir naquilo que eu vim fazer?"*
+
+Cada uma ganha seu espaço, e nenhuma precisa mentir. Entre si, os alvos são ordenados por
+custo total — a régua não muda; muda o conjunto sobre o qual ela é aplicada.
+
+**O caso que justifica a seção existir**, verificado com dados reais: marcando como alvo a
+**pior colocada de trinta** — Peter Pan's Flight, 58 minutos de custo total —, ela aparece
+no topo da tela. Enterrada no ranking, seria invisível justamente para quem veio por ela.
+E é essa informação que faz o visitante decidir esperar, voltar mais tarde ou desistir.
+
+**Alvos não têm prazo de validade**, ao contrário das visitadas. A diferença vale registro:
+
+```
+VISITADAS  valem por DIA.   Amanhã o parque está inteiro de novo.
+ALVOS      valem até mudar. São desejo, não acontecimento.
+```
+
+Uma lista de desejos que se apaga sozinha à meia-noite seria um app que esquece o que você
+quer.
+
+Detalhes que caíram do desenho:
+
+- **O alvo sai do ranking.** Repeti-lo nas duas listas gastaria uma das oito vagas com algo
+  que o visitante acabou de ver — e a lista não encolhe, a nona colocada sobe.
+- **A etiqueta "melhor escolha agora" não vaza para os alvos.** Ela compara o parque
+  inteiro; repeti-la sobre um recorte de três atrações diria outra coisa com as mesmas
+  palavras.
+- **Um alvo pode ser marcado como feito**, e o resumo passa a contar "1 de 3 já feitas".
+
+O armazenamento foi reorganizado em `web/preferencias.js`, com uma base comum para as duas
+marcações. Duplicar o `try/catch` do `localStorage` em dois arquivos seria pedir para um
+deles esquecê-lo.
+
+> **Uma armadilha de tema escuro, evitada por verificação.** O botão de alvo usa o roxo
+> `--profundo` como fundo. No tema claro ele é `#4c2a6b` e pede texto branco; no escuro
+> vira `#c9a6e8`, um lilás claro — e o branco sumiria. Foi preciso criar
+> `--sobre-profundo`, exatamente como o projeto já fizera com `--sobre-quente` para o
+> âmbar e o coral. É a segunda vez que a mesma armadilha aparece; o padrão agora tem nome.
 
 ---
 
@@ -1349,6 +1403,12 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 20/09/2026 | A tela pede o ranking **inteiro** (`limit=0`) | Pedir 8 e filtrar depois esvaziava a lista ao marcar 8 visitadas; custo medido: 3,5 KB → 12,5 KB |
 | 20/09/2026 | Filtrar as visitadas **no navegador**, não na API | Mandar os IDs para o servidor acoplaria a API ao estado do aparelho e contradiria a decisão desta fase |
 | 20/09/2026 | No modo "Mostrar", as visitadas **somam-se** às sugestões | Se tomassem a vaga, revelar o que já foi feito custaria uma sugestão a cada marcação |
+| 20/09/2026 | Alvos em **seção própria**, não no topo do ranking | São perguntas diferentes: "o que compensa agora" e "quando ir no que eu vim fazer" |
+| 20/09/2026 | Alvos **não** ganham bônus no custo | Distorcer o número seria pior que assumir a mudança de critério |
+| 20/09/2026 | Alvos **sem** carimbo de data, ao contrário das visitadas | Alvo é desejo, não acontecimento; lista de desejos que some à meia-noite é app que esquece |
+| 20/09/2026 | O alvo sai do ranking | Repeti-lo gastaria uma das oito vagas com algo que o visitante acabou de ver |
+| 20/09/2026 | A etiqueta "melhor escolha" não aparece entre os alvos | Ela compara o parque inteiro; sobre três atrações diria outra coisa |
+| 20/09/2026 | `--sobre-profundo` criado, como o `--sobre-quente` | O roxo inverte no tema escuro; texto branco sobre lilás claro sumiria |
 
 ---
 

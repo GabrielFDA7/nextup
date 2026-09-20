@@ -1075,6 +1075,41 @@ da própria Fase 7, de a personalização não sair do aparelho.
 
 ---
 
+### Prompt #043
+**Data:** 20/09/2026
+**Contexto:** Bug do "já fui" corrigido. Faltavam 7.2 (brinquedos alvo), 7.3 (filtros) e
+7.4 (popularidade).
+
+```
+Seguimos!
+```
+
+**O que resultou: a Fase 7.2 — "Você veio por estas".**
+
+A decisão de produto veio antes do código: **o que um alvo faz com o ranking?** Três
+alternativas foram descartadas — subir ao topo (quebra a tese do projeto), ganhar bônus no
+custo (distorce o número) e só destacar na lista (não resolve nada, o alvo continua
+enterrado).
+
+O que se escolheu foi reconhecer que são **perguntas diferentes**: o ranking responde "o
+que compensa mais agora"; a lista de alvos responde "quando devo ir naquilo que eu vim
+fazer". Cada uma ganhou seu espaço, e nenhuma precisa mentir.
+
+**O caso que justifica a seção**, verificado com dados reais: marcando como alvo a **pior
+colocada de trinta** — Peter Pan's Flight, 58 minutos —, ela aparece no topo da tela.
+Enterrada no ranking, seria invisível justamente para quem veio por ela.
+
+- `web/preferencias.js` substitui o `visitadas.js`, com base comum e dois namespaces.
+- **Alvos não têm prazo**, ao contrário das visitadas: alvo é desejo, não acontecimento.
+- Suíte de 406 para **417 testes**.
+
+**Uma armadilha de tema escuro, evitada por verificação:** o botão de alvo usa o roxo
+`--profundo`, que no tema claro é escuro e no escuro vira lilás claro — texto branco
+sumiria. Foi preciso criar `--sobre-profundo`, exatamente como o projeto já fizera com
+`--sobre-quente`. É a segunda vez que a mesma armadilha aparece.
+
+---
+
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 
