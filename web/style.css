@@ -396,7 +396,9 @@ h2 {
 
 .item {
   display: grid;
-  grid-template-columns: auto 1fr;
+  /* Três colunas: o custo, o corpo e o botão de histórico. O corpo fica com
+     `1fr` para absorver a sobra, e o gráfico expandido atravessa as três. */
+  grid-template-columns: auto 1fr auto;
   gap: 16px;
   align-items: center;
   padding: 16px;
@@ -425,6 +427,118 @@ h2 {
    visual do ranking prometeria uma resposta que o app ainda não tem. */
 .item--sem-posicao .custo {
   background: var(--superficie-alt);
+  color: var(--tinta-suave);
+}
+
+/* --- Histórico e gráfico ------------------------------------------------ */
+
+.ver-historico {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  min-height: 0;
+  padding: 9px 10px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--tinta-suave);
+  background: var(--superficie-alt);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-p);
+}
+
+.ver-historico svg {
+  width: 16px;
+  height: 16px;
+}
+
+.ver-historico:hover {
+  color: var(--destaque);
+  border-color: var(--destaque);
+}
+
+/* Enquanto aberto, o botão mostra que é ele quem controla o que apareceu. */
+.item[data-expandido="true"] .ver-historico {
+  color: var(--destaque);
+  border-color: var(--destaque);
+}
+
+/* O gráfico ocupa a largura toda do cartão, abaixo das três colunas. */
+.historico {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--borda);
+}
+
+.grafico {
+  margin: 0;
+}
+
+.grafico figcaption {
+  margin-bottom: 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--tinta-suave);
+}
+
+.grafico svg {
+  display: block;
+  width: 100%;
+  height: 92px;
+  overflow: visible;
+}
+
+.grafico-linha {
+  fill: none;
+  stroke: var(--destaque);
+  /* `vector-effect` mantém a espessura constante mesmo com o viewBox esticado
+     pelo `preserveAspectRatio: none` — sem ele a linha engrossaria na horizontal
+     e afinaria na vertical, virando uma fita torta. */
+  vector-effect: non-scaling-stroke;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.grafico-area {
+  fill: var(--ambar-fraco);
+  opacity: 0.7;
+}
+
+.grafico-agora {
+  fill: var(--destaque);
+  stroke: var(--superficie);
+  stroke-width: 0.8;
+}
+
+.grafico-eixo,
+.grafico-numeros {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: var(--tinta-suave);
+}
+
+.grafico-numeros {
+  gap: 10px;
+  justify-content: flex-start;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--borda);
+}
+
+.grafico-numeros strong {
+  color: var(--tinta);
+  font-variant-numeric: tabular-nums;
+}
+
+.grafico-vazio {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
   color: var(--tinta-suave);
 }
 

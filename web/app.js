@@ -23,6 +23,10 @@
 const PARQUE_PADRAO = "75ea578a-adc8-4116-a54d-dccb60765ef9"; // Magic Kingdom
 const LIMITE = 8;
 
+//: Janela do gráfico. Seis horas cobrem meio dia de parque e cabem em ~72 pontos
+//: com a coleta de 5 minutos — densidade boa para a largura de um celular.
+const HORAS_DE_HISTORICO = 6;
+
 /** Estado da aplicação. Um objeto só, para ficar claro o que muda. */
 const estado = {
   posicao: null, // { lat, lon }
@@ -498,18 +502,26 @@ function mostrarPanoramaDoParque(dados) {
 }
 
 function criarItemSimples(item) {
+  // O histórico também aparece aqui: saber como a fila se comportou hoje não
+  // depende de o visitante ter dito onde está.
   return `
-    <li class="item item--sem-posicao">
+    <li class="item item--sem-posicao" data-expandido="false">
       <div class="custo">
         <strong>${item.queue_minutes}</strong>
         <span>min</span>
       </div>
-      <div>
+      <div class="corpo">
         <p class="nome">${escapar(item.name)}</p>
         <p class="conta">
           <span class="parcela">${ICONE.fila} só a fila — falta a caminhada</span>
         </p>
       </div>
+      <button type="button" class="ver-historico"
+              data-atracao="${escapar(item.id)}"
+              aria-expanded="false">
+        ${ICONE.grafico}
+        <span>Histórico</span>
+      </button>
     </li>
   `;
 }
@@ -567,6 +579,11 @@ const ICONE = {
       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M12 19V5" /><path d="m5 12 7-7 7 7" />
     </svg>`,
+  grafico: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 3v16a2 2 0 0 0 2 2h16" />
+      <path d="m7 14 3.5-4 3 2.5L18 7" />
+    </svg>`,
 };
 
 /* A tendência, na linha da conta.
@@ -602,12 +619,12 @@ function criarItem(item, indice) {
     : "";
 
   return `
-    <li class="item${ehMelhor ? " item--melhor" : ""}">
+    <li class="item${ehMelhor ? " item--melhor" : ""}" data-expandido="false">
       <div class="custo">
         <strong>${Math.round(item.total_minutes)}</strong>
         <span>min</span>
       </div>
-      <div>
+      <div class="corpo">
         <p class="nome">${escapar(item.attraction.name)}</p>
         <p class="conta">
           <span class="parcela">
@@ -620,8 +637,168 @@ function criarItem(item, indice) {
         ${criarTendencia(item.trend)}
         ${etiqueta}
       </div>
+      <!-- Um <button> de verdade, e não um <div> clicável: o botão já vem com
+           foco pelo teclado, papel anunciado ao leitor de tela e acionamento por
+           Enter e Espaço. Refazer isso à mão num div dá errado silenciosamente. -->
+      <button type="button" class="ver-historico"
+              data-atracao="${escapar(item.attraction.id)}"
+              aria-expanded="false">
+        ${ICONE.grafico}
+        <span>Histórico</span>
+      </button>
     </li>
   `;
+}
+
+// ---------------------------------------------------------------------------
+// Gráfico do histórico
+// ---------------------------------------------------------------------------
+
+/* Desenhado em SVG à mão, sem biblioteca.
+ *
+ * Não é teimosia: uma biblioteca de gráficos custa 50–200 KB para desenhar uma
+ * linha e alguns eixos, num app cuja decisão registrada é não ter etapa de build.
+ * O SVG escala sem borrar, herda a cor do tema e sai pronto no HTML.
+ *
+ * As coordenadas são calculadas num sistema de 0–100 em vez de pixels: assim o
+ * `viewBox` cuida do redimensionamento e o mesmo desenho serve do celular ao
+ * desktop sem recalcular nada.
+ */
+const GRAFICO = { largura: 100, altura: 34, topo: 3, base: 31 };
+
+/* O eixo vertical começa em ZERO, e não no menor valor da série.
+ *
+ * Começar no mínimo é o padrão de muitas bibliotecas e está errado para este
+ * dado. Com escala truncada, uma fila que oscila entre 5 e 10 minutos desenha a
+ * mesma queda dramática que uma que despencou de 90 para 5 — e a informação que
+ * o visitante mais quer, *o tamanho da fila*, desaparece do desenho.
+ *
+ * Com base zero, a altura da linha É a fila. Inclinação responde "está
+ * melhorando?", altura responde "está grande?", e as duas perguntas convivem no
+ * mesmo gráfico sem uma mentir sobre a outra.
+ */
+function escalaVertical(filas) {
+  // Folga no topo para o pico não encostar na borda e virar uma linha cortada.
+  // O mínimo de 10 evita que uma série toda de filas curtas — 0 e 5 minutos —
+  // vire um gráfico de picos gigantes sobre nada.
+  return Math.max(Math.max(...filas) * 1.15, 10);
+}
+
+function pontosDaLinha(pontos, teto) {
+  const passo = pontos.length > 1 ? GRAFICO.largura / (pontos.length - 1) : 0;
+
+  return pontos.map((ponto, indice) => {
+    const x = pontos.length > 1 ? indice * passo : GRAFICO.largura / 2;
+    // O eixo Y do SVG cresce para baixo, então o valor é invertido — sem isso o
+    // gráfico sairia de cabeça para baixo, com as filas maiores no chão.
+    const proporcao = ponto.minutes / teto;
+    const y = GRAFICO.base - proporcao * (GRAFICO.base - GRAFICO.topo);
+    return { x, y, ponto };
+  });
+}
+
+function desenharGrafico(dados) {
+  const pontos = dados.points;
+
+  if (pontos.length < 2) {
+    return `<p class="grafico-vazio">
+      Ainda não há histórico suficiente para esta atração. O NextUp coleta a cada
+      5 minutos — volte mais tarde.
+    </p>`;
+  }
+
+  const filas = pontos.map((p) => p.minutes);
+  const minimo = Math.min(...filas);
+  const maximo = Math.max(...filas);
+  const coords = pontosDaLinha(pontos, escalaVertical(filas));
+
+  const linha = coords.map((c) => `${c.x.toFixed(2)},${c.y.toFixed(2)}`).join(" ");
+  // A área sob a linha dá peso visual à curva; sozinha, uma linha de 1px some
+  // numa tela de celular ao sol.
+  const area = `0,${GRAFICO.altura} ${linha} ${GRAFICO.largura},${GRAFICO.altura}`;
+  const ultimo = coords[coords.length - 1];
+
+  const resumo = dados.summary;
+  const legenda = resumo
+    ? `<div class="grafico-numeros">
+         <span><strong>${resumo.min_minutes}</strong> mín</span>
+         <span><strong>${resumo.average_minutes}</strong> média</span>
+         <span><strong>${resumo.max_minutes}</strong> máx</span>
+       </div>`
+    : "";
+
+  return `
+    <figure class="grafico">
+      <figcaption>
+        Últimas ${dados.hours}h · ${pontos.length} medições
+      </figcaption>
+      <svg viewBox="0 0 ${GRAFICO.largura} ${GRAFICO.altura}"
+           preserveAspectRatio="none"
+           role="img"
+           aria-label="${escapar(descreverGrafico(dados, minimo, maximo))}">
+        <polygon class="grafico-area" points="${area}" />
+        <polyline class="grafico-linha" points="${linha}" />
+        <circle class="grafico-agora" cx="${ultimo.x.toFixed(2)}"
+                cy="${ultimo.y.toFixed(2)}" r="1.6" />
+      </svg>
+      <div class="grafico-eixo">
+        <span>${formatarHora(pontos[0].at)}</span>
+        <span>${formatarHora(ultimo.ponto.at)}</span>
+      </div>
+      ${legenda}
+    </figure>
+  `;
+}
+
+/* O texto alternativo do gráfico.
+ *
+ * Um `<svg>` sem rótulo é invisível para leitor de tela — e aqui não há
+ * alternativa textual em lugar nenhum, porque os números da legenda não contam a
+ * forma da curva. Esta frase é a única versão acessível do gráfico.
+ */
+function descreverGrafico(dados, minimo, maximo) {
+  const inicio = dados.points[0].minutes;
+  const fim = dados.points[dados.points.length - 1].minutes;
+
+  return (
+    `Fila nas últimas ${dados.hours} horas: começou em ${inicio} minutos, ` +
+    `está em ${fim}. Variou entre ${minimo} e ${maximo}.`
+  );
+}
+
+async function alternarHistorico(item, attractionId) {
+  const aberto = item.querySelector(".historico");
+
+  if (aberto) {
+    aberto.remove();
+    item.dataset.expandido = "false";
+    return;
+  }
+
+  const caixa = document.createElement("div");
+  caixa.className = "historico";
+  caixa.innerHTML = '<p class="grafico-vazio">Carregando histórico…</p>';
+  item.appendChild(caixa);
+  item.dataset.expandido = "true";
+
+  try {
+    const resposta = await fetch(
+      `/api/parks/${estado.parqueId}/attractions/${attractionId}/history?hours=${HORAS_DE_HISTORICO}`
+    );
+
+    if (!resposta.ok) {
+      caixa.innerHTML = `<p class="grafico-vazio">${
+        resposta.status === 503
+          ? "O histórico está indisponível no momento."
+          : "Não foi possível carregar o histórico."
+      }</p>`;
+      return;
+    }
+
+    caixa.innerHTML = desenharGrafico(await resposta.json());
+  } catch {
+    caixa.innerHTML = '<p class="grafico-vazio">Não foi possível falar com o servidor.</p>';
+  }
 }
 
 function formatarHora(iso) {
@@ -666,6 +843,21 @@ function iniciar() {
 
   el.buscaParque.addEventListener("input", (evento) => {
     filtrarParques(evento.target.value);
+  });
+
+  // Delegação: um ouvinte na lista, e não um por botão. A lista é reapagada e
+  // redesenhada a cada atualização, e ouvintes presos aos botões antigos
+  // morreriam junto — ou pior, ficariam vivos segurando nós que já saíram da
+  // página.
+  el.lista.addEventListener("click", (evento) => {
+    const botao = evento.target.closest(".ver-historico");
+    if (!botao) return;
+
+    const item = botao.closest(".item");
+    const expandido = item.dataset.expandido === "true";
+
+    botao.setAttribute("aria-expanded", String(!expandido));
+    alternarHistorico(item, botao.dataset.atracao);
   });
 
   el.parque.addEventListener("change", (evento) => {

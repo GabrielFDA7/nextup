@@ -175,6 +175,41 @@ def _responder_atracoes(rota) -> None:
     )
 
 
+def _historico(pontos: int) -> dict:
+    """Uma série sintética com `pontos` medições, subindo de 10 em 10 minutos.
+
+    Sintética de propósito: o que estes testes verificam é o **desenho**, e uma
+    série previsível deixa a contagem de vértices ser uma asserção exata.
+    """
+    from datetime import UTC, datetime, timedelta
+
+    agora = datetime(2026, 9, 20, 15, 0, tzinfo=UTC)
+    filas = [10 + (i % 5) * 5 for i in range(pontos)]
+
+    return {
+        "park_id": DEFAULT_PARK_ID,
+        "attraction_id": "qualquer",
+        "attraction_name": "Atração de Teste",
+        "hours": 6,
+        "points": [
+            {
+                "at": (agora - timedelta(minutes=5 * (pontos - i))).isoformat(),
+                "minutes": fila,
+            }
+            for i, fila in enumerate(filas)
+        ],
+        "summary": {
+            "measurements": pontos,
+            "min_minutes": min(filas),
+            "max_minutes": max(filas),
+            "average_minutes": round(sum(filas) / len(filas), 1),
+            "current_minutes": filas[-1],
+            "spread": max(filas) - min(filas),
+        },
+        "trend": None,
+    }
+
+
 def _atracoes_como_a_api_devolve() -> dict:
     """Monta a resposta com o schema de verdade, sobre as fixtures reais."""
     from nextup.api.schemas import ParkAttractionsOut
@@ -355,6 +390,100 @@ class TestTendenciaNaTela:
         pagina.wait_for_selector("[data-modo='ranking'] .item")
 
         assert pagina.locator(".tendencia").count() == 0
+
+
+class TestGraficoDoHistorico:
+    """O gráfico — a entrega da Fase 6.5.
+
+    É a primeira tela do NextUp feita de **dado nosso**: tudo o mais é a
+    ThemeParks.wiki reempacotada. O histórico é interceptado aqui como o resto da
+    API, então nada depende do banco nem da internet.
+    """
+
+    def abrir_com_historico(self, navegador, servidor, *, pontos=12):
+        pagina = abrir(navegador, servidor)
+        pagina.route("**/history*", lambda rota: rota.fulfill(json=_historico(pontos)))
+        return pagina
+
+    def expandir(self, pagina):
+        pagina.click("#btn-localizar")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        pagina.locator(".ver-historico").first.click()
+
+    def test_o_grafico_aparece_ao_pedir_o_historico(self, navegador, servidor):
+        pagina = self.abrir_com_historico(navegador, servidor)
+        self.expandir(pagina)
+
+        expect(pagina.locator(".grafico svg").first).to_be_visible()
+        expect(pagina.locator(".grafico-linha").first).to_be_visible()
+
+    def test_a_linha_tem_um_ponto_por_medicao(self, navegador, servidor):
+        """Prova que o gráfico desenha os dados recebidos, e não uma forma fixa."""
+        pagina = self.abrir_com_historico(navegador, servidor, pontos=9)
+        self.expandir(pagina)
+
+        pontos = pagina.locator(".grafico-linha").first.get_attribute("points")
+
+        assert len(pontos.split()) == 9
+
+    def test_o_grafico_tem_alternativa_em_texto(self, navegador, servidor):
+        """Um `<svg>` sem rótulo é invisível para leitor de tela.
+
+        E aqui não há outra versão do conteúdo: os números da legenda não contam
+        a forma da curva.
+        """
+        pagina = self.abrir_com_historico(navegador, servidor)
+        self.expandir(pagina)
+
+        rotulo = pagina.locator(".grafico svg").first.get_attribute("aria-label")
+
+        assert "Fila nas últimas" in rotulo
+        assert "minutos" in rotulo
+
+    def test_mostra_minimo_media_e_maximo(self, navegador, servidor):
+        pagina = self.abrir_com_historico(navegador, servidor)
+        self.expandir(pagina)
+
+        expect(pagina.locator(".grafico-numeros").first).to_contain_text("mín")
+        expect(pagina.locator(".grafico-numeros").first).to_contain_text("máx")
+
+    def test_clicar_de_novo_fecha(self, navegador, servidor):
+        """Alternar é o que o `aria-expanded` promete ao leitor de tela."""
+        pagina = self.abrir_com_historico(navegador, servidor)
+        self.expandir(pagina)
+
+        botao = pagina.locator(".ver-historico").first
+        expect(botao).to_have_attribute("aria-expanded", "true")
+
+        botao.click()
+
+        expect(botao).to_have_attribute("aria-expanded", "false")
+        assert pagina.locator(".grafico").count() == 0
+
+    def test_historico_curto_explica_em_vez_de_desenhar(self, navegador, servidor):
+        """Um gráfico de um ponto só não é gráfico — é um pixel solto."""
+        pagina = self.abrir_com_historico(navegador, servidor, pontos=1)
+        self.expandir(pagina)
+
+        expect(pagina.locator(".grafico-vazio").first).to_contain_text("histórico suficiente")
+
+    def test_historico_indisponivel_vira_frase_compreensivel(self, navegador, servidor):
+        """503 é o que a API devolve quando o banco está fora do ar."""
+        pagina = abrir(navegador, servidor)
+        pagina.route("**/history*", lambda rota: rota.fulfill(status=503, json={"detail": "x"}))
+        self.expandir(pagina)
+
+        expect(pagina.locator(".grafico-vazio").first).to_contain_text("indisponível")
+
+    def test_tambem_funciona_antes_de_dar_a_posicao(self, navegador, servidor):
+        """Ver o passado de uma atração não depende de saber onde o visitante está."""
+        pagina = abrir(navegador, servidor, com_gps=False)
+        pagina.route("**/history*", lambda rota: rota.fulfill(json=_historico(12)))
+        pagina.wait_for_selector("[data-modo='panorama'] .item")
+
+        pagina.locator(".ver-historico").first.click()
+
+        expect(pagina.locator(".grafico svg").first).to_be_visible()
 
 
 class TestTrocaDeParque:
