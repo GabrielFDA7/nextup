@@ -965,6 +965,47 @@ começar em zero, e aí a altura da linha *é* a fila.
 
 ---
 
+### Prompt #040
+**Data:** 20/09/2026
+**Contexto:** Último passo do roadmap original — 6.6, previsão da fila na chegada.
+
+```
+Siga!
+```
+
+**O que resultou: a Fase 6 fechada, com um resultado negativo medido.**
+
+Antes de implementar qualquer modelo, um backtest sobre 315 medições reais comparou a
+previsão contra o baseline óbvio — **persistência**, que é "a fila daqui a N minutos é a
+fila de agora", exatamente o que o app já fazia desde a Fase 2:
+
+| Horizonte | Persistência | Tendência extrapolada |
+|---|---|---|
+| 5 min | **1,86** | 2,66 |
+| 10 min | **2,50** | 3,97 |
+| 30 min | **4,65** | 9,02 |
+
+Extrapolar **piora** em todo horizonte. A suspeita de viés — a fila fica parada na maior
+parte do tempo, o que daria vantagem de graça à persistência — foi testada isolando só os
+casos em que a fila mudou, e a persistência continuou ganhando. A razão é que **a direção
+não persiste**: uma fila que subiu nos últimos trinta minutos tem chance parecida de cair
+nos próximos.
+
+**A decisão foi não implementar.** Trocar o modelo do ranking teria piorado o produto e
+ficado bonito no roadmap, que é o pior par possível.
+
+**O que foi construído no lugar:**
+- `core/forecast.py` e `tests/test_forecast.py` — os modelos, a régua e a conclusão fixada
+  em teste. Baseline ruim documentado evita que a próxima pessoa tente a mesma ideia.
+- Tabela `queue_forecasts` e o coletor gravando nela. Sobrou **um candidato não testado**:
+  a previsão horária da própria fonte, que o backtest não pôde avaliar porque ninguém a
+  guardava. Verificado em produção: 158 previsões, 26 atrações, sete horas à frente.
+- Suíte de 364 para **393 testes**.
+
+**Todas as seis fases do roadmap original estão entregues.**
+
+---
+
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 

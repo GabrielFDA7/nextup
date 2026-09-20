@@ -6,9 +6,13 @@
 > **Status atual: Fases 0 a 5 concluídas.** O projeto está no ar em
 > <https://nextup-rcux.onrender.com>.
 >
-> **Fase 6 quase fechada** — passos 6.1 a 6.5 concluídos: o histórico é coletado,
-> persistido, analisado, exposto pela API e desenhado na tela. Falta só o **6.6, previsão
-> da fila na chegada**. 326 testes na suíte rápida, 38 de interface em navegador.
+> **Fase 6 concluída (20/09/2026).** O histórico é coletado, persistido, analisado,
+> exposto pela API e desenhado na tela. O passo 6.6 terminou com um **resultado negativo
+> medido**: prever a fila por extrapolação erra mais que usar a fila atual, então o
+> ranking não mudou — mas agora sabemos por quê, com número.
+>
+> **Todas as seis fases do roadmap original estão entregues.** 355 testes na suíte
+> rápida, 38 de interface em navegador.
 
 ---
 
@@ -649,7 +653,7 @@ o coletor vem cedo — ele enche o banco enquanto o resto é construído.
 | 6.3 | `core/trends.py` — tendência como função pura | ✅ 20/09/2026 |
 | 6.4 | Rota `GET /api/.../history` | ✅ 20/09/2026 |
 | 6.5 | Gráfico da fila na interface | ✅ 20/09/2026 |
-| 6.6 | Previsão da fila **na chegada** | pendente |
+| 6.6 | Previsão da fila **na chegada** | ✅ 20/09/2026 — *medida e descartada* |
 
 O 6.3 torna verdadeira uma frase que a seção 4 deste documento promete desde o começo e
 que o app ainda não cumpre: *"caiu de 45 para 20 nos últimos 30 minutos"*. E o 6.6 fecha a
@@ -882,6 +886,63 @@ aqui não há alternativa textual em lugar nenhum, já que os números do resumo
 forma da linha. E o gatilho é um `<button>` de verdade, que já vem com foco pelo teclado e
 acionamento por Enter e Espaço; refazer isso num `<div>` clicável dá errado em silêncio.
 
+#### 6.6 — Previsão na chegada: medida, e **descartada** ✅ *20/09/2026*
+
+O objetivo era fechar a lacuna que a seção 4 aponta desde o primeiro dia: o NextUp soma a
+fila de **agora** a uma atração onde o visitante só chega dez ou quinze minutos depois.
+
+**O resultado foi negativo, e é a entrega mais valiosa da fase.**
+
+Antes de implementar qualquer modelo, um backtest sobre 315 medições reais comparou a
+previsão contra o baseline óbvio — **persistência**, que é "a fila daqui a N minutos é a
+fila de agora", exatamente o que o app já fazia:
+
+| Horizonte | Persistência | Tendência extrapolada | Amortecida |
+|---|---|---|---|
+| 5 min | **1,86** | 2,66 | 2,25 |
+| 10 min | **2,50** | 3,97 | 3,18 |
+| 20 min | **3,44** | 6,13 | 4,60 |
+| 30 min | **4,65** | 9,02 | 6,70 |
+
+*(erro médio absoluto em minutos; menor é melhor)*
+
+Extrapolar a tendência **piora** a previsão em todos os horizontes, e piora mais quanto
+mais longe — justamente onde prever seria mais útil.
+
+A primeira suspeita foi viés: a fila fica parada na maior parte do tempo, o que daria
+vantagem de graça à persistência. Isolando **só os casos em que a fila mudou**, ela
+continua ganhando — 6,42 contra 7,72 em dez minutos, 8,23 contra 13,19 em trinta.
+
+A razão é que **a direção não persiste**. Uma fila que subiu nos últimos trinta minutos
+tem chance parecida de cair nos próximos, e extrapolar amplifica ruído em vez de projetar
+sinal.
+
+> **A decisão:** não trocar o modelo do ranking. O que o NextUp faz desde a Fase 2 é o
+> melhor disponível — e agora sabemos *por quê*, com número. Implementar a previsão
+> assim mesmo teria piorado o produto e ficado bonito no roadmap, que é o pior par
+> possível.
+
+**O que foi construído, então:**
+
+- `core/forecast.py` — os dois modelos e a régua que os compara, para a medição poder ser
+  repetida. Um baseline ruim **documentado** vale mais que um ausente: sem ele, a próxima
+  pessoa tentaria a mesma ideia do zero.
+- `tests/test_forecast.py` — fixa a conclusão em teste, para ela não sobreviver apenas
+  como parágrafo que ninguém lê.
+- **A tabela `queue_forecasts`** e o coletor gravando nela.
+
+Esta última é a parte que olha para a frente. Sobrou **um candidato não testado**: a
+previsão horária que a própria ThemeParks.wiki publica, e que o backtest não pôde avaliar
+porque ninguém a estava guardando. Ela tem chance real justamente onde a extrapolação
+falha — captura o padrão do dia, que uma janela de trinta minutos não enxerga.
+
+A tabela guarda a **primeira** aparição de cada previsão, e é isso que faz `recorded_at`
+significar "quando a fonte se comprometeu com esse número". Sem essa deduplicação, a
+republicação a cada consulta viraria 288 linhas idênticas por dia e a antecedência — que é
+o que dá valor a uma previsão — seria sempre de alguns minutos.
+
+Verificado em produção: 158 previsões guardadas, 26 atrações, cobrindo sete horas à frente.
+
 **Limitação conhecida, herdada do plano gratuito:** o Render hiberna após ~15 min sem
 acesso **de entrada**, e requisições que o coletor faz para fora não contam como
 atividade. Com o serviço dormindo, não há coleta. O `keep-alive.yml`, que existia para o
@@ -1021,6 +1082,14 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **`aria-expanded`** | Diz ao leitor de tela se o botão abriu ou fechou algo, em vez de deixá-lo adivinhar |
 | **Delegação de evento** | Um ouvinte no elemento pai em vez de um por filho; sobrevive à lista ser redesenhada |
 | **Amplitude (spread)** | Pico menos vale. Mede se vale a pena escolher a hora de ir |
+| **Baseline** | O modelo bobo contra o qual qualquer modelo esperto precisa se justificar |
+| **Persistência** | Prever que o futuro é igual ao presente. Em horizonte curto, dificílimo de bater |
+| **Backtest** | Rodar o modelo sobre o passado, usando só o que se sabia na época, e medir o erro |
+| **Erro médio absoluto (MAE)** | Média de quanto o modelo erra, na unidade do dado — aqui, minutos de fila |
+| **Extrapolação** | Projetar a tendência recente para a frente. Prolongada, sempre sai da realidade |
+| **Horizonte** | Quão longe no futuro a previsão olha. Quanto maior, mais difícil |
+| **Antecedência (lead time)** | Com quanto tempo a previsão foi feita. Acertar cinco minutos antes não impressiona |
+| **Resultado negativo** | Descobrir que algo *não* funciona. Vale tanto quanto o positivo, e quase nunca é registrado |
 
 ---
 
@@ -1133,6 +1202,11 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 20/09/2026 | Eixo vertical do gráfico **começa em zero** | Escala truncada exagera variação pequena e apaga magnitude; para fila, altura da linha tem de ser a fila |
 | 20/09/2026 | O `<svg>` leva `aria-label` descrevendo a curva | Gráfico sem rótulo é invisível para leitor de tela, e os números do resumo não contam a forma |
 | 20/09/2026 | O gatilho do gráfico é um `<button>`, não um `<div>` | Foco por teclado e acionamento por Enter/Espaço vêm de graça; refazer num div falha em silêncio |
+| 20/09/2026 | **Previsão por extrapolação descartada, por medição** | Erra mais que usar a fila atual em todo horizonte — 2,5 vs 3,97 min em 10 min, e pior quanto mais longe |
+| 20/09/2026 | O ranking **continua** usando a fila de agora | É o modelo vencedor no backtest; implementar a previsão teria piorado o produto |
+| 20/09/2026 | Modelos perdedores ficam no código, documentados | Baseline ruim registrado evita que a próxima pessoa tente a mesma ideia do zero |
+| 20/09/2026 | Passar a gravar o `forecast` da fonte | Único candidato não testado, e não dava para avaliá-lo sem histórico dele |
+| 20/09/2026 | `queue_forecasts` guarda a **primeira** aparição de cada previsão | A fonte republica o mesmo perfil a cada consulta; sobrescrever destruiria a medida de antecedência |
 
 ---
 

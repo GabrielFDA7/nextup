@@ -38,12 +38,14 @@ documentação de decisões **fazem parte da entrega** — não são extras opci
 
 ## Estado atual
 
-**Fases 0 a 5 concluídas. Fase 6 quase fechada:** os passos **6.1 a 6.5** estão prontos —
-o histórico é coletado, persistido, analisado, exposto pela API e desenhado na tela. Falta
-só o **6.6, previsão da fila na chegada**. O fatiamento está na seção 7 de
-`docs/PROJETO.md`.
+**Todas as 6 fases do roadmap original estão concluídas** (20/09/2026). O histórico é
+coletado, persistido, analisado, exposto pela API e desenhado na tela.
 
-**364 testes passando**: 326 na suíte rápida (~6s) e 38 de interface em navegador (~46s).
+O **6.6 terminou com um resultado negativo medido**: prever a fila por extrapolação erra
+mais que usar a fila atual, em todo horizonte. O ranking não mudou — mas agora há número
+para sustentar a escolha. Detalhes na seção 7 de `docs/PROJETO.md`.
+
+**393 testes passando**: 355 na suíte rápida (~7s) e 38 de interface em navegador (~46s).
 CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
 
 Já existe e funciona:
@@ -58,6 +60,8 @@ Já existe e funciona:
 - `cli.py` — comando `nextup`. Sem coordenadas lista filas; com `--lat/--lon` recomenda.
   `nextup --parks` lista os IDs de parque
 - `core/history.py` — resumo de uma série de filas (mín, média, máx, amplitude)
+- `core/forecast.py` — modelos de previsão e a régua que os compara. **Medido: extrapolar
+  tendência erra mais que usar a fila atual**, então o ranking não usa previsão
 - `api/` — FastAPI com 5 rotas sob `/api`: `health`, `destinations`,
   `parks/{id}/attractions` (o parque **sem** exigir posição, com `bounds` para o mapa),
   `parks/{id}/attractions/{id}/history?hours` e
@@ -66,7 +70,8 @@ Já existe e funciona:
   mapa Leaflet, e **tocar no mapa define a posição** (saída para quem nega o GPS).
   Abre mostrando o parque antes de qualquer permissão; busca no seletor; o mapa
   reenquadra ao trocar de parque
-- `storage/` — persistência do histórico de filas (Fase 6). `tables.py` (desenho),
+- `storage/` — persistência (Fase 6). Duas tabelas: `queue_snapshots` (o que foi medido)
+  e `queue_forecasts` (o que a fonte previu, para auditá-la). `tables.py` (desenho),
   `engine.py` (conexão) e `snapshots.py` (gravar, consultar, limpar). SQLAlchemy Core,
   assíncrono, SQLite no desenvolvimento e Postgres na produção
 - `migrations/` — Alembic com template assíncrono. A URL vem do ambiente, **nunca** do
@@ -106,9 +111,23 @@ arredondados, ícones SVG e marcadores numerados no mapa. Tema escuro revisado: 
 quentes clareiam nele, então a tinta por cima inverte via `--sobre-quente` — sem isso, o
 botão principal ficaria branco sobre coral claro.
 
-**Pendência:** **Fase 6**, passo **6.6** — previsão da fila na chegada. O `/live` traz um
-campo `forecast` (previsão horária da própria fonte) que serve de **baseline**: medir o
-nosso modelo contra ele é bem mais forte que só entregar uma previsão.
+**Não há pendência do roadmap original.** As frentes naturais daqui são as ideias do
+Gabriel (personalização, "já fui hoje", brinquedos alvo) e a evolução 3 da seção 4 — o
+**roteiro do dia**, que é um problema de otimização combinatória e o que mais diferencia
+tecnicamente.
+
+**A previsão (6.6) foi medida e descartada.** `core/forecast.py` guarda os modelos e a
+régua, e `tests/test_forecast.py` fixa a conclusão. Extrapolar tendência erra mais que
+usar a fila atual: 3,97 contra 2,50 min em dez minutos, e a diferença cresce com o
+horizonte. A causa é que a direção não persiste.
+
+> ⚠️ **Não troque o modelo do ranking por previsão sem repetir o backtest.** A ideia já
+> foi tentada e medida; os números estão no cabeçalho de `core/forecast.py`.
+
+**O `forecast` da fonte agora é gravado** (tabela `queue_forecasts`), porque era o único
+candidato que não dava para avaliar sem histórico dele. Guarda a **primeira** aparição de
+cada previsão — sobrescrever destruiria a medida de antecedência, que é o que dá valor a
+uma previsão. Quando houver alguns dias de dados, dá para medir se a fonte acerta.
 
 **O histórico na API e na tela (6.4 e 6.5).** A rota de histórico é o primeiro endpoint
 que serve **dado nosso**. O gráfico é SVG escrito à mão — sem biblioteca, coerente com a
@@ -257,7 +276,7 @@ pip install -e ".[dev]"
 Verificar que tudo está de pé:
 
 ```bash
-pytest -m "not e2e"    # esperado: 326 testes, ~6s
+pytest -m "not e2e"    # esperado: 355 testes, ~7s
 ruff check .
 ruff format --check .
 ```
