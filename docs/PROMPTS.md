@@ -1146,6 +1146,39 @@ reabrir — as marcadas no topo servem a quem veio *remover* algo, que é outro 
 
 ---
 
+## Sessão 008 — 21/09/2026
+
+### Prompt #045
+**Data:** 21/09/2026
+**Contexto:** Fase 7 com 7.1 e 7.2 entregues. A coleta atravessou a noite sem buracos —
+1221 medições e 502 previsões, contra 353 e 158 no dia anterior.
+
+```
+Vamos para os filtros;
+```
+
+**O que resultou: a Fase 7.3.** A pergunta que definiu o escopo veio antes do código: *o
+ranking já ordena por custo total — o que sobra para um filtro fazer?*
+
+Filtrar por custo seria redundante. O que o ranking não resolve é que ele **soma as
+parcelas**: 5 min de caminhada + 35 de fila dá o mesmo total que 20 + 20, e são
+experiências opostas para quem empurra um carrinho. Os filtros úteis são os que separam de
+volta o que o custo juntou — daí **fila máxima** e **caminhada máxima**, e só.
+
+- O filtro **corta, nunca reordena**: mudar o critério de ordenação não é filtrar.
+- **Os alvos escapam do filtro** — esconder o que o visitante marcou como imperdível seria
+  o app discutindo com uma escolha explícita.
+- **Globais, não por parque:** "não quero andar muito" é sobre a pessoa.
+- Selo "ativos" no cabeçalho, e a lista vazia passou a distinguir três causas.
+- Suíte de 427 para **437 testes**.
+
+**Um teste que fingia testar.** A primeira versão do teste "filtro esconde tudo" tinha um
+`if` que **nunca entrava**: medindo a fixture, com fila ≤ 5 e caminhada ≤ 5 ainda sobrava
+uma atração. Um teste que sempre passa e nunca verifica dá confiança falsa. O cenário virou
+um realista — apertar o filtro ao mínimo **e** marcar como visitada a única que passa.
+
+---
+
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 

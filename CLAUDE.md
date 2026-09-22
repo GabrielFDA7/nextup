@@ -45,7 +45,7 @@ O **6.6 terminou com um resultado negativo medido**: prever a fila por extrapola
 mais que usar a fila atual, em todo horizonte. O ranking não mudou — mas agora há número
 para sustentar a escolha. Detalhes na seção 7 de `docs/PROJETO.md`.
 
-**427 testes passando**: 355 na suíte rápida (~7s) e 72 de interface em navegador (~92s).
+**437 testes passando**: 355 na suíte rápida (~7s) e 82 de interface em navegador (~105s).
 CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
 
 Já existe e funciona:
@@ -67,7 +67,8 @@ Já existe e funciona:
   `parks/{id}/attractions/{id}/history?hours` e
   `parks/{id}/recommendations?lat&lon&limit`. Docs automáticas em `/docs`
 - `web/preferencias.js` — `VISITADAS` (por dia, com fuso do parque) e `ALVOS` (sem prazo).
-  Os alvos se escolhem num catálogo completo do parque, que funciona sem GPS
+  Os alvos se escolhem num catálogo completo do parque, que funciona sem GPS.
+  `FILTROS` (globais) limitam fila e caminhada
 - `web/` — interface em HTML/CSS/JS puro, servida pelo próprio FastAPI. Geolocation,
   mapa Leaflet, e **tocar no mapa define a posição** (saída para quem nega o GPS).
   Abre mostrando o parque antes de qualquer permissão; busca no seletor; o mapa
@@ -84,7 +85,7 @@ Já existe e funciona:
   `cli.py` porque orquestra `clients/` + `storage/`
 - `tests/test_arquitetura.py` — a regra de dependência é verificada automaticamente
 - `tests/test_migracoes.py` — aplica as migrações e compara com `tables.py`
-- `tests/test_web_e2e.py` — 72 testes em Chromium real (`pytest -m e2e`)
+- `tests/test_web_e2e.py` — 82 testes em Chromium real (`pytest -m e2e`)
 - Fixtures reais da API em `tests/fixtures/`; nenhum teste toca a internet
 - `.venv` local com **Python 3.13**, mesma versão mais alta testada no CI
 
@@ -114,8 +115,17 @@ quentes clareiam nele, então a tinta por cima inverte via `--sobre-quente` — 
 botão principal ficaria branco sobre coral claro.
 
 **Fase 7 — Personalização, em andamento.** Nasce das ideias do Gabriel, não do roadmap
-original. **7.1 ("já fui hoje") e 7.2 (brinquedos alvo) concluídas em 20/09/2026**; faltam
-7.3 (filtros) e 7.4 (popularidade). Detalhes na seção 7 de `docs/PROJETO.md`.
+original. **7.1 ("já fui hoje"), 7.2 (brinquedos alvo) e 7.3 (filtros) concluídas**; falta
+só a **7.4 (popularidade)**. Detalhes na seção 7 de `docs/PROJETO.md`.
+
+**Os filtros (7.3) cortam, nunca reordenam.** São de **fila** e **caminhada**, e não de
+custo total: filtrar por custo é redundante com o ranking, mas as parcelas não são
+intercambiáveis — 5 min a pé + 35 de fila é o mesmo total que 20 + 20, e experiência
+oposta para quem empurra um carrinho.
+
+> ⚠️ **Os alvos escapam do filtro**, e o selo "ativos" não é enfeite: filtro esquecido é
+> indistinguível de parque vazio. A lista vazia distingue três causas — filtro apertado,
+> tudo visitado, ou parque fechado — porque dizer a frase errada esconde o motivo.
 
 **Com 7.1 e 7.2 prontas, a fundação do roteiro do dia existe** (evolução 3 da seção 4): já
 se sabe onde o visitante esteve e aonde ele quer chegar. Essa é a frente que mais
@@ -341,7 +351,7 @@ uvicorn nextup.api.main:app --reload     # http://127.0.0.1:8000
 Testes de interface (exigem `pip install -e ".[dev,e2e]"` e `playwright install chromium`):
 
 ```bash
-pytest -m e2e          # esperado: 72 testes, ~92s
+pytest -m e2e          # esperado: 82 testes, ~105s
 ```
 
 ---

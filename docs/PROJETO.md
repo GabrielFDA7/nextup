@@ -986,7 +986,7 @@ Mountain hoje, o outro veio ao parque só por causa dele. Sem saber disso, a rec
 |---|---|---|
 | 7.1 | **"Já fui hoje"** — marcar visitadas e tirá-las do ranking | ✅ 20/09/2026 |
 | 7.2 | **Brinquedos alvo** — a lista do que o visitante veio fazer | ✅ 20/09/2026 |
-| 7.3 | Filtros — fila máxima, distância máxima, "vai fechar logo" | pendente |
+| 7.3 | Filtros — fila máxima e caminhada máxima | ✅ 21/09/2026 |
 | 7.4 | Popularidade, derivada da fila média histórica | pendente |
 
 A ordem não é arbitrária. **7.1 e 7.2 são a fundação do roteiro do dia** (evolução 3 da
@@ -1162,6 +1162,44 @@ ser um `<button>`.
 > Agora a linha só muda de aparência, e a reordenação espera o painel fechar e abrir de
 > novo. As marcadas no topo servem a quem veio **remover** algo — e esse é outro momento,
 > não o mesmo.
+
+#### 7.3 — Filtros ✅ *concluída em 21/09/2026*
+
+**Fila máxima** e **caminhada máxima**. Dois, e não uma lista de opções.
+
+A pergunta que definiu quais filtros fazem sentido: *o ranking já ordena por custo total —
+o que sobra para um filtro fazer?* Filtrar **por custo** seria redundante, já que basta
+olhar o topo da lista.
+
+O que o ranking não resolve é que ele **soma as parcelas**. Cinco minutos de caminhada mais
+trinta e cinco de fila dá o mesmo total que vinte mais vinte — e são experiências opostas
+para quem empurra um carrinho, está com uma criança no colo ou já andou oito quilômetros
+naquele dia. Os filtros úteis são exatamente os que separam de volta o que o custo juntou.
+
+**O filtro corta; não reordena.** A ordem continua sendo por custo total, que é a tese do
+projeto. Mudar o critério de ordenação não seria um filtro — seria outro produto.
+
+Três decisões que não são óbvias:
+
+1. **Os alvos escapam do filtro.** Quem marcou "vim por esta" vai nela de qualquer jeito;
+   escondê-la por um limite geral seria o app discutindo com uma escolha explícita.
+2. **Os filtros são globais, não por parque.** "Não quero andar muito" é sobre a pessoa,
+   não sobre o Magic Kingdom — ao contrário de visitadas e alvos, que são por parque.
+3. **Um selo "ativos" no cabeçalho.** Esta é a parte que não pode faltar: um filtro
+   esquecido é **indistinguível de um parque vazio**. O visitante vê três sugestões onde
+   havia trinta e conclui que o app quebrou, ou que o parque está lotado.
+
+Pela mesma razão, a lista vazia agora distingue três causas. Dizer *"você já passou por
+todas as atrações"* a quem apenas apertou um controle esconderia o motivo e faria o app
+parecer quebrado.
+
+> **Um teste que fingia testar.** A primeira versão do teste "filtro esconde tudo" tinha um
+> `if` que **nunca entrava**: com fila ≤ 5 e caminhada ≤ 5 ainda sobrava uma atração no
+> Magic Kingdom. Um teste que sempre passa e nunca verifica é pior que teste nenhum, porque
+> dá confiança falsa.
+>
+> Foi preciso medir a fixture para descobrir isso, e o cenário do teste virou um realista:
+> apertar o filtro ao mínimo **e** marcar como visitada a única que ainda passa.
 
 ---
 
@@ -1444,6 +1482,12 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 20/09/2026 | `<details>` nativo em vez de painel feito à mão | Abrir, fechar, foco por teclado e anúncio ao leitor de tela vêm de graça |
 | 20/09/2026 | O catálogo **não** se reordena enquanto está aberto | Reordenar sob o dedo faz quem escolhe várias perder o lugar; espera reabrir |
 | 20/09/2026 | O seletor funciona **antes** do GPS | `/attractions` não exige posição; a lista de desejos se monta a caminho do parque |
+| 21/09/2026 | Filtros de **fila** e **caminhada**, não de custo total | Filtrar por custo é redundante com o ranking; as parcelas é que não são intercambiáveis |
+| 21/09/2026 | O filtro **corta**, nunca reordena | Mudar o critério de ordenação não é filtrar — é outro produto |
+| 21/09/2026 | Os alvos **escapam** do filtro | Esconder o que o visitante marcou como imperdível é discutir com uma escolha explícita |
+| 21/09/2026 | Filtros são **globais**, não por parque | "Não quero andar muito" é sobre a pessoa; visitadas e alvos são sobre o parque |
+| 21/09/2026 | Selo "ativos" no cabeçalho dos filtros | Filtro esquecido é indistinguível de parque vazio, e o app pareceria quebrado |
+| 21/09/2026 | A lista vazia distingue **filtro** de **tudo visitado** | Dizer a frase errada esconde a causa em vez de explicá-la |
 
 ---
 
