@@ -83,6 +83,37 @@ class TrendOut(BaseModel):
         )
 
 
+class PopularityOut(BaseModel):
+    """Quão disputada a atração costuma ser, comparada ao resto do parque.
+
+    Sai como **faixa**, e a média vem junto só como apoio. O motivo está medido no
+    cabeçalho de `core/popularity.py`: a coleta é mais densa no pico do meio-dia,
+    o que infla o valor absoluto — mas infla todas as atrações igualmente, então a
+    comparação entre elas sobrevive e o número isolado não.
+    """
+
+    tier: str = Field(description="HEADLINER, MODERATE, QUIET ou UNKNOWN.")
+    average_minutes: float | None = Field(
+        default=None, description="Fila média histórica, em minutos."
+    )
+    measurements: int = Field(description="Medições que entraram na conta.")
+    opportunity: bool = Field(
+        description="Principal do parque com fila hoje abaixo da média dela.",
+    )
+
+    @classmethod
+    def from_domain(cls, recomendacao: Recommendation) -> "PopularityOut | None":
+        if recomendacao.popularity is None:
+            return None
+
+        return cls(
+            tier=recomendacao.popularity.tier.value,
+            average_minutes=recomendacao.popularity.average_minutes,
+            measurements=recomendacao.popularity.measurements,
+            opportunity=recomendacao.is_opportunity,
+        )
+
+
 class RecommendationOut(BaseModel):
     """Uma atração avaliada, com a conta aberta."""
 
@@ -96,6 +127,13 @@ class RecommendationOut(BaseModel):
     #: coletor que subiu há pouco. A recomendação continua completa sem ela.
     trend: TrendOut | None = Field(
         default=None, description="Tendência da fila, quando há histórico."
+    )
+
+    #: Ausente pelos mesmos motivos da tendência. Presente com `tier: UNKNOWN`
+    #: quando há banco mas o histórico desta atração é curto demais — que é
+    #: diferente de ausente, e a tela trata os dois casos igual de propósito.
+    popularity: PopularityOut | None = Field(
+        default=None, description="Faixa de popularidade, quando há histórico."
     )
 
     @classmethod
@@ -118,6 +156,7 @@ class RecommendationOut(BaseModel):
             total_minutes=round(recomendacao.total_minutes, 1),
             explanation=recomendacao.explain(),
             trend=TrendOut.from_domain(recomendacao.trend) if recomendacao.trend else None,
+            popularity=PopularityOut.from_domain(recomendacao),
         )
 
 

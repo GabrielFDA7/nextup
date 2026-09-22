@@ -200,6 +200,37 @@ MAX_HISTORY_HOURS = int(os.getenv("NEXTUP_MAX_HISTORY_HOURS", "168"))
 #: Eles não são removidos por serem inúteis, e sim porque o **mesmo requisito é
 #: atendido de outro jeito**: o `storage/engine.py` monta um contexto TLS com
 #: verificação completa. Ver `ssl_is_required`.
+# ---------------------------------------------------------------------------
+# Popularidade (Fase 7.4)
+# ---------------------------------------------------------------------------
+# Os três primeiros números vieram de medição sobre 1257 snapshots reais do Magic
+# Kingdom. O raciocínio completo está no cabeçalho de `core/popularity.py` — aqui
+# ficam só os valores, para que possam ser ajustados sem tocar no código.
+
+#: Quantos dias de histórico entram na média. Uma semana cobre fim de semana e
+#: dia útil, que têm perfis de multidão diferentes.
+POPULARITY_WINDOW_DAYS = int(os.getenv("NEXTUP_POPULARITY_WINDOW_DAYS", "7"))
+
+#: Abaixo disto a atração fica UNKNOWN. Doze é uma hora de coleta a cada 5 min —
+#: menos que isso é uma foto, não um histórico.
+POPULARITY_MIN_MEASUREMENTS = int(os.getenv("NEXTUP_POPULARITY_MIN_MEASUREMENTS", "12"))
+
+#: Quantas vezes a mediana do parque para a atração ser "principal", e abaixo de
+#: quantas ela é "tranquila".
+POPULARITY_HIGH_RATIO = float(os.getenv("NEXTUP_POPULARITY_HIGH_RATIO", "1.4"))
+POPULARITY_LOW_RATIO = float(os.getenv("NEXTUP_POPULARITY_LOW_RATIO", "0.7"))
+
+#: Uma principal é "oportunidade" quando a fila de agora cai a esta fração da
+#: própria média. 0,7 exige uma queda de 30% — o bastante para não disparar a
+#: cada oscilação de cinco minutos, que é o passo em que a fonte reporta.
+POPULARITY_OPPORTUNITY_RATIO = float(os.getenv("NEXTUP_POPULARITY_OPPORTUNITY_RATIO", "0.7"))
+
+#: Por quanto tempo a popularidade fica em cache na API. Ela se move na escala de
+#: dias, e a consulta atravessa o continente até o Neon — recalcular a cada
+#: recomendação seria pagar latência por um número que não mudou.
+POPULARITY_TTL_S = int(os.getenv("NEXTUP_POPULARITY_TTL", str(60 * 60)))
+
+
 LIBPQ_ONLY_PARAMS = frozenset({"sslmode", "channel_binding"})
 
 

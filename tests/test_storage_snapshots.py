@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from nextup.models import LiveData, LiveStatus, QueueForecast, QueueSnapshot
 from nextup.storage import (
+    average_waits,
     connection,
     create_schema,
     forecasts_for,
@@ -413,3 +414,92 @@ class TestConversaoDoLiveData:
                 observed_at=datetime(2026, 9, 15, 14, 30),  # sem tzinfo
                 recorded_at=AGORA,
             )
+
+
+class TestMediaDeEspera:
+    """A agregação que alimenta a popularidade.
+
+    A conta roda **no banco**, e não na memória: a janela é de sete dias e um
+    parque gera cerca de 70 mil linhas nesse período. Trazê-las do Neon para somar
+    aqui seria arrastar megabytes pela rede a cada recomendação.
+    """
+
+    async def test_calcula_a_media_por_atracao(self, engine):
+        async with connection(engine) as conexao:
+            await save_many(
+                conexao,
+                [
+                    snapshot(wait=10, observed_at=AGORA),
+                    snapshot(wait=20, observed_at=AGORA + timedelta(minutes=5)),
+                    snapshot(attraction_id=BIG_THUNDER, wait=60, observed_at=AGORA),
+                ],
+            )
+            medias = await average_waits(conexao, park_id=PARQUE, since=AGORA - timedelta(days=7))
+
+        assert medias[SPACE_MOUNTAIN] == (15.0, 2)
+        assert medias[BIG_THUNDER] == (60.0, 1)
+
+    async def test_ignora_medicao_sem_fila(self, engine):
+        """Mesmo critério de `core.history.summarize`, pelo mesmo motivo: contar
+        atração fechada como zero faria a madrugada parecer o melhor horário."""
+        async with connection(engine) as conexao:
+            await save_many(
+                conexao,
+                [
+                    snapshot(wait=30, observed_at=AGORA),
+                    snapshot(
+                        wait=None,
+                        status=LiveStatus.CLOSED,
+                        observed_at=AGORA + timedelta(minutes=5),
+                    ),
+                ],
+            )
+            medias = await average_waits(conexao, park_id=PARQUE, since=AGORA - timedelta(days=7))
+
+        # 30, e não 15: a fechada não entrou nem no numerador nem no denominador.
+        assert medias[SPACE_MOUNTAIN] == (30.0, 1)
+
+    async def test_atracao_so_com_medicao_vazia_nao_aparece(self, engine):
+        """Ausente é diferente de zero. Quem classifica precisa da distinção."""
+        async with connection(engine) as conexao:
+            await save_many(conexao, [snapshot(wait=None, status=LiveStatus.CLOSED)])
+            medias = await average_waits(conexao, park_id=PARQUE, since=AGORA - timedelta(days=7))
+
+        assert SPACE_MOUNTAIN not in medias
+
+    async def test_respeita_a_janela(self, engine):
+        async with connection(engine) as conexao:
+            await save_many(
+                conexao,
+                [
+                    snapshot(wait=90, observed_at=AGORA - timedelta(days=30)),
+                    snapshot(wait=10, observed_at=AGORA),
+                ],
+            )
+            medias = await average_waits(conexao, park_id=PARQUE, since=AGORA - timedelta(days=7))
+
+        # A medição de 30 dias atrás ficaria com média 50 se tivesse entrado.
+        assert medias[SPACE_MOUNTAIN] == (10.0, 1)
+
+    async def test_ignora_outro_parque(self, engine):
+        async with connection(engine) as conexao:
+            await save_many(conexao, [snapshot(wait=10)])
+            medias = await average_waits(
+                conexao, park_id="outro-parque", since=AGORA - timedelta(days=7)
+            )
+
+        assert medias == {}
+
+    async def test_banco_vazio_devolve_mapa_vazio(self, engine):
+        """Primeiro dia de coleta. Resposta legítima, não erro."""
+        async with connection(engine) as conexao:
+            assert await average_waits(conexao, park_id=PARQUE, since=AGORA) == {}
+
+    async def test_a_media_sai_como_float(self, engine):
+        """O Postgres devolve `AVG` de inteiro como `Decimal` e o SQLite como
+        `float`. Sem a conversão explícita, só o ambiente de produção quebraria."""
+        async with connection(engine) as conexao:
+            await save_many(conexao, [snapshot(wait=45)])
+            medias = await average_waits(conexao, park_id=PARQUE, since=AGORA - timedelta(days=7))
+
+        assert isinstance(medias[SPACE_MOUNTAIN][0], float)

@@ -14,6 +14,7 @@ do `core/`, e o `tests/test_arquitetura.py` verifica as duas.
 
 from nextup.storage.engine import connection, create_engine, create_schema
 from nextup.storage.snapshots import (
+    average_waits,
     forecasts_for,
     history,
     park_history,
@@ -24,6 +25,7 @@ from nextup.storage.snapshots import (
 from nextup.storage.tables import metadata, queue_forecasts, queue_snapshots
 
 __all__ = [
+    "average_waits",
     "connection",
     "create_engine",
     "create_schema",

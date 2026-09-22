@@ -19,6 +19,7 @@ from dataclasses import dataclass
 
 from nextup.config import DEFAULT_RESULT_LIMIT, PATH_WINDING_FACTOR, WALKING_SPEED_MPS
 from nextup.core.geo import travel_time_minutes
+from nextup.core.popularity import AttractionPopularity
 from nextup.core.trends import TrendAnalysis
 from nextup.models import LiveDataResponse, Location, ParkCatalog, ParkEntity
 
@@ -42,6 +43,22 @@ class Recommendation:
     #: funcionando no primeiro dia de coleta de um parque novo. A tendência
     #: enriquece a justificativa, não a sustenta.
     trend: TrendAnalysis | None = None
+
+    #: Quão disputada esta atração costuma ser, quando há histórico bastante.
+    #:
+    #: Opcional pela mesma razão da tendência, e **também não muda a ordem**. O
+    #: que ela acrescenta é o contexto: "20 min" numa das principais do parque é
+    #: uma notícia diferente de "20 min" numa atração que sempre tem 20.
+    popularity: AttractionPopularity | None = None
+
+    @property
+    def is_opportunity(self) -> bool:
+        """Uma das principais, e hoje com fila abaixo da própria média.
+
+        É a combinação que o ranking sozinho não enxerga: ele sabe o que custa
+        menos **agora**, não o que está barato **para os padrões dela**.
+        """
+        return self.popularity is not None and self.popularity.is_opportunity(self.queue_minutes)
 
     @property
     def total_minutes(self) -> float:
@@ -68,7 +85,22 @@ class Recommendation:
         )
 
         movimento = self.trend.describe() if self.trend else ""
-        return f"{conta}. {movimento}" if movimento else conta
+        frase = f"{conta}. {movimento}" if movimento else conta
+
+        # A oportunidade vai por último porque é a informação mais acionável, e
+        # o que vem no fim da frase é o que fica.
+        if self.is_opportunity:
+            assert self.popularity is not None and self.popularity.average_minutes is not None
+            # A conta não termina em ponto, e a tendência termina. Sem fechar a
+            # anterior, a frase sai grudada — "= 10 min Uma das principais".
+            if not frase.endswith("."):
+                frase += "."
+            frase += (
+                f" Uma das principais do parque, e hoje abaixo da média dela "
+                f"({round(self.popularity.average_minutes)} min)."
+            )
+
+        return frase
 
 
 def recommend(
@@ -80,6 +112,7 @@ def recommend(
     speed_mps: float = WALKING_SPEED_MPS,
     winding_factor: float = PATH_WINDING_FACTOR,
     trends: Mapping[str, TrendAnalysis] | None = None,
+    popularity: Mapping[str, AttractionPopularity] | None = None,
 ) -> list[Recommendation]:
     """Ordena as atrações pelo tempo total até o visitante estar no brinquedo.
 
@@ -97,12 +130,16 @@ def recommend(
             ordem** — só enriquece a justificativa. Ordenar por tendência seria
             outra decisão de produto, e uma fila que está caindo rápido ainda pode
             custar mais tempo total que uma parada ao lado.
+        popularity: Faixa de popularidade por ID de atração. **Também não muda a
+            ordem**, pela mesma razão e por uma a mais: popularidade descreve a
+            atração, não o momento, e o ranking responde sobre o momento.
 
     Returns:
         Recomendações em ordem crescente de custo total. Lista vazia é resposta
         legítima — parque fechado de madrugada, por exemplo.
     """
     tendencias = trends or {}
+    popularidades = popularity or {}
     estado_por_id = live.by_id()
     avaliadas = []
 
@@ -135,6 +172,7 @@ def recommend(
                 # `is_rankable` garante que não é `None`.
                 queue_minutes=estado.wait_time_minutes,  # type: ignore[arg-type]
                 trend=tendencias.get(atracao.id),
+                popularity=popularidades.get(atracao.id),
             )
         )
 

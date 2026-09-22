@@ -16,7 +16,9 @@ from pathlib import Path
 
 import pytest
 
+from nextup.core.popularity import AttractionPopularity, Popularity
 from nextup.core.recommender import Recommendation, recommend
+from nextup.core.trends import Trend, TrendAnalysis
 from nextup.models import LiveDataResponse, Location, ParkCatalog
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -405,3 +407,65 @@ class TestComDadosReais:
         )
 
         assert [r.attraction.id for r in norte] != [r.attraction.id for r in sul]
+
+
+class TestFraseDeOportunidade:
+    """A justificativa quando a atração é uma principal com fila baixa.
+
+    Bug real, encontrado **rodando o app** e não pelos testes: sem tendência a
+    conta não termina em ponto, e a frase saía grudada — "= 10 min Uma das
+    principais". É a terceira vez nesta fase que olhar a tela acha o que a suíte
+    não achou.
+    """
+
+    def _recomendacao(self, *, com_tendencia: bool, fila: int = 5) -> Recommendation:
+        return Recommendation(
+            attraction=montar_catalogo(("a", "Jungle Cruise", *ao_norte(100))).children[0],
+            walking_minutes=5.0,
+            queue_minutes=fila,
+            trend=TrendAnalysis(
+                direction=Trend.FALLING,
+                previous_minutes=30,
+                current_minutes=fila,
+                span_minutes=20,
+            )
+            if com_tendencia
+            else None,
+            popularity=AttractionPopularity(
+                tier=Popularity.HEADLINER, average_minutes=31.3, measurements=54
+            ),
+        )
+
+    def test_sem_tendencia_a_frase_nao_sai_grudada(self):
+        frase = self._recomendacao(com_tendencia=False).explain()
+
+        assert "min Uma das principais" not in frase
+        assert "min. Uma das principais" in frase
+
+    def test_com_tendencia_nao_duplica_o_ponto(self):
+        frase = self._recomendacao(com_tendencia=True).explain()
+
+        assert ".. Uma das principais" not in frase
+        assert "Uma das principais" in frase
+
+    def test_menciona_a_media_arredondada(self):
+        """A média sai inteira: a fonte reporta em passos de 5, e uma casa decimal
+        na justificativa sugeriria precisão que o dado não tem."""
+        assert "(31 min)" in self._recomendacao(com_tendencia=False).explain()
+
+    def test_fila_na_media_nao_vira_oportunidade(self):
+        recomendacao = self._recomendacao(com_tendencia=False, fila=30)
+
+        assert not recomendacao.is_opportunity
+        assert "Uma das principais" not in recomendacao.explain()
+
+    def test_sem_popularidade_a_justificativa_continua_valendo(self):
+        """O ranking existe desde a Fase 2 e responde sem histórico nenhum."""
+        recomendacao = Recommendation(
+            attraction=montar_catalogo(("a", "Space Mountain", *ao_norte(100))).children[0],
+            walking_minutes=4.0,
+            queue_minutes=20,
+        )
+
+        assert recomendacao.explain().endswith("= 24 min")
+        assert not recomendacao.is_opportunity

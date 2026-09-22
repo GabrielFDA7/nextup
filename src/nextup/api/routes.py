@@ -28,23 +28,35 @@ from nextup.api.schemas import (
     ParkAttractionsOut,
     RecommendationsOut,
 )
+from nextup.clients.cache import TTLCache
 from nextup.clients.errors import EntityNotFoundError
 from nextup.clients.themeparks import ThemeParksClient
 from nextup.config import (
     DEFAULT_HISTORY_HOURS,
     DEFAULT_RESULT_LIMIT,
     MAX_HISTORY_HOURS,
+    POPULARITY_TTL_S,
+    POPULARITY_WINDOW_DAYS,
     TREND_WINDOW_MINUTES,
 )
 from nextup.core.history import summarize
+from nextup.core.popularity import AttractionPopularity, classify
 from nextup.core.recommender import recommend
 from nextup.core.trends import TrendAnalysis, analyze, analyze_many
 from nextup.models import Location
-from nextup.storage import connection, history, park_history
+from nextup.storage import average_waits, connection, history, park_history
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+#: Popularidade por parque. Fica no módulo, e não numa dependência do FastAPI,
+#: porque é dado do **parque** e não da requisição: dois visitantes no mesmo
+#: parque recebem a mesma resposta, e recalculá-la para cada um seria pagar duas
+#: vezes pela mesma conta. Ver `_popularidade`.
+_CACHE_POPULARIDADE: TTLCache[dict[str, AttractionPopularity]] = TTLCache(
+    ttl_seconds=POPULARITY_TTL_S
+)
 
 #: O cliente compartilhado, entregue pelo FastAPI a quem declarar este tipo.
 #: `Annotated` junta "o tipo é este" com "de onde ele vem" numa anotação só —
@@ -204,6 +216,13 @@ async def recomendar(
         cliente.get_live_data(park_id),
     )
 
+    # As duas leituras do histórico também são independentes, e nenhuma pode
+    # derrubar a recomendação — ver `_tendencias` e `_popularidade`.
+    tendencias, popularidade = await asyncio.gather(
+        _tendencias(motor, park_id),
+        _popularidade(motor, park_id),
+    )
+
     # Pede o ranking completo: quem corta é o schema, para `available` contar as
     # atrações realmente disponíveis em vez do limite pedido.
     recomendacoes = recommend(
@@ -211,7 +230,8 @@ async def recomendar(
         live=ao_vivo,
         visitor=Location(latitude=lat, longitude=lon),
         limit=0,
-        trends=await _tendencias(motor, park_id),
+        trends=tendencias,
+        popularity=popularidade,
     )
 
     atualizado_em = max(
@@ -247,3 +267,47 @@ async def _tendencias(motor: AsyncEngine | None, park_id: str) -> dict[str, Tren
         return None
 
     return analyze_many(historico, now=agora)
+
+
+async def _popularidade(
+    motor: AsyncEngine | None, park_id: str
+) -> dict[str, AttractionPopularity] | None:
+    """Faixa de popularidade de cada atração do parque, com cache.
+
+    **Nunca deixa a recomendação falhar**, pela mesma regra de `_tendencias`: sem
+    banco, ou com ele fora do ar, devolve `None` e o ranking sai como sempre saiu.
+
+    O cache não é otimização prematura, é o que torna a feature viável. A janela é
+    de sete dias, o Neon fica em `sa-east-1` e a consulta roda a **cada**
+    recomendação — mas a resposta se move na escala de dias. Uma hora de TTL troca
+    uma ida ao banco por recomendação por uma ida por hora, e ninguém percebe a
+    diferença, porque não há diferença a perceber.
+
+    O cache é por parque, e global ao processo: a popularidade é uma propriedade
+    do parque, igual para todos os visitantes. Guardá-la por sessão seria calcular
+    o mesmo número várias vezes.
+    """
+    if motor is None:
+        return None
+
+    em_cache = _CACHE_POPULARIDADE.get(park_id)
+    if em_cache is not None:
+        return em_cache
+
+    desde = datetime.now(UTC) - timedelta(days=POPULARITY_WINDOW_DAYS)
+
+    try:
+        async with connection(motor) as conexao:
+            medias = await average_waits(conexao, park_id=park_id, since=desde)
+    except SQLAlchemyError:
+        logger.warning("histórico indisponível; seguindo sem popularidade", exc_info=True)
+        return None
+
+    faixas = classify(medias)
+
+    # Um parque sem histórico devolve mapa vazio, e guardá-lo no cache prenderia
+    # o resultado por uma hora justamente enquanto o coletor começa a preencher.
+    if faixas:
+        _CACHE_POPULARIDADE.set(park_id, faixas)
+
+    return faixas

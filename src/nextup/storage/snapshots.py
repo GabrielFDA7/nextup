@@ -8,7 +8,7 @@ vez de JSON cru. Trocar Postgres por outra coisa deve afetar só esta pasta.
 from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.ext.asyncio import AsyncConnection
 
@@ -277,6 +277,62 @@ async def forecasts_for(
         )
         for linha in resultado
     ]
+
+
+async def average_waits(
+    conexao: AsyncConnection,
+    *,
+    park_id: str,
+    since: datetime,
+) -> dict[str, tuple[float, int]]:
+    """Fila média e número de medições de cada atração do parque, desde `since`.
+
+    **A conta é feita pelo banco, e isso é uma exceção deliberada à regra da casa.**
+    O projeto aprendeu a "pedir tudo e cortar na exibição" — quatro bugs vieram de
+    violar isso. Aqui a regra não se aplica, e vale saber distinguir: aquela lição
+    é sobre **descartar linhas** antes de raciocinar sobre elas, o que apaga
+    informação. Isto é uma **agregação**: nenhuma atração some, nenhuma medição é
+    ignorada, e o resultado é o mesmo que somar na memória.
+
+    O que muda é o volume. A janela de popularidade é de sete dias; um parque com
+    35 atrações medidas a cada 5 minutos gera cerca de 70 mil linhas nesse período.
+    Trazê-las do Neon, do outro lado do continente, para calcular uma média por
+    atração seria arrastar megabytes pela rede a cada recomendação — e somar é
+    exatamente o que um banco faz bem.
+
+    Snapshots sem fila ficam de fora: `AVG` do SQL já ignora `NULL`, e `COUNT` de
+    uma coluna também. É o mesmo critério de `core.history.summarize`, pelo mesmo
+    motivo — contar atração fechada como zero faria a madrugada parecer o melhor
+    horário do parque.
+
+    Returns:
+        Por ID de atração, o par `(fila média, número de medições)`. Atrações sem
+        nenhuma medição com fila **não aparecem** — quem classifica recebe a lista
+        do catálogo e sabe distinguir as duas coisas.
+    """
+    consulta = (
+        select(
+            queue_snapshots.c.attraction_id,
+            func.avg(queue_snapshots.c.wait_time_minutes).label("media"),
+            func.count(queue_snapshots.c.wait_time_minutes).label("medicoes"),
+        )
+        .where(
+            queue_snapshots.c.park_id == park_id,
+            queue_snapshots.c.observed_at >= since,
+        )
+        .group_by(queue_snapshots.c.attraction_id)
+    )
+
+    resultado = await conexao.execute(consulta)
+
+    # `float()` explícito porque o Postgres devolve `AVG` de inteiro como
+    # `Decimal`, e o SQLite como `float`. Sem isto a mesma conta daria tipos
+    # diferentes nos dois ambientes, e só o de produção quebraria.
+    return {
+        linha.attraction_id: (float(linha.media), linha.medicoes)
+        for linha in resultado
+        if linha.media is not None
+    }
 
 
 async def purge_older_than(conexao: AsyncConnection, cutoff: datetime) -> int:
