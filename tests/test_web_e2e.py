@@ -227,7 +227,9 @@ def _atracoes_como_a_api_devolve() -> dict:
     return json.loads(resposta.model_dump_json())
 
 
-def _recomendacoes_como_a_api_devolve(*, com_tendencia: bool = False) -> dict:
+def _recomendacoes_como_a_api_devolve(
+    *, com_tendencia: bool = False, com_popularidade: bool = False
+) -> dict:
     """Monta a resposta chamando o `core` de verdade, com as fixtures reais.
 
     Assim os números na tela são os mesmos que a API produziria — sem precisar
@@ -274,6 +276,40 @@ def _recomendacoes_como_a_api_devolve(*, com_tendencia: bool = False) -> dict:
             visitor=visitante,
             limit=0,
             trends=tendencias,
+        )
+
+    if com_popularidade:
+        from nextup.core.popularity import classify
+
+        # As médias são inventadas, mas o **classificador é o de verdade**: repetir
+        # aqui a regra de faixa faria o teste concordar com uma cópia da regra em
+        # vez de com a regra, e os dois errariam juntos.
+        #
+        # A líder do ranking recebe média alta o bastante para ser principal E
+        # ficar acima da fila que ela tem agora — é o cenário de oportunidade.
+        #
+        # As demais **intercalam** as faixas em vez de agrupá-las por posição. A
+        # tela mostra só as oito primeiras, e agrupar punha as tranquilas da nona
+        # em diante: o teste do filtro não teria nenhuma para esconder e passaria
+        # sem exercitar nada. Foi pego por uma asserção de guarda.
+        ciclo = [6.0, 20.0, 50.0, 6.0, 20.0]  # tranquila, miolo, principal, ...
+        medias = {}
+        for posicao, recomendacao in enumerate(ranking):
+            aid = recomendacao.attraction.id
+            if posicao == 0:
+                medias[aid] = (float(max(recomendacao.queue_minutes * 4, 60)), 40)
+            elif posicao >= 16:
+                medias[aid] = (30.0, 2)  # histórico curto: UNKNOWN
+            else:
+                medias[aid] = (ciclo[posicao % len(ciclo)], 40)
+
+        ranking = recommend(
+            catalog=catalogo,
+            live=ao_vivo,
+            visitor=visitante,
+            limit=0,
+            trends=tendencias,
+            popularity=classify(medias),
         )
 
     # Limite zero: devolve o ranking INTEIRO, que é o que a tela passou a pedir.
@@ -1397,3 +1433,214 @@ class TestResponsivo:
         caixa = pagina.locator("#btn-localizar").bounding_box()
 
         assert caixa["height"] >= 44
+
+
+class TestPopularidade:
+    """A faixa de popularidade na tela — a entrega da Fase 7.4.
+
+    Nasceu da troca da "radicalidade", que a fonte não fornece, pela fila média
+    histórica, que é dado nosso. A regra de ouro é a mesma da tendência e dos
+    alvos: **não reordena o ranking**. Popularidade descreve a atração; o ranking
+    responde sobre o momento.
+    """
+
+    def com_popularidade(self, navegador, servidor):
+        pagina = abrir(
+            navegador,
+            servidor,
+            api=lambda rota: rota.fulfill(
+                json=_recomendacoes_como_a_api_devolve(com_popularidade=True)
+            ),
+        )
+        pagina.click("#btn-localizar")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        return pagina
+
+    def nomes(self, pagina):
+        return pagina.locator("[data-modo='ranking'] .nome").all_inner_texts()
+
+    def test_a_principal_ganha_selo(self, navegador, servidor):
+        pagina = self.com_popularidade(navegador, servidor)
+
+        expect(pagina.locator(".popularidade").first).to_be_visible()
+
+    def test_a_oportunidade_aparece_por_extenso(self, navegador, servidor):
+        """A informação mais acionável da tela: uma das principais do parque com
+        fila hoje abaixo da média dela. O ranking sozinho não enxerga isso."""
+        pagina = self.com_popularidade(navegador, servidor)
+
+        expect(pagina.locator(".popularidade--oportunidade").first).to_contain_text(
+            "abaixo da média dela"
+        )
+
+    def test_a_cor_nao_carrega_a_informacao_sozinha(self, navegador, servidor):
+        """Mesma regra da tendência: quem não distingue verde de vermelho — 8% dos
+        homens — precisa ler exatamente a mesma coisa."""
+        pagina = self.com_popularidade(navegador, servidor)
+
+        oportunidade = pagina.locator(".popularidade--oportunidade").first
+
+        assert oportunidade.locator("svg").count() == 1
+        expect(oportunidade).to_contain_text("Principal do parque")
+
+    def test_sem_historico_nao_inventa_faixa(self, navegador, servidor):
+        """O padrão dos testes é sem popularidade, e nada deve aparecer."""
+        pagina = abrir(navegador, servidor)
+        pagina.click("#btn-localizar")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
+
+        assert pagina.locator(".popularidade").count() == 0
+
+    def test_o_miolo_fica_em_silencio(self, navegador, servidor):
+        """`MODERATE` não ganha selo de propósito: um rótulo dizendo "mediana" em
+        metade da lista vira ruído, e ruído gasta a atenção do selo que importa."""
+        pagina = self.com_popularidade(navegador, servidor)
+
+        textos = pagina.locator(".popularidade").all_inner_texts()
+
+        assert textos, "nenhum selo apareceu; o cenário não está exercitando nada"
+        assert not any("média" in t.lower() and "abaixo" not in t.lower() for t in textos)
+
+
+class TestFiltroDePopularidade:
+    """As caixas que escolhem quais faixas aparecem.
+
+    São caixas, e não um seletor de faixa única, porque "as principais e as
+    tranquilas, sem o miolo" é pedido legítimo de quem quer os clássicos e ainda
+    tem tempo a preencher.
+    """
+
+    def com_filtros_abertos(self, navegador, servidor):
+        pagina = abrir(
+            navegador,
+            servidor,
+            api=lambda rota: rota.fulfill(
+                json=_recomendacoes_como_a_api_devolve(com_popularidade=True)
+            ),
+        )
+        pagina.click("#btn-localizar")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        pagina.click("#filtros .escolher__gatilho")
+        return pagina
+
+    def quantos_itens(self, pagina):
+        return pagina.locator("[data-modo='ranking'] .item").count()
+
+    def test_abre_com_todas_as_faixas_marcadas(self, navegador, servidor):
+        """Um app que abre escondendo atrações precisaria explicar por quê antes
+        mesmo de o visitante pedir alguma coisa."""
+        pagina = self.com_filtros_abertos(navegador, servidor)
+
+        caixas = pagina.locator(".filtro-faixa")
+        assert caixas.count() == 4
+        for i in range(caixas.count()):
+            expect(caixas.nth(i)).to_be_checked()
+
+    def test_desmarcar_uma_faixa_tira_aquelas_atracoes(self, navegador, servidor):
+        """Contar itens não serve aqui: a lista mostra no máximo oito, e sobram
+        atrações de outras faixas para preencher as vagas. O que prova o corte é
+        **quais** aparecem, não quantas."""
+        pagina = self.com_filtros_abertos(navegador, servidor)
+
+        assert "fila curta" in " ".join(pagina.locator(".popularidade").all_inner_texts()), (
+            "o cenário precisa começar com alguma tranquila à vista"
+        )
+
+        pagina.uncheck(".filtro-faixa[value='QUIET']")
+        pagina.wait_for_timeout(400)
+
+        assert "fila curta" not in " ".join(pagina.locator(".popularidade").all_inner_texts())
+
+    def test_so_as_principais_deixa_so_as_principais(self, navegador, servidor):
+        pagina = self.com_filtros_abertos(navegador, servidor)
+
+        for faixa in ("MODERATE", "QUIET", "UNKNOWN"):
+            pagina.uncheck(f".filtro-faixa[value='{faixa}']")
+        pagina.wait_for_timeout(400)
+
+        itens = pagina.locator("[data-modo='ranking'] .item")
+        assert itens.count() > 0, "o filtro escondeu tudo"
+
+        # Toda atração visível precisa trazer selo de principal — que é o único
+        # texto que `criarPopularidade` produz para HEADLINER.
+        for i in range(itens.count()):
+            expect(itens.nth(i).locator(".popularidade")).to_contain_text("rincipal")
+
+    def test_o_selo_denuncia_a_faixa_desligada(self, navegador, servidor):
+        """Mesma razão do selo dos outros filtros: filtro esquecido é
+        indistinguível de parque vazio."""
+        pagina = self.com_filtros_abertos(navegador, servidor)
+
+        expect(pagina.locator("#filtros-ativos")).to_be_hidden()
+
+        pagina.uncheck(".filtro-faixa[value='QUIET']")
+        pagina.wait_for_timeout(300)
+
+        expect(pagina.locator("#filtros-ativos")).to_be_visible()
+
+    def test_desmarcar_tudo_volta_ao_normal(self, navegador, servidor):
+        """Desmarcar todas esconderia a tela inteira, e quem faz isso quase sempre
+        quer dizer "volte ao normal" — não "não me mostre nada"."""
+        pagina = self.com_filtros_abertos(navegador, servidor)
+        antes = self.quantos_itens(pagina)
+
+        # `click` e não `uncheck` na última: o app remarca todas nesse instante, e
+        # o `uncheck` do Playwright falharia justamente por o comportamento certo
+        # ter acontecido.
+        for faixa in ("HEADLINER", "MODERATE", "QUIET"):
+            pagina.uncheck(f".filtro-faixa[value='{faixa}']")
+        pagina.click(".filtro-faixa[value='UNKNOWN']")
+        pagina.wait_for_timeout(400)
+
+        assert self.quantos_itens(pagina) == antes
+        expect(pagina.locator(".filtro-faixa[value='QUIET']")).to_be_checked()
+
+    def test_remover_filtros_remarca_as_faixas(self, navegador, servidor):
+        pagina = self.com_filtros_abertos(navegador, servidor)
+
+        pagina.uncheck(".filtro-faixa[value='HEADLINER']")
+        pagina.wait_for_timeout(300)
+        pagina.click("#btn-limpar-filtros")
+        pagina.wait_for_timeout(300)
+
+        expect(pagina.locator(".filtro-faixa[value='HEADLINER']")).to_be_checked()
+        expect(pagina.locator("#filtros-ativos")).to_be_hidden()
+
+    def test_a_escolha_sobrevive_ao_recarregar(self, navegador, servidor):
+        """Os filtros são globais e sem prazo: são sobre a pessoa, não sobre o dia."""
+        pagina = self.com_filtros_abertos(navegador, servidor)
+
+        pagina.uncheck(".filtro-faixa[value='QUIET']")
+        pagina.wait_for_timeout(300)
+        pagina.reload(wait_until="networkidle")
+        pagina.click("#filtros .escolher__gatilho")
+
+        expect(pagina.locator(".filtro-faixa[value='QUIET']")).not_to_be_checked()
+
+    def test_o_filtro_de_faixa_nao_reordena(self, navegador, servidor):
+        """A tese do projeto: a ordem é por custo total, e filtro corta."""
+        pagina = self.com_filtros_abertos(navegador, servidor)
+
+        pagina.uncheck(".filtro-faixa[value='QUIET']")
+        pagina.wait_for_timeout(400)
+
+        custos = [
+            int(t) for t in pagina.locator("[data-modo='ranking'] .custo strong").all_inner_texts()
+        ]
+
+        assert custos == sorted(custos)
+
+    def test_sem_popularidade_no_dado_o_filtro_nao_esvazia_a_tela(self, navegador, servidor):
+        """A armadilha do filtro: sem banco, a API devolve `popularity: null` em
+        todas. Tratar ausente como reprovado esvaziaria a tela num ambiente que
+        funciona — e o visitante não teria como adivinhar o porquê."""
+        pagina = abrir(navegador, servidor)  # o padrão vem SEM popularidade
+        pagina.click("#btn-localizar")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        pagina.click("#filtros .escolher__gatilho")
+
+        pagina.uncheck(".filtro-faixa[value='QUIET']")
+        pagina.uncheck(".filtro-faixa[value='UNKNOWN']")
+        pagina.wait_for_timeout(400)
+
+        assert pagina.locator("[data-modo='ranking'] .item").count() > 0

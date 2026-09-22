@@ -1045,3 +1045,73 @@ a {
     font-size: 2.3rem;
   }
 }
+
+/* As caixas de popularidade, dentro do painel de filtros.
+   `<fieldset>` de verdade, e não uma <div> com rótulo: o leitor de tela anuncia a
+   legenda ao entrar no grupo, então "Principais" chega como "Popularidade,
+   Principais" em vez de uma palavra solta no meio do formulário. */
+.filtro--faixas {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  margin: 0;
+  padding: 10px 0 4px;
+  border: 0;
+  border-top: 1px solid var(--borda);
+}
+
+.filtro--faixas legend {
+  padding: 0 0 6px;
+}
+
+.faixa {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* Alvo generoso pelo mesmo motivo da barra: o app é usado de pé, andando. */
+  min-height: 34px;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.faixa input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--destaque);
+  cursor: pointer;
+}
+
+/* A linha de popularidade, abaixo da conta.
+   Discreta de propósito: descreve como a atração *costuma* ser, e não pode
+   competir com a fila de agora, que é o que decide para onde ir. */
+.popularidade {
+  display: flex;
+  /* `flex-start`, e não `center`: estas frases quebram em duas linhas no celular,
+     e centralizar joga o ícone para o meio vertical — ele aparece colado na
+     segunda linha, como se pertencesse a ela. Só a captura de tela mostrou. */
+  align-items: flex-start;
+  gap: 5px;
+  margin: 5px 0 0;
+  font-size: 0.78rem;
+  color: var(--tinta-suave);
+}
+
+.popularidade svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  /* Desce o ícone até a altura da primeira linha de texto, em vez de encostá-lo
+     no topo da caixa. */
+  margin-top: 1px;
+}
+
+/* A oportunidade é a exceção, e por isso é a única que ganha cor: uma das
+   principais do parque com fila abaixo da média dela é a informação mais
+   acionável da tela inteira — o ranking sozinho não enxerga isso, porque ele
+   sabe o que custa menos agora, não o que está barato para os padrões dela.
+
+   Verde pelo mesmo motivo da fila caindo: é boa notícia para o visitante. E, como
+   lá, a cor não carrega a informação sozinha — o texto diz por extenso, para quem
+   não distingue verde de vermelho ler exatamente a mesma coisa. */
+.popularidade--oportunidade {
+  color: var(--verde-tendencia);
+  font-weight: 600;
+}

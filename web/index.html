@@ -169,6 +169,36 @@
               />
             </label>
 
+            <!-- Popularidade é a fila média histórica desta atração comparada à
+                 do resto do parque — dado nosso, coletado desde a Fase 6. Entra
+                 como caixas, e não como um seletor de faixa única, porque "as
+                 principais e as tranquilas, sem o miolo" é um pedido legítimo de
+                 quem quer os clássicos e ainda tem tempo a preencher. -->
+            <fieldset class="filtro filtro--faixas">
+              <legend class="filtro__rotulo">Popularidade</legend>
+
+              <label class="faixa">
+                <input type="checkbox" class="filtro-faixa" value="HEADLINER" checked />
+                <span>Principais</span>
+              </label>
+              <label class="faixa">
+                <input type="checkbox" class="filtro-faixa" value="MODERATE" checked />
+                <span>Médias</span>
+              </label>
+              <label class="faixa">
+                <input type="checkbox" class="filtro-faixa" value="QUIET" checked />
+                <span>Tranquilas</span>
+              </label>
+
+              <!-- Sem histórico bastante NÃO é o mesmo que tranquila, e por isso
+                   tem caixa própria. Juntá-la a "Tranquilas" mandaria o visitante
+                   para uma fila de uma hora com a nossa bênção. -->
+              <label class="faixa">
+                <input type="checkbox" class="filtro-faixa" value="UNKNOWN" checked />
+                <span>Sem histórico</span>
+              </label>
+            </fieldset>
+
             <button id="btn-limpar-filtros" type="button" class="botao-secundario">
               Remover filtros
             </button>

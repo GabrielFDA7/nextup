@@ -153,11 +153,27 @@ const FILTROS = (() => {
   //: `null` mantém o `<input type="range">` simples — ele não sabe dizer "nenhum".
   const SEM_LIMITE = 125;
 
+  //: As faixas de popularidade, na ordem em que aparecem na tela. `UNKNOWN` é uma
+  //: faixa de verdade, e não a ausência de uma: histórico curto demais para
+  //: afirmar é diferente de fila curta. Ver `core/popularity.py`.
+  const FAIXAS = ["HEADLINER", "MODERATE", "QUIET", "UNKNOWN"];
+
   function ler() {
     const dados = ARMAZENAMENTO.ler(CHAVE);
+
+    // Faixa desconhecida é descartada: uma versão futura pode renomeá-las, e um
+    // valor órfão guardado no navegador esconderia atrações para sempre, sem que
+    // o visitante tivesse como descobrir por quê.
+    const guardadas = Array.isArray(dados.faixas)
+      ? dados.faixas.filter((f) => FAIXAS.includes(f))
+      : null;
+
     return {
       filaMax: Number(dados.filaMax) || SEM_LIMITE,
       caminhadaMax: Number(dados.caminhadaMax) || SEM_LIMITE,
+      // O padrão é mostrar tudo. Um app que abre escondendo atrações precisaria
+      // explicar por quê antes mesmo de o visitante pedir alguma coisa.
+      faixas: guardadas && guardadas.length > 0 ? guardadas : [...FAIXAS],
     };
   }
 
@@ -168,15 +184,19 @@ const FILTROS = (() => {
 
   function limpar() {
     ARMAZENAMENTO.escrever(CHAVE, {});
-    return { filaMax: SEM_LIMITE, caminhadaMax: SEM_LIMITE };
+    return { filaMax: SEM_LIMITE, caminhadaMax: SEM_LIMITE, faixas: [...FAIXAS] };
   }
 
   /** Se algum limite está valendo. A tela usa para avisar, e o aviso é essencial. */
   function ativos(filtros) {
-    return filtros.filaMax < SEM_LIMITE || filtros.caminhadaMax < SEM_LIMITE;
+    return (
+      filtros.filaMax < SEM_LIMITE ||
+      filtros.caminhadaMax < SEM_LIMITE ||
+      filtros.faixas.length < FAIXAS.length
+    );
   }
 
-  return { ler, salvar, limpar, ativos, SEM_LIMITE };
+  return { ler, salvar, limpar, ativos, SEM_LIMITE, FAIXAS };
 })();
 
 /* As atrações que o visitante VEIO FAZER.

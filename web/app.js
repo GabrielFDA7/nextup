@@ -78,6 +78,7 @@ const el = {
   filtrosAtivos: document.getElementById("filtros-ativos"),
   filtroFila: document.getElementById("filtro-fila"),
   filtroCaminhada: document.getElementById("filtro-caminhada"),
+  filtrosFaixa: document.querySelectorAll(".filtro-faixa"),
   rotuloFila: document.getElementById("rotulo-fila"),
   rotuloCaminhada: document.getElementById("rotulo-caminhada"),
   btnLimparFiltros: document.getElementById("btn-limpar-filtros"),
@@ -688,8 +689,26 @@ function passaNosFiltros(recomendacao) {
 
   return (
     recomendacao.queue_minutes <= estado.filtros.filaMax &&
-    recomendacao.walking_minutes <= estado.filtros.caminhadaMax
+    recomendacao.walking_minutes <= estado.filtros.caminhadaMax &&
+    passaNaPopularidade(recomendacao)
   );
+}
+
+/* O filtro de popularidade, que tem uma armadilha própria.
+ *
+ * Sem banco — ou antes de o coletor rodar — a API devolve `popularity: null` em
+ * TODAS as atrações. Tratar ausente como faixa reprovada esvaziaria a tela
+ * inteira num ambiente que funciona perfeitamente, e o visitante não teria como
+ * adivinhar o motivo: ele não pediu nada, e o app pararia de responder.
+ *
+ * Por isso ausência de dado libera a atração. É o mesmo princípio que faz
+ * `_tendencias()` engolir a falha do banco no servidor: o histórico enriquece a
+ * recomendação, nunca decide se ela existe.
+ */
+function passaNaPopularidade(recomendacao) {
+  if (!recomendacao.popularity) return true;
+
+  return estado.filtros.faixas.includes(recomendacao.popularity.tier);
 }
 
 function escolherVisiveis(recomendacoes) {
@@ -721,6 +740,10 @@ function atualizarControlesDeFiltro() {
   el.rotuloFila.textContent = rotularLimite(filaMax);
   el.rotuloCaminhada.textContent = rotularLimite(caminhadaMax);
 
+  for (const caixa of el.filtrosFaixa) {
+    caixa.checked = estado.filtros.faixas.includes(caixa.value);
+  }
+
   const ligados = FILTROS.ativos(estado.filtros);
   el.filtrosAtivos.hidden = !ligados;
   el.filtrosAtivos.textContent = ligados ? "ativos" : "";
@@ -735,7 +758,14 @@ function aplicarFiltros() {
   estado.filtros = FILTROS.salvar({
     filaMax: Number(el.filtroFila.value),
     caminhadaMax: Number(el.filtroCaminhada.value),
+    // Desmarcar tudo esconderia a tela inteira, e o visitante quase sempre quer
+    // dizer "volte ao normal" — não "não me mostre nada". Trata-se como limpar.
+    faixas: [...el.filtrosFaixa].filter((c) => c.checked).map((c) => c.value),
   });
+
+  if (estado.filtros.faixas.length === 0) {
+    estado.filtros = FILTROS.salvar({ ...estado.filtros, faixas: [...FILTROS.FAIXAS] });
+  }
 
   atualizarControlesDeFiltro();
   if (estado.ultimoRanking) renderizar(estado.ultimoRanking);
@@ -944,6 +974,18 @@ const ICONE = {
   estrela: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="m12 2 2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8L12 2Z" />
     </svg>`,
+  // Duas pessoas, para a linha de popularidade. O ícone marca o assunto — quanta
+  // gente costuma haver ali — e quem distingue a faixa é o texto, como nas
+  // parcelas da conta. A primeira versão reaproveitava o alvo, e ele já significa
+  // "vim por esta" no botão a dois centímetros: o mesmo símbolo dizendo duas
+  // coisas na mesma linha.
+  pessoas: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="9" cy="7" r="3" />
+      <path d="M3 20v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1" />
+      <path d="M16.5 4.3a3 3 0 0 1 0 5.4" />
+      <path d="M18 14.2a5 5 0 0 1 3 4.6V20" />
+    </svg>`,
   caindo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M12 5v14" /><path d="m19 12-7 7-7-7" />
@@ -993,6 +1035,48 @@ function criarTendencia(trend) {
   `;
 }
 
+/* A popularidade, na linha abaixo da conta.
+ *
+ * Mostra **faixa**, nunca o número da média. A coleta é mais densa no pico do
+ * meio-dia, o que infla a média absoluta — mas infla todas as atrações juntas,
+ * então a comparação entre elas sobrevive e o valor isolado não. Exibir "fila
+ * média: 52,6 min" convidaria a comparar com a fila de agora, que é outra
+ * pergunta, e cuja resposta já está a dois centímetros dali.
+ *
+ * Duas faixas ficam em silêncio, e é decisão de produto:
+ *
+ * - `MODERATE` é o meio da tabela. Um selo dizendo "mediana" em metade das
+ *   atrações vira ruído, e ruído gasta a atenção que o selo de principal precisa.
+ * - `UNKNOWN` é ausência de dado. Anunciá-la faria o app falar sobre si mesmo em
+ *   vez de falar sobre o parque — e ela ainda aparece no filtro, para quem quiser
+ *   justamente as que ainda não conhecemos.
+ */
+function criarPopularidade(popularidade) {
+  if (!popularidade) return "";
+
+  // A oportunidade vem primeiro porque é a única que muda a decisão de agora:
+  // uma das principais do parque com fila abaixo da média dela.
+  if (popularidade.opportunity) {
+    return `
+      <p class="popularidade popularidade--oportunidade">
+        ${ICONE.pessoas}
+        Principal do parque, e hoje abaixo da média dela
+        (${Math.round(popularidade.average_minutes)} min)
+      </p>
+    `;
+  }
+
+  if (popularidade.tier === "HEADLINER") {
+    return `<p class="popularidade">${ICONE.pessoas} Uma das principais do parque</p>`;
+  }
+
+  if (popularidade.tier === "QUIET") {
+    return `<p class="popularidade">${ICONE.pessoas} Costuma ter fila curta</p>`;
+  }
+
+  return "";
+}
+
 function criarItem(item, idDaMelhor) {
   const id = item.attraction.id;
   const visitada = estado.visitadas.has(id);
@@ -1028,6 +1112,7 @@ function criarItem(item, idDaMelhor) {
           </span>
         </p>
         ${criarTendencia(item.trend)}
+        ${criarPopularidade(item.popularity)}
         ${etiqueta}
       </div>
       <!-- Botões de verdade, e não <div> clicáveis: já vêm com foco pelo teclado,
@@ -1319,6 +1404,12 @@ function iniciar() {
   // só revelar o valor quando o visitante solta — e aí ele arrastaria às cegas.
   [el.filtroFila, el.filtroCaminhada].forEach((controle) => {
     controle.addEventListener("input", aplicarFiltros);
+  });
+
+  // Caixas usam `change`: `input` dispara igual aqui, mas `change` é o evento que
+  // descreve o que aconteceu — e é o que o teclado emite ao marcar com Espaço.
+  el.filtrosFaixa.forEach((caixa) => {
+    caixa.addEventListener("change", aplicarFiltros);
   });
 
   el.btnLimparFiltros.addEventListener("click", () => {
