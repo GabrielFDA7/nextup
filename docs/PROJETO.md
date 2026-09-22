@@ -630,136 +630,11 @@ O catálogo inteiro traz apenas `entityType, externalId, id, location, name, par
 slug`. Não há intensidade, altura mínima ou categoria. Filtrar por radicalidade exigiria
 curar 35 atrações à mão — dado nosso, que não escala para 198 parques. Decisão do Gabriel:
 trocar por **popularidade**, derivada da fila média histórica, que é dado real e já está
-sendo coletado. **Entregue em 21/09/2026**, assim que o histórico ficou suficiente — ver
-abaixo.
-#### 7.4 — Popularidade: o proxy que a fonte não dá, mas o histórico dá
-
-A radicalidade foi descartada acima por falta de dado. A popularidade ocupa o lugar dela
-usando o que **nós** acumulamos desde a Fase 6: a fila média histórica de cada atração.
-
-**O proxy é indireto, e vale ser honesto sobre isso.** Fila comprida não é popularidade —
-é o encontro da demanda com a capacidade, e uma atração de baixa vazão forma fila com
-pouca gente. Mas a pergunta prática do visitante não é "qual é a mais amada?", e sim
-"qual é daquelas que sempre têm fila?". Para essa, a média histórica responde direto.
-
-A verdade externa confirma o proxy: as primeiras colocadas pela média medida são TRON,
-Seven Dwarfs Mine Train, Peter Pan's Flight e Space Mountain — exatamente as que qualquer
-guia do Magic Kingdom lista como principais. Nenhuma linha de código foi escrita para
-chegar a esse resultado; ele saiu dos dados.
-
-##### Os três números vieram de medição, não de intuição
-
-Sobre **1257 snapshots reais** do Magic Kingdom (04/09 a 22/09/2026), 30 atrações com fila
-medida:
-
-**1. Faixa relativa, nunca valor absoluto.** 59% das medições caíram entre 10h e 13h
-locais — é quando o Render fica acordado e o parque, cheio. A média absoluta sai inflada.
-Mas o viés atinge *todas* as atrações igualmente, porque o coletor as fotografa juntas a
-cada 5 minutos: a **ordem** sobrevive, o **número** não. Por isso a tela mostra faixa, e a
-média só aparece na frase de oportunidade, onde o que importa é a comparação com ela
-mesma.
-
-**2. Razão contra a mediana do parque, e não tercil por posição.** Os dois critérios foram
-medidos partindo o histórico ao meio e conferindo se a faixa se repetia nas duas metades:
-
-| Critério | Faixa estável entre as metades |
-|---|---|
-| Tercil por posição | 17/23 (74%) |
-| **Razão contra a mediana** | **19/23 (83%)** |
-
-O tercil ainda erra de um jeito pior: ele *força* um terço das atrações em cada faixa. Num
-parque com duas campeãs e trinta medianas, chamaria dez de "principal" só para preencher a
-cota. A razão contra a mediana deixa o parque dizer quantas principais ele tem — no Magic
-Kingdom, nove. E classifica Big Thunder Mountain como principal, que é o correto e o
-tercil errava.
-
-> O teste de estabilidade divide o histórico em duas metades **temporais**, e a coleta
-> cobre essencialmente um domingo e uma segunda. Ou seja, 83% é a concordância entre dois
-> **dias de semana diferentes**, que têm perfis de multidão distintos — não ruído amostral.
-> Visto assim, é um resultado melhor do que o número sugere.
-
-**3. Abaixo de 12 medições a média é uma foto, não um histórico.** Doze é uma hora de
-coleta ao ritmo de 5 minutos. O corte separou exatamente o grupo certo: ficaram de fora
-Country Bear, Hall of Presidents, Tiki Room, Swiss Family Treehouse, o carrossel e os dois
-trens — shows e passeios que raramente reportam fila. Nenhuma atração de fila real foi
-excluída.
-
-##### `UNKNOWN` não é `QUIET`
-
-Abaixo do mínimo a faixa é desconhecida, e isso é uma faixa de verdade — não a ausência de
-uma. Chamar de "tranquila" uma atração que nunca medimos mandaria o visitante para uma
-fila de uma hora com a nossa bênção. Ela tem caixa própria no filtro, para quem quiser
-justamente as que ainda não conhecemos.
-
-##### A oportunidade: a razão de a feature existir
-
-Saber que uma atração é principal, isolado, não muda a decisão de ninguém. O que muda é a
-combinação: **uma das principais do parque com fila hoje abaixo da média dela**. É
-literalmente a frase que o consultor de parque manda no WhatsApp.
-
-Nos dados reais, **8 das 23 atrações** estavam numa faixa pelo histórico e noutra pela fila
-do momento. Em um terço dos casos o histórico diz algo que o "agora" não diz — e se
-dissesse sempre a mesma coisa, esta feature não precisaria existir.
-
-Rodando contra o banco de produção em 21/09/2026, três oportunidades apareceram de uma vez:
-Jungle Cruise (média 31, fila 5), Space Mountain (média 30, fila 10) e Tiana's Bayou
-Adventure (média 29, fila 10).
-
-##### Ela não reordena o ranking
-
-Mesma regra da tendência e dos alvos, e por uma razão a mais: popularidade descreve a
-**atração**, e o ranking responde sobre o **momento**. Dar bônus de custo a uma principal
-distorceria o número em vez de assumir a mudança de critério.
-
-Uma observação de produto que caiu do uso real: com o filtro desligado, as oito primeiras
-sugestões **nunca** incluem uma principal, porque elas custam mais. O filtro "só as
-principais" é o que torna essa parte do parque alcançável — a feature não é enfeite do
-ranking, é uma porta para o que o ranking naturalmente empurra para baixo.
-
-##### A agregação roda no banco, e é exceção deliberada à lição nº 3
-
-O projeto aprendeu a "pedir tudo e cortar na exibição" — quatro bugs vieram de violar isso.
-`storage.average_waits` faz o oposto: pede ao Postgres a média já calculada. A distinção
-importa e está registrada no código: a lição é sobre **descartar linhas** antes de
-raciocinar sobre elas, o que apaga informação. Isto é uma **agregação** — nenhuma atração
-some, nenhuma medição é ignorada, e o resultado é idêntico a somar na memória.
-
-O que muda é o volume: sete dias de janela, 35 atrações a cada 5 minutos, cerca de 70 mil
-linhas. Arrastá-las do Neon a cada recomendação seria pagar megabytes por uma média que o
-banco calcula sem sair do lugar.
-
-##### O cache não é otimização prematura
-
-É o que torna a feature viável. A consulta roda a cada recomendação, o Neon fica em
-`sa-east-1`, e a resposta se move na escala de **dias**. Uma hora de TTL troca uma ida ao
-banco por recomendação por uma ida por hora. O cache é por parque e global ao processo,
-porque popularidade é propriedade do parque: dois visitantes lado a lado recebem o mesmo
-número.
-
-> ⚠️ **Parque sem histórico não entra no cache.** Guardar o mapa vazio prenderia o resultado
-> por uma hora justamente enquanto o coletor começa a preencher, e o visitante não veria
-> faixa nenhuma até o TTL vencer.
-
-##### Dois bugs que só apareceram rodando o app
-
-Nenhum dos dois foi pego pelos 499 testes:
-
-1. **A frase saía grudada.** Sem tendência, a conta não termina em ponto, então a
-   justificativa virava `"= 10 min Uma das principais do parque"`. Agora há teste.
-2. **O ícone caiu na segunda linha.** `align-items: center` num texto que quebra em duas
-   linhas centraliza o ícone verticalmente — ele aparecia colado na segunda linha, como se
-   pertencesse a ela. Só a captura de tela mostrou.
-
-E um terceiro, de clareza: a primeira versão reaproveitava o ícone de alvo para "uma das
-principais", e ele já significa "vim por esta" no botão a dois centímetros. O mesmo símbolo
-dizendo duas coisas na mesma linha. Virou um ícone de pessoas, que marca o assunto — quanta
-gente costuma haver ali — deixando o texto distinguir a faixa.
-
-
-
+sendo coletado. **Entregue em 21/09/2026** (Fase 7.4), assim que o histórico ficou
+suficiente.
 ---
 
-### Fase 6 — Inteligência Histórica *em andamento*
+### Fase 6 — Inteligência Histórica ✅ *concluída em 20/09/2026*
 Persistir snapshots de fila ao longo do tempo. Com histórico vêm as análises que mais
 valorizam o projeto: detecção de tendência, melhor horário por atração e previsão da fila
 no momento em que o visitante chega.
@@ -1102,7 +977,7 @@ link de portfólio não abrir em tela branca, passou a ser o que mantém o hist�
 — uma responsabilidade bem maior que a original. Se o GitHub desativar o agendamento por
 inatividade do repositório, o histórico ganha buracos silenciosos.
 
-### Fase 7 — Personalização *em andamento*
+### Fase 7 — Personalização ✅ *concluída em 21/09/2026*
 
 A partir das ideias trazidas pelo Gabriel em 20/09/2026. O roadmap original acabou na
 Fase 6; esta é a primeira fase que nasce do uso, e não do plano inicial.
@@ -1330,6 +1205,228 @@ parecer quebrado.
 >
 > Foi preciso medir a fixture para descobrir isso, e o cenário do teste virou um realista:
 > apertar o filtro ao mínimo **e** marcar como visitada a única que ainda passa.
+
+
+#### 7.4 — Popularidade: o proxy que a fonte não dá, mas o histórico dá
+
+A radicalidade foi descartada acima por falta de dado. A popularidade ocupa o lugar dela
+usando o que **nós** acumulamos desde a Fase 6: a fila média histórica de cada atração.
+
+**O proxy é indireto, e vale ser honesto sobre isso.** Fila comprida não é popularidade —
+é o encontro da demanda com a capacidade, e uma atração de baixa vazão forma fila com
+pouca gente. Mas a pergunta prática do visitante não é "qual é a mais amada?", e sim
+"qual é daquelas que sempre têm fila?". Para essa, a média histórica responde direto.
+
+A verdade externa confirma o proxy: as primeiras colocadas pela média medida são TRON,
+Seven Dwarfs Mine Train, Peter Pan's Flight e Space Mountain — exatamente as que qualquer
+guia do Magic Kingdom lista como principais. Nenhuma linha de código foi escrita para
+chegar a esse resultado; ele saiu dos dados.
+
+##### Os três números vieram de medição, não de intuição
+
+Sobre **1257 snapshots reais** do Magic Kingdom (04/09 a 22/09/2026), 30 atrações com fila
+medida:
+
+**1. Faixa relativa, nunca valor absoluto.** 59% das medições caíram entre 10h e 13h
+locais — é quando o Render fica acordado e o parque, cheio. A média absoluta sai inflada.
+Mas o viés atinge *todas* as atrações igualmente, porque o coletor as fotografa juntas a
+cada 5 minutos: a **ordem** sobrevive, o **número** não. Por isso a tela mostra faixa, e a
+média só aparece na frase de oportunidade, onde o que importa é a comparação com ela
+mesma.
+
+**2. Razão contra a mediana do parque, e não tercil por posição.** Os dois critérios foram
+medidos partindo o histórico ao meio e conferindo se a faixa se repetia nas duas metades:
+
+| Critério | Faixa estável entre as metades |
+|---|---|
+| Tercil por posição | 17/23 (74%) |
+| **Razão contra a mediana** | **19/23 (83%)** |
+
+O tercil ainda erra de um jeito pior: ele *força* um terço das atrações em cada faixa. Num
+parque com duas campeãs e trinta medianas, chamaria dez de "principal" só para preencher a
+cota. A razão contra a mediana deixa o parque dizer quantas principais ele tem — no Magic
+Kingdom, nove. E classifica Big Thunder Mountain como principal, que é o correto e o
+tercil errava.
+
+> O teste de estabilidade divide o histórico em duas metades **temporais**, e a coleta
+> cobre essencialmente um domingo e uma segunda. Ou seja, 83% é a concordância entre dois
+> **dias de semana diferentes**, que têm perfis de multidão distintos — não ruído amostral.
+> Visto assim, é um resultado melhor do que o número sugere.
+
+**3. Abaixo de 12 medições a média é uma foto, não um histórico.** Doze é uma hora de
+coleta ao ritmo de 5 minutos. O corte separou exatamente o grupo certo: ficaram de fora
+Country Bear, Hall of Presidents, Tiki Room, Swiss Family Treehouse, o carrossel e os dois
+trens — shows e passeios que raramente reportam fila. Nenhuma atração de fila real foi
+excluída.
+
+##### `UNKNOWN` não é `QUIET`
+
+Abaixo do mínimo a faixa é desconhecida, e isso é uma faixa de verdade — não a ausência de
+uma. Chamar de "tranquila" uma atração que nunca medimos mandaria o visitante para uma
+fila de uma hora com a nossa bênção. Ela tem caixa própria no filtro, para quem quiser
+justamente as que ainda não conhecemos.
+
+##### A oportunidade: a razão de a feature existir
+
+Saber que uma atração é principal, isolado, não muda a decisão de ninguém. O que muda é a
+combinação: **uma das principais do parque com fila hoje abaixo da média dela**. É
+literalmente a frase que o consultor de parque manda no WhatsApp.
+
+Nos dados reais, **8 das 23 atrações** estavam numa faixa pelo histórico e noutra pela fila
+do momento. Em um terço dos casos o histórico diz algo que o "agora" não diz — e se
+dissesse sempre a mesma coisa, esta feature não precisaria existir.
+
+Rodando contra o banco de produção em 21/09/2026, três oportunidades apareceram de uma vez:
+Jungle Cruise (média 31, fila 5), Space Mountain (média 30, fila 10) e Tiana's Bayou
+Adventure (média 29, fila 10).
+
+##### Ela não reordena o ranking
+
+Mesma regra da tendência e dos alvos, e por uma razão a mais: popularidade descreve a
+**atração**, e o ranking responde sobre o **momento**. Dar bônus de custo a uma principal
+distorceria o número em vez de assumir a mudança de critério.
+
+Uma observação de produto que caiu do uso real: com o filtro desligado, as oito primeiras
+sugestões **nunca** incluem uma principal, porque elas custam mais. O filtro "só as
+principais" é o que torna essa parte do parque alcançável — a feature não é enfeite do
+ranking, é uma porta para o que o ranking naturalmente empurra para baixo.
+
+##### A agregação roda no banco, e é exceção deliberada à lição nº 3
+
+O projeto aprendeu a "pedir tudo e cortar na exibição" — quatro bugs vieram de violar isso.
+`storage.average_waits` faz o oposto: pede ao Postgres a média já calculada. A distinção
+importa e está registrada no código: a lição é sobre **descartar linhas** antes de
+raciocinar sobre elas, o que apaga informação. Isto é uma **agregação** — nenhuma atração
+some, nenhuma medição é ignorada, e o resultado é idêntico a somar na memória.
+
+O que muda é o volume: sete dias de janela, 35 atrações a cada 5 minutos, cerca de 70 mil
+linhas. Arrastá-las do Neon a cada recomendação seria pagar megabytes por uma média que o
+banco calcula sem sair do lugar.
+
+##### O cache não é otimização prematura
+
+É o que torna a feature viável. A consulta roda a cada recomendação, o Neon fica em
+`sa-east-1`, e a resposta se move na escala de **dias**. Uma hora de TTL troca uma ida ao
+banco por recomendação por uma ida por hora. O cache é por parque e global ao processo,
+porque popularidade é propriedade do parque: dois visitantes lado a lado recebem o mesmo
+número.
+
+> ⚠️ **Parque sem histórico não entra no cache.** Guardar o mapa vazio prenderia o resultado
+> por uma hora justamente enquanto o coletor começa a preencher, e o visitante não veria
+> faixa nenhuma até o TTL vencer.
+
+##### Dois bugs que só apareceram rodando o app
+
+Nenhum dos dois foi pego pelos 499 testes:
+
+1. **A frase saía grudada.** Sem tendência, a conta não termina em ponto, então a
+   justificativa virava `"= 10 min Uma das principais do parque"`. Agora há teste.
+2. **O ícone caiu na segunda linha.** `align-items: center` num texto que quebra em duas
+   linhas centraliza o ícone verticalmente — ele aparecia colado na segunda linha, como se
+   pertencesse a ela. Só a captura de tela mostrou.
+
+E um terceiro, de clareza: a primeira versão reaproveitava o ícone de alvo para "uma das
+principais", e ele já significa "vim por esta" no botão a dois centímetros. O mesmo símbolo
+dizendo duas coisas na mesma linha. Virou um ícone de pessoas, que marca o assunto — quanta
+gente costuma haver ali — deixando o texto distinguir a faixa.
+
+---
+
+### Fase 8 — Roteiro do dia 🔍 *investigação preliminar, 21/09/2026*
+
+> **Nada foi implementado.** O que segue é a medição que precede a decisão de escopo, feita
+> antes de escrever qualquer código — e o resultado dela **muda o desenho da fase**. A
+> estrutura definitiva ainda precisa do aval do Gabriel.
+
+#### A diferença entre ranking e roteiro
+
+O ranking de hoje é **guloso**: escolhe o melhor agora e nunca se arrepende. Um roteiro é
+**global** — aceita uma escolha pior agora para ganhar depois. *"Vá na Jungle Cruise agora
+e deixe a TRON para as 19h, quando a fila cai."*
+
+Repare no que essa frase exige: **saber qual será a fila às 19h**. O ranking não prevê
+nada; o roteiro não existe sem previsão. É essa dependência que estrutura a fase inteira —
+e é exatamente onde o projeto já tem um resultado negativo medido (6.6).
+
+#### O que foi medido
+
+A 6.6 descartou **extrapolar a tendência**. A investigação de agora testou o caminho que
+ela não cobriu: o **perfil horário** ("a Space Mountain costuma ter 40 min às 14h"), que é
+média histórica por faixa do dia, e não extrapolação de direção.
+
+**1. O dado ainda não existe.** Apenas **2 dias** de coleta (20 e 21/09). Das 298 células
+(atração, hora), **33% têm uma única medição** e 47% têm menos de três. Há buracos às 8h,
+15h e 17h — consequência da hibernação do Render.
+
+**2. O perfil não se repete entre dias.** Comparando a **mesma atração, na mesma hora**, em
+dias consecutivos — 28 pares comparáveis, com ao menos duas medições de cada lado:
+
+| Medida | Valor |
+|---|---|
+| Erro médio absoluto entre os dois dias | **13,58 min** |
+| Baseline de persistência da 6.6 (10 min à frente) | 2,50 min |
+
+Os horizontes são diferentes, então não é comparação direta. Mas 13,58 min num dado cuja
+média é ~20 min é erro da ordem de dois terços do valor.
+
+**3. Há estrutura no erro, e ela não basta.** Em **25 dos 28 pares** o segundo dia foi
+maior — não é ruído, é um deslocamento do dia inteiro (fator 1,54×). Testando a hipótese
+natural, *"a forma do dia se repete e só o nível muda; calibre o nível pela manhã e preveja
+a tarde"*:
+
+| | Erro |
+|---|---|
+| Sem corrigir o nível do dia | 13,58 min |
+| Corrigindo por um fator único | **10,98 min** |
+| Redução | apenas 19% |
+
+A forma do perfil também muda. Com 28 pares e 2 dias isso é **indicativo, não conclusivo**
+— mas indica o bastante para decidir o desenho.
+
+> ⚠️ **Cuidado metodológico que quase produziu a conclusão errada.** A primeira comparação
+> usou a *média do parque* entre dias, e deu 18,1 contra 31,9 ao meio-dia. Só que a coleta
+> não cobriu as mesmas atrações nos dois dias: a média se move sem a fila ter mudado. A
+> comparação honesta é sempre do mesmo par (atração, janela).
+
+#### A consequência no desenho
+
+Um plano do dia inteiro feito às 9h precisa prever 8 horas à frente. Com ~11 min de erro
+por atração, acumulado em dez paradas, o plano vira ficção — e **ficção confiante é pior
+que nenhum plano**, porque o visitante a segue.
+
+A saída é operar no horizonte em que a previsão já funciona. A 6.6 mediu isso: persistência
+erra 1,86 min a 5 minutos e 2,50 a 10.
+
+> **O roteiro sugere as próximas 3–4 atrações e se replaneja a cada uma concluída.** Não é
+> limitação disfarçada: é o formato honesto dado o que sabemos prever, e é também como o
+> app é usado — de pé, no parque, decidindo a próxima parada.
+
+#### Estrutura proposta
+
+| # | Entrega | Por que nesta ordem |
+|---|---|---|
+| 8.0 | **Consertar a coleta** — cobertura horária e continuidade | Pré-requisito de tudo; hoje há 2 dias e 47% das células com menos de 3 medições |
+| 8.1 | **Matriz de caminhada** atração→atração | `geo.py` só sabe visitante→atração; o roteiro precisa dos 1225 pares |
+| 8.2 | **O otimizador** — sequência de 3–4 paradas | O coração técnico da fase |
+| 8.3 | **Replanejamento** a cada conclusão | Um roteiro rígido morre no primeiro desvio |
+| 8.4 | **Interface** — linha do tempo | Mostrar um plano é diferente de mostrar uma lista |
+
+O 8.0 é infraestrutura e não gera tela nova, mas sem ele o 8.2 seria otimização sobre dado
+inventado. Ele também é pré-requisito da avaliação do forecast agendada para 27/09 — as
+duas coisas pedem a mesma correção.
+
+#### O problema não é o Caixeiro Viajante
+
+A seção 4 supôs TSP. É um problema mais rico: **Orienteering Problem com custos dependentes
+do tempo**. As diferenças importam:
+
+- Não se visita tudo — **escolhe-se um subconjunto**, porque não dá tempo
+- Há **janela de tempo**: o parque fecha
+- O custo de cada nó **muda conforme a hora da chegada** — é o que o TSP clássico não tem
+- Os nós têm **prêmios diferentes**: um alvo (7.2) vale mais que uma atração qualquer
+
+A arquitetura segue a regra da casa: `core/itinerary.py`, função pura, com a previsão
+injetada como `trends` e `popularity` já são hoje. O otimizador não sabe o que é banco.
 
 ---
 
@@ -1633,7 +1730,12 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 21/09/2026 | Ausência de `popularity` **libera** a atração no filtro | Sem banco a API devolve `null` em todas; reprovar esvaziaria a tela num ambiente que funciona, sem o visitante ter como adivinhar |
 | 21/09/2026 | Desmarcar **todas** as faixas equivale a remarcar todas | Quem desmarca a última quer dizer "volte ao normal", não "não me mostre nada" |
 | 21/09/2026 | Ícone de **pessoas** na linha de popularidade | O alvo já significa "vim por esta" no botão ao lado; o mesmo símbolo dizendo duas coisas na mesma linha |
+| 21/09/2026 | **Perfil horário medido antes de projetar a Fase 8** | 13,58 min de erro entre a mesma atração na mesma hora em dias consecutivos, contra 2,50 do baseline. Corrigir o nível do dia reduz só 19% — a forma também muda |
+| 21/09/2026 | O roteiro será de **3–4 paradas replanejadas**, não um plano do dia | Prever 8h à frente com ~11 min de erro por atração, acumulado em dez paradas, produz ficção — e ficção confiante é pior que nenhum plano |
+| 21/09/2026 | Comparar **médias do parque entre dias é inválido** | Se a coleta não cobriu as mesmas atrações, a média se move sem a fila mudar. Só o par (atração, janela) é honesto — quase gerou a conclusão errada |
+| 21/09/2026 | O 8.2 é **Orienteering com custo dependente do tempo**, não TSP | Escolhe subconjunto, tem janela de tempo, o custo do nó muda com a hora da chegada e os nós têm prêmios diferentes. A seção 4 supunha Caixeiro Viajante |
+| 22/09/2026 | Skills do projeto em `.claude/skills/`, **versionadas** | Fluxos que se repetem viram instrução executável em vez de prosa no CLAUDE.md; e mostram a quem lê o repositório que o próprio processo é automatizado |
 
 ---
 
-*Mantido por Gabriel de Angelis, com Claude Code. Última atualização: 21/09/2026.*
+*Mantido por Gabriel de Angelis, com Claude Code. Última atualização: 22/09/2026.*

@@ -1240,6 +1240,105 @@ as principais" é o que torna essa parte do parque alcançável.
 
 ---
 
+
+### Prompt #047
+**Data:** 21/09/2026
+**Contexto:** Fase 7 concluída e no ar. O roteiro do dia — evolução 3 da seção 4 — passou a
+ser o próximo passo natural, e a pergunta era como estruturá-lo.
+
+```
+Como será estruturada essa fase do roteiro do dia?
+```
+
+**O que resultou: a investigação preliminar da Fase 8, e um segundo resultado negativo.**
+
+A pergunta era de planejamento, mas a resposta exigiu medição — porque um roteiro só existe
+se soubermos prever a fila, e o projeto já tem um resultado negativo nessa área (6.6).
+
+Fui testar o caminho que a 6.6 **não** cobriu: o perfil horário, que é média histórica por
+faixa do dia, e não extrapolação de tendência. Três achados:
+
+1. **O dado não existe ainda.** 2 dias de coleta; 33% das células (atração, hora) com uma
+   única medição, 47% com menos de três.
+2. **O perfil não se repete.** Mesma atração, mesma hora, dias consecutivos: **13,58 min**
+   de erro médio, contra 2,50 do baseline de persistência.
+3. **Há estrutura, e ela não basta.** 25 dos 28 pares subiram no segundo dia — deslocamento
+   do dia inteiro, não ruído. Mas corrigir por um fator único reduziu o erro só **19%**
+   (13,58 → 10,98). A forma do perfil também muda.
+
+**A consequência mudou o desenho da fase.** Um plano do dia inteiro exige prever 8h à
+frente; com ~11 min de erro por parada, acumulado em dez, o plano vira ficção — e ficção
+confiante é pior que nenhum plano, porque o visitante a segue. O roteiro passará a ser de
+**3–4 paradas replanejadas a cada conclusão**, operando no horizonte em que a persistência
+funciona (1,86 min a 5 minutos).
+
+**Um erro metodológico que quase passou.** A primeira comparação usou a média do parque
+entre dias e deu 18,1 contra 31,9 ao meio-dia — mas a coleta não cobriu as mesmas atrações
+nos dois dias, então a média se move sem a fila ter mudado. Só a comparação do mesmo par
+(atração, janela) é honesta.
+
+Também ficou corrigido que o 8.2 **não é o Caixeiro Viajante**, como a seção 4 supunha: é
+um *Orienteering Problem com custos dependentes do tempo* — escolhe subconjunto, tem janela
+de tempo, e o custo de cada nó muda conforme a hora da chegada.
+
+---
+
+## Sessão 009 — 22/09/2026
+
+### Prompt #048
+**Data:** 22/09/2026
+**Contexto:** Antes desta mensagem, duas tentativas de usar o comando `/plugin` (instalar
+`superpowers@claude-plugins-official` e adicionar o marketplace `alirezarezvani/claude-skills`),
+ambas respondidas com "`/plugin` isn't available in this environment" — a extensão do VSCode
+não expõe esse comando.
+
+```
+Claude, como eu adiciono skills ao meu projeto? Quero melhorar a forma que algumas coisas são feitas.
+```
+
+**O que resultou: as duas primeiras skills do projeto, em `.claude/skills/`.**
+
+O `/plugin` não está disponível nesta superfície, mas isso só bloqueia o caminho dos
+marketplaces — skills como arquivos funcionam, e são melhores aqui porque vão versionadas
+no repositório.
+
+Criadas a partir do que de fato se repetiu nas sessões, não de conselhos genéricos:
+
+- **`fechar-sessao`** — transforma em checklist o que estava em prosa no `CLAUDE.md`:
+  prompts na íntegra, decisões na seção 10, contagem de testes (o item que mais escapa,
+  porque nada quebra quando erra) e as armadilhas de encoding do PowerShell.
+- **`medir-antes-de-implementar`** — carrega a tabela dos quatro casos em que a intuição
+  perdeu para a medição, a regra de comparar contra verdade externa, e os vieses conhecidos
+  destes dados.
+
+O detalhe que decide se uma skill funciona é a `description`: ela precisa dizer **quando
+usar**, não o que a skill faz — é o único campo lido antes de abrir o arquivo.
+
+Ficou registrada também uma cautela: instalar skill de marketplace de terceiro é executar
+instruções de um estranho no próprio projeto.
+
+---
+
+### Prompt #049
+**Data:** 22/09/2026
+**Contexto:** Fim da sessão, com as skills criadas mas ainda não commitadas.
+
+```
+Vamos fechar a sessão por hoje!
+```
+
+**O que resultou: o primeiro uso do checklist de `fechar-sessao` — que encontrou dois erros
+de documentação da sessão anterior.**
+
+1. **O bloco da 7.4 estava na Fase 5.** A inserção por âncora de 21/09 o colocou logo após
+   "Radicalidade: descartada", que fica na seção da Fase 5 — antes da Fase 6 e da Fase 7.
+   Movido para o fim da Fase 7.
+2. **Fases 6 e 7 ainda marcadas como *em andamento***, embora concluídas em 20 e 21/09.
+
+Também foi registrada a Fase 8 como **investigação preliminar**, com as medições do #047 —
+que até então só existiam no contexto da conversa e teriam se perdido.
+
+---
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 
