@@ -42,6 +42,8 @@ const estado = {
   alvos: new Set(),
   /** Todas as atrações do parque, para o seletor de alvos. */
   atracoesDoParque: [],
+  /** Limites que o visitante impôs. Cortam a lista; não reordenam. */
+  filtros: { filaMax: 125, caminhadaMax: 125 },
   /** Se as visitadas estão sendo exibidas em vez de escondidas. */
   mostrandoVisitadas: false,
   /** Última resposta do ranking, para redesenhar sem ir à rede de novo. */
@@ -72,6 +74,13 @@ const el = {
   buscaAtracao: document.getElementById("busca-atracao"),
   catalogoAtracoes: document.getElementById("catalogo-atracoes"),
   escolherVazio: document.getElementById("escolher-vazio"),
+  filtros: document.getElementById("filtros"),
+  filtrosAtivos: document.getElementById("filtros-ativos"),
+  filtroFila: document.getElementById("filtro-fila"),
+  filtroCaminhada: document.getElementById("filtro-caminhada"),
+  rotuloFila: document.getElementById("rotulo-fila"),
+  rotuloCaminhada: document.getElementById("rotulo-caminhada"),
+  btnLimparFiltros: document.getElementById("btn-limpar-filtros"),
 };
 
 let mapa;
@@ -613,12 +622,27 @@ function renderizar(dados) {
 
   if (visiveis.length === 0) {
     el.lista.innerHTML = "";
-    // Agora esta frase é verdade. Antes ela aparecia com oito marcadas de vinte e
-    // oito disponíveis, porque a lista pedida ao servidor já vinha cortada.
-    mostrarAviso(
-      "Você já passou por todas as atrações disponíveis agora. Nada mal.",
-      "info"
+
+    // Três motivos diferentes para uma lista vazia, e dizer o errado é pior que
+    // não dizer nada: "você já passou por todas" para quem só apertou um filtro
+    // esconde a causa e faz o app parecer quebrado.
+    const sobrouAlgo = dados.recommendations.some(
+      (r) => !estado.visitadas.has(r.attraction.id) && !estado.alvos.has(r.attraction.id)
     );
+
+    if (sobrouAlgo && FILTROS.ativos(estado.filtros)) {
+      mostrarAviso(
+        "Nenhuma atração cabe nos seus filtros agora. Afrouxe os limites para ver mais.",
+        "info"
+      );
+    } else {
+      // Esta frase agora é verdade. Antes ela aparecia com oito marcadas de vinte
+      // e oito disponíveis, porque a lista pedida ao servidor já vinha cortada.
+      mostrarAviso(
+        "Você já passou por todas as atrações disponíveis agora. Nada mal.",
+        "info"
+      );
+    }
     return;
   }
 
@@ -650,18 +674,71 @@ function renderizar(dados) {
  * decidir. Aqui as duas coisas convivem: as melhores disponíveis, mais o que já
  * foi feito, reordenadas pelo custo.
  */
+/* Aplica os limites do visitante.
+ *
+ * **Corta, não reordena.** A ordem continua sendo por custo total, que é a tese do
+ * projeto; o filtro só decide o que nem entra na lista.
+ *
+ * Os alvos escapam de propósito: quem marcou uma atração como "vim por esta" está
+ * dizendo que vai nela de qualquer jeito. Escondê-la por causa de um limite geral
+ * seria o app discutindo com uma escolha explícita do visitante.
+ */
+function passaNosFiltros(recomendacao) {
+  if (estado.alvos.has(recomendacao.attraction.id)) return true;
+
+  return (
+    recomendacao.queue_minutes <= estado.filtros.filaMax &&
+    recomendacao.walking_minutes <= estado.filtros.caminhadaMax
+  );
+}
+
 function escolherVisiveis(recomendacoes) {
   // Os alvos já têm seção própria acima. Repeti-los aqui gastaria as oito vagas
   // do ranking com coisas que o visitante acabou de ver.
   const semAlvos = recomendacoes.filter((r) => !estado.alvos.has(r.attraction.id));
-  const disponiveis = semAlvos.filter((r) => !estado.visitadas.has(r.attraction.id));
+  const dentroDoLimite = semAlvos.filter(passaNosFiltros);
+  const disponiveis = dentroDoLimite.filter((r) => !estado.visitadas.has(r.attraction.id));
   const proximas = disponiveis.slice(0, LIMITE);
 
   if (!estado.mostrandoVisitadas) return proximas;
 
-  const marcadas = semAlvos.filter((r) => estado.visitadas.has(r.attraction.id));
+  const marcadas = dentroDoLimite.filter((r) => estado.visitadas.has(r.attraction.id));
 
   return [...proximas, ...marcadas].sort((a, b) => a.total_minutes - b.total_minutes);
+}
+
+/* Os controles de filtro e o selo que denuncia que eles estão ligados.
+ *
+ * O selo é a parte que não pode faltar. Um filtro esquecido é indistinguível de
+ * um parque vazio: o visitante vê três sugestões onde havia trinta e conclui que
+ * o app quebrou, ou pior, que o parque está lotado.
+ */
+function atualizarControlesDeFiltro() {
+  const { filaMax, caminhadaMax } = estado.filtros;
+
+  el.filtroFila.value = filaMax;
+  el.filtroCaminhada.value = caminhadaMax;
+  el.rotuloFila.textContent = rotularLimite(filaMax);
+  el.rotuloCaminhada.textContent = rotularLimite(caminhadaMax);
+
+  const ligados = FILTROS.ativos(estado.filtros);
+  el.filtrosAtivos.hidden = !ligados;
+  el.filtrosAtivos.textContent = ligados ? "ativos" : "";
+}
+
+function rotularLimite(valor) {
+  return valor >= FILTROS.SEM_LIMITE ? "Sem limite" : `Até ${valor} min`;
+}
+
+/** Guarda o filtro, redesenha e mantém o rótulo em dia. */
+function aplicarFiltros() {
+  estado.filtros = FILTROS.salvar({
+    filaMax: Number(el.filtroFila.value),
+    caminhadaMax: Number(el.filtroCaminhada.value),
+  });
+
+  atualizarControlesDeFiltro();
+  if (estado.ultimoRanking) renderizar(estado.ultimoRanking);
 }
 
 /* A seção "Você veio por estas".
@@ -1160,6 +1237,11 @@ function iniciar() {
   iniciarMapa();
   carregarParques();
 
+  // Antes de qualquer desenho: os filtros são globais e sobrevivem entre visitas,
+  // então a primeira lista já precisa sair respeitando o que ficou guardado.
+  estado.filtros = FILTROS.ler();
+  atualizarControlesDeFiltro();
+
   // Carrega o parque padrão já na abertura: o app passa a mostrar algo útil
   // antes de qualquer permissão de GPS.
   carregarParque();
@@ -1231,6 +1313,18 @@ function iniciar() {
   // navegadores. Aqui não há o que submeter: a lista já filtra a cada tecla.
   el.buscaAtracao.addEventListener("keydown", (evento) => {
     if (evento.key === "Enter") evento.preventDefault();
+  });
+
+  // `input` e não `change`: o rótulo acompanha o dedo enquanto arrasta, em vez de
+  // só revelar o valor quando o visitante solta — e aí ele arrastaria às cegas.
+  [el.filtroFila, el.filtroCaminhada].forEach((controle) => {
+    controle.addEventListener("input", aplicarFiltros);
+  });
+
+  el.btnLimparFiltros.addEventListener("click", () => {
+    estado.filtros = FILTROS.limpar();
+    atualizarControlesDeFiltro();
+    if (estado.ultimoRanking) renderizar(estado.ultimoRanking);
   });
 
   el.btnMostrarVisitadas.addEventListener("click", () => {

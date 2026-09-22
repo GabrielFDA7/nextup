@@ -579,6 +579,52 @@ h2 {
   font-variant-numeric: tabular-nums;
 }
 
+/* --- Filtros ------------------------------------------------------------ */
+
+/* O selo que denuncia filtro ligado.
+   Sem ele, um filtro esquecido é indistinguível de um parque vazio: o visitante
+   vê três sugestões onde havia trinta e conclui que o app quebrou. */
+.selo {
+  margin-left: auto;
+  padding: 3px 9px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sobre-quente);
+  background: var(--destaque);
+  border-radius: 999px;
+}
+
+.filtro {
+  display: grid;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.filtro__rotulo {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 0.82rem;
+  color: var(--tinta-suave);
+}
+
+.filtro__rotulo strong {
+  color: var(--destaque);
+  font-variant-numeric: tabular-nums;
+}
+
+.filtro input[type="range"] {
+  width: 100%;
+  /* Alvo generoso: a barra padrão tem poucos pixels de altura, e acertá-la com o
+     dedo em movimento é frustrante. */
+  height: 28px;
+  accent-color: var(--destaque);
+  cursor: pointer;
+}
+
 /* O alvo ganha um filete roxo à esquerda: reconhecível de relance, sem competir
    com a moldura âmbar da melhor escolha, que carrega outro significado. */
 .item--alvo {

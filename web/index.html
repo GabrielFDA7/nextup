@@ -135,6 +135,46 @@
           </button>
         </div>
 
+        <!-- Os filtros CORTAM, não reordenam. O ranking continua por custo total;
+             eles existem porque o custo soma as parcelas, e 5 de caminhada + 35 de
+             fila não é a mesma experiência que 20 + 20. -->
+        <details id="filtros" class="escolher">
+          <summary class="escolher__gatilho">
+            <span class="escolher__mais" aria-hidden="true">+</span>
+            <span>Filtros</span>
+            <span id="filtros-ativos" class="selo" hidden></span>
+          </summary>
+
+          <div class="escolher__corpo">
+            <label class="filtro">
+              <span class="filtro__rotulo">
+                Fila máxima
+                <strong id="rotulo-fila">Sem limite</strong>
+              </span>
+              <input id="filtro-fila" type="range" min="5" max="125" step="5" value="125" />
+            </label>
+
+            <label class="filtro">
+              <span class="filtro__rotulo">
+                Caminhada máxima
+                <strong id="rotulo-caminhada">Sem limite</strong>
+              </span>
+              <input
+                id="filtro-caminhada"
+                type="range"
+                min="5"
+                max="125"
+                step="5"
+                value="125"
+              />
+            </label>
+
+            <button id="btn-limpar-filtros" type="button" class="botao-secundario">
+              Remover filtros
+            </button>
+          </div>
+        </details>
+
         <p id="resumo" class="resumo" hidden></p>
 
         <!-- Só aparece quando há algo marcado. Uma linha permanente dizendo

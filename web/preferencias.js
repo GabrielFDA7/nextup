@@ -132,6 +132,53 @@ const VISITADAS = (() => {
   return { doParque, alternar, limpar };
 })();
 
+/* Os limites que o visitante impõe às sugestões.
+ *
+ * Existem porque o `custo_total` **soma as parcelas**, e para quem está no parque
+ * elas não são intercambiáveis: cinco minutos de caminhada mais trinta e cinco de
+ * fila dá o mesmo total que vinte mais vinte, e são experiências opostas para
+ * quem empurra um carrinho ou está com uma criança no colo.
+ *
+ * O ranking continua ordenando por custo total — o filtro **corta**, não
+ * reordena. Quem quiser mudar o critério de ordenação estaria mudando a tese do
+ * projeto, e isso não é um filtro.
+ *
+ * Guardados **sem** o parque na chave, ao contrário de visitadas e alvos: "não
+ * quero andar muito" é sobre a pessoa, não sobre o Magic Kingdom.
+ */
+const FILTROS = (() => {
+  const CHAVE = "nextup:filtros";
+
+  //: O maior valor do controle significa "sem limite". Ter um número no lugar de
+  //: `null` mantém o `<input type="range">` simples — ele não sabe dizer "nenhum".
+  const SEM_LIMITE = 125;
+
+  function ler() {
+    const dados = ARMAZENAMENTO.ler(CHAVE);
+    return {
+      filaMax: Number(dados.filaMax) || SEM_LIMITE,
+      caminhadaMax: Number(dados.caminhadaMax) || SEM_LIMITE,
+    };
+  }
+
+  function salvar(filtros) {
+    ARMAZENAMENTO.escrever(CHAVE, filtros);
+    return filtros;
+  }
+
+  function limpar() {
+    ARMAZENAMENTO.escrever(CHAVE, {});
+    return { filaMax: SEM_LIMITE, caminhadaMax: SEM_LIMITE };
+  }
+
+  /** Se algum limite está valendo. A tela usa para avisar, e o aviso é essencial. */
+  function ativos(filtros) {
+    return filtros.filaMax < SEM_LIMITE || filtros.caminhadaMax < SEM_LIMITE;
+  }
+
+  return { ler, salvar, limpar, ativos, SEM_LIMITE };
+})();
+
 /* As atrações que o visitante VEIO FAZER.
  *
  * **Sem carimbo de data**, ao contrário das visitadas. Um alvo é desejo, não

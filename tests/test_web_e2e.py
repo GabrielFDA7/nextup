@@ -853,6 +853,180 @@ class TestCatalogoDeAlvos:
         expect(pagina.locator(".catalogo__item input").first).to_be_checked()
 
 
+class TestFiltros:
+    """Os limites do visitante — a entrega da Fase 7.3.
+
+    Existem porque o `custo_total` **soma as parcelas**, e elas não são
+    intercambiáveis: 5 min de caminhada + 35 de fila dá o mesmo total que 20 + 20,
+    e são experiências opostas para quem empurra um carrinho.
+
+    O filtro **corta**, não reordena — a ordem continua sendo por custo total.
+    """
+
+    def com_ranking(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        pagina.click("#btn-localizar")
+        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        pagina.click("#filtros .escolher__gatilho")
+        return pagina
+
+    def filas(self, pagina):
+        return [
+            int(texto.split()[0])
+            for texto in pagina.locator("[data-modo='ranking'] .parcela").all_inner_texts()
+            if "de fila" in texto
+        ]
+
+    def test_o_filtro_de_fila_corta_a_lista(self, navegador, servidor):
+        pagina = self.com_ranking(navegador, servidor)
+
+        pagina.locator("#filtro-fila").fill("10")
+        pagina.dispatch_event("#filtro-fila", "input")
+        pagina.wait_for_timeout(400)
+
+        assert self.filas(pagina), "o filtro escondeu tudo"
+        assert all(f <= 10 for f in self.filas(pagina))
+
+    def test_o_filtro_de_caminhada_corta_a_lista(self, navegador, servidor):
+        pagina = self.com_ranking(navegador, servidor)
+
+        pagina.locator("#filtro-caminhada").fill("5")
+        pagina.dispatch_event("#filtro-caminhada", "input")
+        pagina.wait_for_timeout(400)
+
+        caminhadas = [
+            int(texto.split()[0])
+            for texto in pagina.locator("[data-modo='ranking'] .parcela").all_inner_texts()
+            if "a pé" in texto
+        ]
+
+        assert caminhadas, "o filtro escondeu tudo"
+        assert all(c <= 5 for c in caminhadas)
+
+    def test_o_filtro_nao_reordena(self, navegador, servidor):
+        """Corta, e só. A ordem continua sendo por custo total — a tese do projeto."""
+        pagina = self.com_ranking(navegador, servidor)
+
+        pagina.locator("#filtro-fila").fill("15")
+        pagina.dispatch_event("#filtro-fila", "input")
+        pagina.wait_for_timeout(400)
+
+        custos = [
+            int(t) for t in pagina.locator("[data-modo='ranking'] .custo strong").all_inner_texts()
+        ]
+
+        assert custos == sorted(custos), f"a lista saiu fora de ordem: {custos}"
+
+    def test_o_rotulo_acompanha_o_controle(self, navegador, servidor):
+        pagina = self.com_ranking(navegador, servidor)
+
+        expect(pagina.locator("#rotulo-fila")).to_have_text("Sem limite")
+
+        pagina.locator("#filtro-fila").fill("30")
+        pagina.dispatch_event("#filtro-fila", "input")
+
+        expect(pagina.locator("#rotulo-fila")).to_have_text("Até 30 min")
+
+    def test_o_selo_denuncia_filtro_ligado(self, navegador, servidor):
+        """Filtro esquecido é indistinguível de parque vazio, e o app pareceria quebrado."""
+        pagina = self.com_ranking(navegador, servidor)
+
+        expect(pagina.locator("#filtros-ativos")).to_be_hidden()
+
+        pagina.locator("#filtro-fila").fill("20")
+        pagina.dispatch_event("#filtro-fila", "input")
+
+        expect(pagina.locator("#filtros-ativos")).to_be_visible()
+
+    def test_limpar_devolve_a_lista_inteira(self, navegador, servidor):
+        pagina = self.com_ranking(navegador, servidor)
+        antes = pagina.locator("[data-modo='ranking'] .item").count()
+
+        pagina.locator("#filtro-fila").fill("5")
+        pagina.dispatch_event("#filtro-fila", "input")
+        pagina.wait_for_timeout(400)
+
+        pagina.click("#btn-limpar-filtros")
+        pagina.wait_for_timeout(400)
+
+        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(antes)
+        expect(pagina.locator("#filtros-ativos")).to_be_hidden()
+
+    def test_filtro_que_esconde_tudo_explica_a_causa(self, navegador, servidor):
+        """Dizer "você já passou por todas" a quem só apertou um filtro esconde a causa.
+
+        O limite de caminhada é zero — nenhuma atração está exatamente sob os pés
+        do visitante, então a lista esvazia **com certeza**. Um limite de cinco
+        minutos ainda deixaria uma passar, e o teste viraria enfeite.
+        """
+        pagina = self.com_ranking(navegador, servidor)
+
+        # Aperta o filtro ao mínimo que a interface permite e marca como visitada
+        # tudo que ainda passa. Sobra uma lista vazia **com filtro ligado** e com
+        # vinte e poucas atrações livres do lado de fora do limite — que é
+        # exatamente o estado em que a mensagem errada enganaria o visitante.
+        pagina.evaluate(
+            "() => {"
+            " estado.filtros = { filaMax: 5, caminhadaMax: 5 };"
+            " estado.visitadas = new Set("
+            "   estado.ultimoRanking.recommendations"
+            "     .filter(r => r.queue_minutes <= 5 && r.walking_minutes <= 5)"
+            "     .map(r => r.attraction.id));"
+            " renderizar(estado.ultimoRanking); }"
+        )
+        pagina.wait_for_timeout(400)
+
+        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(0)
+        expect(pagina.locator("#aviso")).to_contain_text("filtros")
+
+    def test_lista_vazia_por_visitadas_nao_culpa_o_filtro(self, navegador, servidor):
+        """O outro lado: sem filtro ligado, a frase tem de ser a das visitadas.
+
+        As duas mensagens são fáceis de confundir, e escolher a errada esconde a
+        causa em vez de explicá-la.
+        """
+        pagina = self.com_ranking(navegador, servidor)
+
+        pagina.evaluate(
+            "() => { estado.visitadas = new Set("
+            "estado.ultimoRanking.recommendations.map(r => r.attraction.id));"
+            " renderizar(estado.ultimoRanking); }"
+        )
+        pagina.wait_for_timeout(400)
+
+        expect(pagina.locator("#aviso")).to_contain_text("já passou por todas")
+
+    def test_os_alvos_escapam_do_filtro(self, navegador, servidor):
+        """Quem marcou "vim por esta" vai nela de qualquer jeito.
+
+        Escondê-la por um limite geral seria o app discutindo com uma escolha
+        explícita do visitante.
+        """
+        pagina = self.com_ranking(navegador, servidor)
+
+        # Marca a atração de maior custo como alvo e aperta o filtro ao mínimo.
+        pior = pagina.evaluate("() => estado.ultimoRanking.recommendations.at(-1).attraction.id")
+        pagina.evaluate(f"() => alternarAlvo({pior!r})")
+        pagina.locator("#filtro-fila").fill("5")
+        pagina.dispatch_event("#filtro-fila", "input")
+        pagina.wait_for_timeout(400)
+
+        expect(pagina.locator("[data-modo='alvos'] .item")).to_have_count(1)
+
+    def test_os_filtros_sobrevivem_a_recarregar(self, navegador, servidor):
+        """São preferências da pessoa, não do momento — e valem em qualquer parque."""
+        pagina = self.com_ranking(navegador, servidor)
+        pagina.locator("#filtro-caminhada").fill("15")
+        pagina.dispatch_event("#filtro-caminhada", "input")
+        pagina.wait_for_timeout(300)
+
+        pagina.reload(wait_until="networkidle")
+        pagina.click("#filtros .escolher__gatilho")
+
+        expect(pagina.locator("#rotulo-caminhada")).to_have_text("Até 15 min")
+        expect(pagina.locator("#filtros-ativos")).to_be_visible()
+
+
 class TestGraficoDoHistorico:
     """O gráfico — a entrega da Fase 6.5.
 
