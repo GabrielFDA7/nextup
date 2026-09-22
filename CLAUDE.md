@@ -45,7 +45,7 @@ O **6.6 terminou com um resultado negativo medido**: prever a fila por extrapola
 mais que usar a fila atual, em todo horizonte. O ranking não mudou — mas agora há número
 para sustentar a escolha. Detalhes na seção 7 de `docs/PROJETO.md`.
 
-**437 testes passando**: 355 na suíte rápida (~7s) e 82 de interface em navegador (~105s).
+**499 testes passando**: 403 na suíte rápida (~9s) e 96 de interface em navegador (~130s).
 CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
 
 Já existe e funciona:
@@ -60,6 +60,8 @@ Já existe e funciona:
 - `cli.py` — comando `nextup`. Sem coordenadas lista filas; com `--lat/--lon` recomenda.
   `nextup --parks` lista os IDs de parque
 - `core/history.py` — resumo de uma série de filas (mín, média, máx, amplitude)
+- `core/popularity.py` — faixa de popularidade a partir da fila média histórica. Função
+  pura; os três números do algoritmo saíram de medição sobre 1257 snapshots reais
 - `core/forecast.py` — modelos de previsão e a régua que os compara. **Medido: extrapolar
   tendência erra mais que usar a fila atual**, então o ranking não usa previsão
 - `api/` — FastAPI com 5 rotas sob `/api`: `health`, `destinations`,
@@ -114,9 +116,9 @@ arredondados, ícones SVG e marcadores numerados no mapa. Tema escuro revisado: 
 quentes clareiam nele, então a tinta por cima inverte via `--sobre-quente` — sem isso, o
 botão principal ficaria branco sobre coral claro.
 
-**Fase 7 — Personalização, em andamento.** Nasce das ideias do Gabriel, não do roadmap
-original. **7.1 ("já fui hoje"), 7.2 (brinquedos alvo) e 7.3 (filtros) concluídas**; falta
-só a **7.4 (popularidade)**. Detalhes na seção 7 de `docs/PROJETO.md`.
+**Fase 7 — Personalização CONCLUÍDA (21/09/2026).** Nasceu das ideias do Gabriel, não do
+roadmap original: 7.1 ("já fui hoje"), 7.2 (brinquedos alvo), 7.3 (filtros) e 7.4
+(popularidade). Detalhes na seção 7 de `docs/PROJETO.md`.
 
 **Os filtros (7.3) cortam, nunca reordenam.** São de **fila** e **caminhada**, e não de
 custo total: filtrar por custo é redundante com o ranking, mas as parcelas não são
@@ -127,9 +129,48 @@ oposta para quem empurra um carrinho.
 > indistinguível de parque vazio. A lista vazia distingue três causas — filtro apertado,
 > tudo visitado, ou parque fechado — porque dizer a frase errada esconde o motivo.
 
-**Com 7.1 e 7.2 prontas, a fundação do roteiro do dia existe** (evolução 3 da seção 4): já
-se sabe onde o visitante esteve e aonde ele quer chegar. Essa é a frente que mais
-diferencia tecnicamente — otimização combinatória, parente do Caixeiro Viajante.
+**A popularidade (7.4) é o primeiro recurso construído sobre dado NOSSO.** Substituiu a
+"radicalidade", que a fonte não fornece, pela **fila média histórica** — e a verdade
+externa confere: as primeiras colocadas são TRON, Seven Dwarfs, Peter Pan e Space
+Mountain. Os três números do algoritmo saíram de 1257 snapshots reais, não de intuição:
+
+- **Faixa relativa ao parque, nunca limiar em minutos.** 59% das medições caem entre 10h e
+  13h, o que infla a média absoluta — mas infla todas as atrações juntas, porque o coletor
+  as fotografa a cada 5 min. A ordem sobrevive; o número não.
+- **Razão contra a mediana, não tercil.** Medido: 83% de estabilidade contra 74%. E o
+  tercil *força* um terço em cada faixa, promovendo dez medianas a "principal" num parque
+  que tem duas.
+- **Mínimo de 12 medições** (uma hora de coleta). O corte excluiu exatamente os shows e
+  trens, e nenhuma atração de fila real.
+
+> ⚠️ **`UNKNOWN` não é `QUIET`.** Ausência de dado não é dado. Chamar de tranquila uma
+> atração que nunca medimos mandaria o visitante para uma fila de uma hora com a nossa
+> bênção. Ela tem caixa própria no filtro.
+
+> ⚠️ **A popularidade não reordena o ranking**, como a tendência e os alvos — e por uma
+> razão a mais: ela descreve a **atração**, e o ranking responde sobre o **momento**.
+
+> ⚠️ **Ausência de `popularity` LIBERA a atração no filtro.** Sem banco, a API devolve
+> `null` em todas; reprovar esvaziaria a tela num ambiente que funciona perfeitamente.
+> Mesmo princípio de `_tendencias()` engolir a falha do banco.
+
+**A "oportunidade" é a razão de a feature existir:** uma das principais do parque com fila
+hoje abaixo da média dela. Saber que uma atração é principal, isolado, não muda decisão
+nenhuma. Em 8 de 23 atrações medidas, o histórico discorda do "agora" — se concordasse
+sempre, não haveria o que dizer. Vale só para as principais: uma tranquila abaixo da média
+é 4 min em vez de 7.
+
+**`storage.average_waits` agrega no banco, e é exceção consciente à lição nº 3.** Agregar
+não descarta linha nenhuma — a lição é sobre *cortar listas* antes de raciocinar sobre
+elas. Aqui são ~70 mil linhas (7 dias × 35 atrações) que não fazem sentido arrastar do
+Neon para calcular uma média.
+
+> ⚠️ **Parque sem histórico não entra no cache** de popularidade (1h, por parque). Guardar
+> o vazio prenderia o resultado justamente enquanto o coletor começa a preencher.
+**Com a Fase 7 fechada, a fundação do roteiro do dia existe** (evolução 3 da seção 4): já
+se sabe onde o visitante esteve, aonde ele quer chegar, que limites ele impõe e quais
+atrações são as principais. Essa é a frente que mais diferencia tecnicamente — otimização
+combinatória, parente do Caixeiro Viajante. **É o próximo passo natural do projeto.**
 
 **A personalização mora no `localStorage`** (`web/preferencias.js`), sem conta de usuário: o
 app é usado no celular dentro do parque por algumas horas, e exigir cadastro antes de

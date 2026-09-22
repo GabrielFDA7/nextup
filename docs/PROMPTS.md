@@ -1179,6 +1179,67 @@ um realista — apertar o filtro ao mínimo **e** marcar como visitada a única 
 
 ---
 
+### Prompt #046
+**Data:** 21/09/2026
+**Contexto:** Fase 7 com 7.1, 7.2 e 7.3 entregues. Faltava só a 7.4, que o Gabriel havia
+escolhido em substituição à "radicalidade" quando ficou claro que a fonte não fornece
+intensidade nem categoria das atrações.
+
+```
+Vamos para a 7.4
+```
+
+**O que resultou: a Fase 7.4 — popularidade, e o fechamento da Fase 7.**
+
+**A investigação veio antes do código**, como virou padrão no projeto. Quatro medições
+sobre 1257 snapshots reais do banco de produção, antes de escrever uma linha:
+
+1. **O proxy funciona?** As primeiras colocadas pela fila média são TRON, Seven Dwarfs
+   Mine Train, Peter Pan's Flight e Space Mountain — exatamente as principais do Magic
+   Kingdom. Verdade externa, não a conta do código repetida.
+2. **A média é enviesada?** Sim: 59% das medições caem entre 10h e 13h locais. Mas o viés
+   atinge todas as atrações juntas, então a **ordem** sobrevive e o **número** não — daí a
+   saída ser faixa, e não minutos.
+3. **Qual critério de faixa?** Tercil por posição contra razão sobre a mediana do parque,
+   medidos partindo o histórico ao meio: **83% de estabilidade contra 74%**. A mediana
+   venceu, e ainda evita o defeito do tercil de *forçar* um terço em cada faixa.
+4. **Quantas medições bastam?** Doze — uma hora de coleta. O corte excluiu exatamente os
+   shows e trens, e nenhuma atração de fila real.
+
+**A feature só existe por causa de um número:** em **8 das 23 atrações**, a faixa pelo
+histórico discorda da faixa pela fila de agora. Se concordassem sempre, popularidade não
+acrescentaria nada ao que já estava na tela. É o que sustenta a **oportunidade** — uma das
+principais do parque com fila hoje abaixo da média dela, que é literalmente a frase que o
+consultor de parque manda no WhatsApp.
+
+**O que foi entregue:**
+- `core/popularity.py` — função pura, com as medições documentadas no cabeçalho
+- `storage/snapshots.py` — `average_waits`, agregando `AVG`/`COUNT` no banco
+- `api/routes.py` — `_popularidade()` com cache de 1h por parque, e degradação graciosa
+- `web/` — selo na atração, filtro por faixa em caixas, e a frase de oportunidade
+- Suíte de 437 para **499 testes**
+
+**Três defeitos que os testes não pegaram, e a tela sim:**
+1. **A frase saía grudada:** sem tendência, `"= 10 min Uma das principais do parque"`.
+2. **O ícone caía na segunda linha:** `align-items: center` com texto que quebra.
+3. **Colisão de ícone:** "uma das principais" usava o mesmo alvo do botão "vim por", a dois
+   centímetros. Virou um ícone de pessoas.
+
+**E um teste que quase fingiu testar — de novo.** O cenário do mock agrupava as atrações
+tranquilas nas posições 9 em diante, e a tela mostra oito: o teste do filtro não teria
+nenhuma para esconder. Desta vez uma **asserção de guarda** pegou antes de o teste entrar
+verde na suíte. As faixas passaram a ser intercaladas por posição.
+
+**Verificação por mutação.** Quatro mutações no `core/popularity.py` — remover o mínimo de
+medições, inverter o limiar, forçar oportunidade sempre, e incluir as inelegíveis na
+mediana. Todas foram detectadas pelos testes.
+
+**Uma observação de produto que caiu do uso real:** com o filtro desligado, as oito
+primeiras sugestões **nunca** incluem uma principal, porque elas custam mais. O filtro "só
+as principais" é o que torna essa parte do parque alcançável.
+
+---
+
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 
