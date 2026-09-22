@@ -60,6 +60,11 @@ line-length = 100
 target-version = "py311"
 src = ["src", "tests"]
 
+# As skills do Claude Code são documentação, não código do projeto. O ruff tenta
+# formatar os blocos Python de exemplo dentro delas, e ali o trecho existe para
+# ser lido — quebrá-lo em duas linhas para caber no limite piora a explicação.
+exclude = [".claude"]
+
 [tool.ruff.lint]
 select = [
     "E",    # pycodestyle — erros de estilo
