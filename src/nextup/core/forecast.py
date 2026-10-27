@@ -30,8 +30,20 @@ agora — é o melhor disponível. O que mudou não foi o código do ranking; fo
 passarmos a saber *por quê*, e a ter como provar.
 
 Este módulo guarda os modelos e a régua que os compara, para que a medição possa
-ser repetida quando houver mais dados — em especial sobre a previsão da própria
-fonte, que só agora começou a ser gravada e por isso ainda não pôde ser avaliada.
+ser repetida quando houver mais dados.
+
+**A previsão da própria fonte também foi medida, e também perdeu** (27/10/2026,
+605 casos, a mesma régua `evaluate`):
+
+| Antecedência | Persistência | Forecast da fonte | Perfil horário |
+|---|---|---|---|
+| até 30 min | **2,03** | 9,52 | 6,74 |
+| 4 a 8 h    | 14,75 | **9,23** | 9,83 |
+
+No horizonte de uma caminhada a fila atual continua imbatível, e o ranking fica
+como está. Em horizontes de horas a persistência desaba, e fonte e perfil empatam
+— é a matéria-prima do roteiro da Fase 8, não do ranking. Tabela completa em
+`docs/PROJETO.md`, Fase 6, bloco da avaliação do forecast.
 """
 
 from collections.abc import Sequence
