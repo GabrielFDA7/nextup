@@ -16,8 +16,8 @@
 > caminhada (7.3) e popularidade (7.4). A última fecha o ciclo da Fase 6 — é a primeira
 > feature construída **sobre o histórico que nós mesmos coletamos**, e não sobre a API.
 >
-> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **499
-> testes**: 403 na suíte rápida e 96 de interface em navegador.
+> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **509
+> testes**: 413 na suíte rápida e 96 de interface em navegador.
 >
 > **Fase 8 — Roteiro do dia: em investigação (27/10/2026).** A auditoria da coleta (8.0)
 > descobriu o coletor parado ~90% do tempo por um mês — o cron do GitHub rodava a cada
@@ -1479,7 +1479,7 @@ erra 1,86 min a 5 minutos e 2,50 a 10.
 | # | Entrega | Por que nesta ordem |
 |---|---|---|
 | 8.0 | **Consertar a coleta** — cobertura horária e continuidade 🔧 *27/10: causa achada e corrigida; falta confirmar uma semana contínua* | Pré-requisito de tudo; hoje há 2 dias e 47% das células com menos de 3 medições |
-| 8.1 | **Matriz de caminhada** atração→atração | `geo.py` só sabe visitante→atração; o roteiro precisa dos 1225 pares |
+| 8.1 | **Matriz de caminhada** atração→atração ✅ *27/10/2026* | `geo.py` só sabe visitante→atração; o roteiro precisa dos 1225 pares |
 | 8.2 | **O otimizador** — sequência de 3–4 paradas | O coração técnico da fase |
 | 8.3 | **Replanejamento** a cada conclusão | Um roteiro rígido morre no primeiro desvio |
 | 8.4 | **Interface** — linha do tempo | Mostrar um plano é diferente de mostrar uma lista |
@@ -1533,6 +1533,48 @@ cinco semanas e não sobre dois dias.
 **A pergunta que fica para o 8.2:** qual previsão usar para "mais tarde". A fonte funciona em
 qualquer parque desde o primeiro dia; o perfil é dado nosso, mas exige semanas de coleta
 por parque. Decidir depois de repetir a medição com uma semana de coleta contínua.
+
+#### 8.1 — Matriz de caminhada ✅ *27/10/2026*
+
+`geo.travel_time_matrix`: o tempo a pé entre **todos os pares** de atrações, calculado uma
+vez e lido muitas. O ranking só precisava de *visitante → atração*; o roteiro precisa de
+*atração → atração*, porque escolher a segunda parada exige saber quanto se anda saindo da
+primeira. Função pura, simétrica, zero na diagonal, e identificador desconhecido levanta
+`KeyError` — um tempo inventado seria usado pelo otimizador sem desconfiar.
+
+**Antes de escrever, o fator de sinuosidade foi medido.** O 1,3 nasceu como estimativa na
+seção 4 e nunca tinha sido conferido. No ranking isso pesava pouco — o erro é parecido para
+todas as atrações e a ordem sobrevive. No roteiro pesa mais: trechos encadeados somam erros,
+e o erro não é uniforme (o rio do Magic Kingdom aproxima na linha reta o que está longe a
+pé).
+
+A verdade externa foi o **OpenStreetMap**: os caminhos de pedestre do parque, baixados numa
+consulta única, viraram um grafo, e a rota mais curta (Dijkstra) foi calculada entre os 595
+pares de atrações do Magic Kingdom.
+
+| Modelo | Erro médio por trecho |
+|---|---|
+| Linha reta, sem correção | 1,70 min |
+| **Linha reta × 1,3 (o que já existia)** | **0,58 min** |
+| Linha reta × 1,33 (o melhor fator único possível) | 0,59 min |
+
+*(caminhada média real entre duas atrações: 6,43 min)*
+
+**A estimativa estava certa** — o melhor fator possível é 1,33. A razão real varia de 1,20 a
+1,65 (p10 a p90) e passa de 2 onde há água no caminho: Big Thunder ↔ Haunted Mansion são
+174 m em linha reta e 417 m a pé. Em 7 das 35 atrações, a vizinha mais próxima pela linha
+reta não é a mais próxima pelas trilhas.
+
+**Por que não usar as trilhas reais, então?** Porque o erro de caminhada (0,58 min por
+trecho) é pequeno diante do erro da previsão de fila (~9 min em horizontes de horas). Um
+roteador sobre o OSM traria dependência nova, um processo de dados por parque e cobertura
+desigual fora da Disney — esforço gasto na parcela do erro que já é pequena. Se um dia a
+previsão de fila melhorar muito, a conta se inverte.
+
+Os testes (`tests/test_geo_matriz.py`) comparam contra os números do OSM, verificam a
+desigualdade triangular — uma matriz que a violasse daria ao otimizador "atalhos" que só
+existem na conta — e **documentam a limitação do rio** como teste, para ela não ser
+esquecida.
 
 #### O problema não é o Caixeiro Viajante
 
@@ -1693,6 +1735,15 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **`!important`** | Força uma regra CSS a vencer. Quase sempre um cheiro; aqui, a forma correta de honrar o `hidden` |
 | **`aria-pressed`** | Diz ao leitor de tela se um botão de liga/desliga está ligado |
 | **`Intl.DateTimeFormat`** | API do navegador para formatar data em outro fuso — é como se sabe o "hoje" do parque |
+| **Pinger / keep-alive** | Serviço que acessa uma URL em intervalo fixo só para mantê-la acordada |
+| **Cron** | Agendamento por horário. O do GitHub Actions é "quando der", não um relógio — medido, 4 h de atraso |
+| **Perfil horário** | A média histórica de uma atração em cada hora do dia: "às 14h ela costuma ter 40 min" |
+| **Matriz de distâncias** | Tabela com o custo entre todos os pares de pontos, calculada uma vez e consultada muitas |
+| **Grafo** | Pontos (nós) ligados por arestas com custo. As trilhas de um parque viram um |
+| **Dijkstra** | Algoritmo que acha o caminho mais curto num grafo, expandindo sempre o nó mais próximo ainda não visitado |
+| **Desigualdade triangular** | Ir de A a C passando por B nunca é mais curto que ir direto. Toda distância honesta obedece |
+| **OpenStreetMap (OSM)** | Mapa colaborativo e aberto do mundo, com trilhas de pedestre até dentro de parques |
+| **Orienteering Problem** | Parente do Caixeiro Viajante: com tempo limitado, escolher *quais* pontos visitar, e em que ordem, para somar o maior prêmio |
 
 ---
 
@@ -1861,6 +1912,10 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 27/10/2026 | O forecast da fonte **não** entra no ranking | Medido: no horizonte de uma caminhada (até 30 min) erra 9,52 min, contra 2,03 da fila atual. Confere com o 2,50 do backtest de 20/09 |
 | 27/10/2026 | Para horizontes de **horas**, fonte e perfil horário empatam e batem a persistência | ~9–10 min contra ~14 acima de 2 h. Partindo os dias ao meio, cada um ganha numa metade — sem vencedor estável. A escolha fica para depois de uma semana de coleta contínua |
 | 27/10/2026 | O perfil de avaliação **deixa de fora o dia avaliado** | Senão a média já contém a resposta e o modelo parece melhor do que é |
+| 27/10/2026 | Fator de sinuosidade **1,3 mantido, agora medido** | Contra a rota pelas trilhas do OpenStreetMap em 595 pares do MK: erro de 0,58 min por trecho; o melhor fator único possível é 1,33, com 0,59 |
+| 27/10/2026 | A matriz usa **linha reta × fator**, não roteamento sobre o OSM | O erro de caminhada (0,58 min) é pequeno diante do da fila (~9 min); roteador traria dependência, dado por parque e cobertura desigual fora da Disney |
+| 27/10/2026 | Matriz **simétrica, calculada uma vez**, `KeyError` para id desconhecido | As atrações não se movem e o otimizador consulta os pares centenas de milhares de vezes; um tempo inventado seria usado sem desconfiar |
+| 27/10/2026 | `travel_time_matrix` recebe **pontos, não `ParkCatalog`** | Mantém `geo.py` como "entra número, sai número"; quem conhece o catálogo é o módulo do roteiro |
 
 ---
 

@@ -45,13 +45,14 @@ O **6.6 terminou com um resultado negativo medido**: prever a fila por extrapola
 mais que usar a fila atual, em todo horizonte. O ranking não mudou — mas agora há número
 para sustentar a escolha. Detalhes na seção 7 de `docs/PROJETO.md`.
 
-**499 testes passando**: 403 na suíte rápida (~9s) e 96 de interface em navegador (~130s).
+**509 testes passando**: 413 na suíte rápida (~9s) e 96 de interface em navegador (~130s).
 CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
 
 Já existe e funciona:
 - Estrutura completa em `src/nextup/` com as 4 camadas
 - `config.py` com toda a configuração centralizada
-- `core/geo.py` — Haversine, sinuosidade e tempo de caminhada
+- `core/geo.py` — Haversine, sinuosidade (1,3, medido contra o OSM) e tempo de caminhada;
+  `travel_time_matrix` dá o tempo entre todos os pares de atrações (Fase 8.1)
 - `models/` — `Destination`, `ParkCatalog` (com coordenadas GPS) e `LiveData`
 - `clients/cache.py` — cache com TTL, relógio injetável
 - `clients/themeparks.py` — cliente assíncrono, backoff exponencial, erros próprios
@@ -178,7 +179,10 @@ replanejadas a cada conclusão**, porque previsão de horas erra ~9–10 min por
 é um *Orienteering Problem* com custo dependente do tempo, não TSP. **Situação em
 27/10/2026:** o 8.0 (consertar a coleta) teve a causa corrigida; falta confirmar uma
 semana de coleta contínua e então **repetir a avaliação forecast × perfil horário** para
-escolher qual previsão o roteiro usa. Os scripts de medição não ficam no repositório — o
+escolher qual previsão o roteiro usa — preliminar na sexta 30/10, decisiva em 03/11, com o
+fim de semana. ⚠️ O horário de verão americano acaba em 01/11: a próxima avaliação precisa
+de fuso de verdade, não de UTC−4 fixo. O **8.1 (matriz de caminhada) está pronto**; o
+próximo código é o 8.2, o otimizador. Os scripts de medição não ficam no repositório — o
 método está descrito na seção 7.
 
 **A personalização mora no `localStorage`** (`web/preferencias.js`), sem conta de usuário: o
@@ -385,7 +389,7 @@ pip install -e ".[dev]"
 Verificar que tudo está de pé:
 
 ```bash
-pytest -m "not e2e"    # esperado: 355 testes, ~7s
+pytest -m "not e2e"    # esperado: 413 testes, ~9s
 ruff check .
 ruff format --check .
 ```
@@ -405,7 +409,7 @@ uvicorn nextup.api.main:app --reload     # http://127.0.0.1:8000
 Testes de interface (exigem `pip install -e ".[dev,e2e]"` e `playwright install chromium`):
 
 ```bash
-pytest -m e2e          # esperado: 82 testes, ~105s
+pytest -m e2e          # esperado: 96 testes, ~130s
 ```
 
 ---

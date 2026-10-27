@@ -1444,6 +1444,61 @@ bloco da Fase 6.6, auditoria como item 8.0 da Fase 8, risco novo na seção 8, s
 na seção 10, o cabeçalho de `core/forecast.py` com a tabela e o `CLAUDE.md` sem o
 agendamento já cumprido.
 
+Durante o registro apareceu **um erro na própria métrica da auditoria**: ela comparava os
+ciclos gravados com 288 por dia. Mas ciclo sem medição nova não deixa linha — a unicidade
+descarta a repetição —, então de madrugada, com o parque fechado, o coletor pode rodar sem
+gravar nada. A referência honesta é o horário do parque (~156 ciclos). A conclusão
+sobreviveu, mas o "~95% parado" virou "~90%" em todos os documentos antes do commit.
+
+---
+
+### Prompt #055
+**Data:** 27/10/2026
+**Contexto:** Commits feitos localmente; um monitor esperava a primeira gravação depois
+das 20:45, que provaria que o serviço não voltou a dormir.
+
+```
+O meu próximo passo é esperar?
+```
+
+**O que resultou:** a separação entre o que espera e o que não espera. A verificação da
+coleta, sim, mas sem ninguém olhando — o monitor avisa. O projeto, não: a **matriz de
+caminhada (8.1)** é a parte da Fase 8 que não depende de histórico de fila, e o push zera a
+contagem de 60 dias de inatividade do GitHub.
+
+---
+
+### Prompt #056
+**Data:** 27/10/2026
+**Contexto:** Resposta à proposta de ordem: push, 8.1 já, avaliação decisiva em ~03/11.
+
+```
+Até sexta feira, teremos dados coletados o suficiente pra fazermos uma analise mais profunda?
+
+Sobre o push, pode fazer e seguir com a matriz de caminhada.
+```
+
+**O que resultou: push feito, e a 8.1 entregue — depois de medir um número que nunca
+tinha sido medido.**
+
+Sobre sexta: dá para uma preliminar (três dias contínuos sobram para horizonte curto), mas
+não para a decisiva. Falta o fim de semana, o Halloween pode encurtar o horário do parque
+justo no fim da tarde, e o horário de verão americano acaba em 01/11 — o script da
+avaliação usava UTC−4 fixo, que só valia porque o período inteiro estava dentro dele.
+
+Na matriz, antes de escrever código: o **fator de sinuosidade 1,3 era uma estimativa da
+seção 4, nunca medida**. No ranking pesava pouco; no roteiro, trechos encadeados somam
+erro. A verdade externa foi o **OpenStreetMap** — trilhas de pedestre do Magic Kingdom
+baixadas numa consulta só, grafo, Dijkstra entre os 595 pares de atrações.
+
+Resultado positivo, e não o esperado: **o 1,3 estava certo** (melhor fator possível 1,33;
+erro de 0,58 min por trecho). O rio cria exceções de até 3 min, mas o erro da caminhada é
+pequeno diante dos ~9 min da previsão de fila — então a matriz usa linha reta × 1,3, e não
+um roteador sobre o OSM. O teste do rio ficou como **limitação documentada**, escrito para
+ser invertido se um dia a matriz passar a usar as trilhas.
+
+`geo.travel_time_matrix` e 10 testes novos: 413 na suíte rápida.
+
 ---
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
