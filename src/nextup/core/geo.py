@@ -9,7 +9,7 @@ milissegundos, e nunca falham porque a internet caiu ou o parque fechou.
 """
 
 import math
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 from nextup.config import PATH_WINDING_FACTOR, WALKING_SPEED_MPS
@@ -184,3 +184,44 @@ def travel_time_minutes(
     straight = haversine_distance_m(lat1, lon1, lat2, lon2)
     walked = walking_distance_m(straight, winding_factor)
     return walking_time_minutes(walked, speed_mps)
+
+
+def travel_time_matrix(
+    points: Mapping[str, tuple[float, float]],
+    speed_mps: float = WALKING_SPEED_MPS,
+    winding_factor: float = PATH_WINDING_FACTOR,
+) -> dict[str, dict[str, float]]:
+    """Tempo de caminhada entre todos os pares de pontos, em minutos.
+
+    O ranking só precisa de *visitante → atração*. O roteiro (Fase 8) precisa de
+    *atração → atração*: para escolher a segunda parada, é preciso saber quanto se
+    anda saindo da primeira. O otimizador consulta esses tempos centenas de milhares
+    de vezes ao comparar sequências, e eles não mudam — as atrações não saem do
+    lugar. Por isso a conta é feita uma vez, aqui, e depois só se lê.
+
+    Args:
+        points: Identificador → (latitude, longitude). Quem chama decide o que é um
+            ponto; atração sem coordenada simplesmente não entra.
+        speed_mps: Velocidade de caminhada, em metros por segundo.
+        winding_factor: Multiplicador do trajeto real sobre a linha reta.
+
+    Returns:
+        `matriz[a][b]` é o tempo de `a` até `b`. Simétrica, com zero na diagonal.
+        Um identificador desconhecido levanta `KeyError` — melhor que um tempo
+        inventado, que o otimizador usaria sem desconfiar.
+    """
+    ids = list(points)
+    matriz: dict[str, dict[str, float]] = {a: {a: 0.0} for a in ids}
+
+    # Só metade da conta: a caminhada de A até B é a mesma de B até A. Num parque
+    # há subidas e filas de travessia que quebrariam isso, mas a estimativa por
+    # linha reta não as enxerga de qualquer forma.
+    for i, a in enumerate(ids):
+        for b in ids[i + 1 :]:
+            minutos = travel_time_minutes(
+                *points[a], *points[b], speed_mps=speed_mps, winding_factor=winding_factor
+            )
+            matriz[a][b] = minutos
+            matriz[b][a] = minutos
+
+    return matriz
