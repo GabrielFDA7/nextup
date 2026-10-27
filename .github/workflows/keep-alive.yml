@@ -1,20 +1,23 @@
-# Mantém o serviço acordado no Render.
+# RESERVA do keep-alive. O ping principal é externo (cron-job.org, a cada 5 min).
 #
-# O plano gratuito hiberna após ~15 minutos sem acesso, e a visita seguinte
-# espera o contêiner subir — algo perto de um minuto. Num link de portfólio isso
-# é caro: quem abre e vê tela em branco costuma fechar antes de o app carregar.
+# O plano gratuito do Render hiberna após ~15 minutos sem acesso de entrada, e
+# com o serviço dormindo o coletor de histórico também dorme.
 #
-# Este agendamento chama `/api/health` de 10 em 10 minutos, o que basta para o
-# Render nunca considerar o serviço ocioso.
+# Este agendamento pede `/api/health` de 10 em 10 minutos — e **não entrega**.
+# Medido em 27/10/2026: 244 execuções em 37 dias, quando deveriam ser ~5.300, com
+# intervalo mediano de 4 horas entre elas. O coletor gravou de 7 a 23 ciclos por
+# dia, contra ~156 esperados só no horário do parque. Todas as execuções
+# terminaram verdes: o job ficava verde enquanto a coleta falhava em silêncio.
 #
 # Três coisas que vale saber sobre este arquivo:
 #
 # 1. **Ele só faz sentido enquanto o serviço estiver no plano gratuito.** Num
 #    plano pago não há hibernação, e o agendamento vira desperdício — apagar.
 #
-# 2. **O GitHub atrasa agendamentos.** O horário é uma intenção, não uma
-#    garantia: em momentos de fila, um `cron` pode rodar minutos depois. Por
-#    isso o intervalo é 10 e não 14 — sobra margem antes dos 15 da hibernação.
+# 2. **O cron do GitHub Actions é "quando der", não um relógio.** A suposição
+#    original era de atrasos de minutos; foram horas. Intervalos curtos são
+#    justamente os mais sacrificados. Ele fica como reserva barata do pinger
+#    externo, e não deve voltar a ser a única garantia de nada.
 #
 # 3. **O GitHub desativa agendamentos em repositórios públicos parados há 60
 #    dias.** Se o projeto ficar esse tempo sem commits, este workflow para
