@@ -1339,6 +1339,112 @@ Também foi registrada a Fase 8 como **investigação preliminar**, com as medi�
 que até então só existiam no contexto da conversa e teriam se perdido.
 
 ---
+
+## Sessão 010 — 27/10/2026
+
+### Prompt #050
+**Data:** 27/10/2026
+**Contexto:** Primeira sessão depois de um mês parado (último commit em 22/09). A
+avaliação do forecast agendada para 27/09 não tinha sido feita.
+
+```
+Claudão, como podemos continuar esse projeto. Tem algum arquivo.
+```
+
+**O que resultou:** o mapa de onde o projeto se registra (`CLAUDE.md`, `docs/PROJETO.md`,
+`docs/PROMPTS.md`) e o estado em que parou: Fase 8 investigada, com a estrutura 8.0–8.4
+esperando aval. Dois alertas: a avaliação de 27/09 estava um mês atrasada — o que podia
+virar vantagem, com cinco semanas de dado em vez de uma — e o GitHub desativa agendamentos
+em repositórios parados há 60 dias, o que cairia por volta de 21/11. A recomendação foi
+**auditar a coleta antes de qualquer outra coisa**, porque todo o resto dependia dela.
+
+---
+
+### Prompt #051
+**Data:** 27/10/2026
+**Contexto:** Resposta à proposta de começar pela auditoria da coleta (8.0).
+
+```
+Vamos nessa
+```
+
+**O que resultou: o coletor esteve parado ~90% do tempo durante um mês, e ninguém viu.**
+
+Um script de leitura no scratchpad contou os ciclos de gravação por dia: **7 a 23**, contra
+~156 esperados só no horário do parque. Visto minuto a minuto, o mecanismo ficou óbvio — o Render acorda, o coletor
+grava três ou quatro vezes nos 15 minutos de tolerância, e o serviço dorme por horas.
+
+A suspeita caiu sobre o `keep-alive.yml`, e a API pública do GitHub confirmou: **244
+execuções em 37 dias**, contra ~5.300 esperadas, com mediana de **4 horas** entre elas e
+nenhuma com menos de 12 minutos. Todas verdes. O comentário do arquivo previa atrasos "de
+minutos".
+
+Foi o primeiro caso no projeto em que a falha não estava no código, e sim numa suposição
+sobre infraestrutura de terceiros — e o que a encontrou foi conferir **o efeito** (linhas
+no banco), não **a causa** (o painel do Actions). Três saídas foram apresentadas: pinger
+externo gratuito, Render pago, ou migrar de hospedagem.
+
+---
+
+### Prompt #052
+**Data:** 27/10/2026
+**Contexto:** A recomendação tinha sido fazer as duas coisas em paralelo: consertar a
+coleta e avaliar o forecast com o dado parcial.
+
+```
+Vamos fazer as duas coisas, e vamos seguir com a opção 1, vou me registrar no cron.
+```
+
+**O que resultou: a avaliação do forecast da fonte, um mês depois do agendado.**
+
+605 casos, comparando três modelos sobre exatamente os mesmos pares: o forecast da fonte, a
+persistência e o perfil horário (média da mesma atração na mesma hora **nos outros dias** —
+incluir o dia avaliado deixaria o perfil conhecer a resposta). Duas conclusões:
+
+- **Ranking:** a fila atual erra 2,03 min no horizonte de uma caminhada, o forecast 9,52.
+  O 2,03 confere com o 2,50 do backtest de 20/09, feito com outro método — dois
+  experimentos independentes concordando.
+- **Roteiro:** acima de 2 h, persistência ~14 min, fonte e perfil ~9–10, empatados.
+  Partindo os dias ao meio, cada um ganha numa metade, então não há vencedor.
+
+No caminho, o Windows não tinha base de fusos (`tzdata`); como o período inteiro cai no
+horário de verão de Orlando, um deslocamento fixo de UTC−4 era exato e dispensou instalar
+pacote. O cabeçalho do `keep-alive.yml` foi reescrito com os números medidos.
+
+---
+
+### Prompt #053
+**Data:** 27/10/2026
+**Contexto:** O Gabriel anexou uma captura do formulário de criação do cron-job.org,
+preenchido com a URL `https://nextup-rcux.onrender.com/` e intervalo de 15 minutos.
+
+```
+Como eu devo configurar o cron?
+```
+
+**O que resultou:** dois ajustes, ambos com o porquê. A URL passou para `/api/health`, rota
+leve que não consulta a ThemeParks.wiki. E o intervalo caiu de 15 para **5 minutos** — 15 é
+exatamente o limite de hibernação do Render, e qualquer atraso de segundos deixaria o
+serviço dormir; 5 tolera duas falhas seguidas. Também: timeout máximo e notificação de
+falha ligada, que é o alarme que faltou durante o mês.
+
+---
+
+### Prompt #054
+**Data:** 27/10/2026
+**Contexto:** Job criado no cron-job.org.
+
+```
+Muito bem, feito!
+```
+
+**O que resultou:** a verificação no banco, e não no painel do cron-job.org — a lição do
+#051 aplicada no mesmo dia. Em paralelo, o registro da sessão: avaliação do forecast no
+bloco da Fase 6.6, auditoria como item 8.0 da Fase 8, risco novo na seção 8, seis decisões
+na seção 10, o cabeçalho de `core/forecast.py` com a tabela e o `CLAUDE.md` sem o
+agendamento já cumprido.
+
+---
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 

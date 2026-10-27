@@ -18,6 +18,14 @@
 >
 > **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **499
 > testes**: 403 na suíte rápida e 96 de interface em navegador.
+>
+> **Fase 8 — Roteiro do dia: em investigação (27/10/2026).** A auditoria da coleta (8.0)
+> descobriu o coletor parado ~90% do tempo por um mês — o cron do GitHub rodava a cada
+> ~4 h, não a cada 10 min, e sempre verde. Corrigido com pinger externo. A avaliação do
+> forecast da fonte, agendada para 27/09, foi feita: ele **não** entra no ranking (erra
+> 9,52 min contra 2,03 da fila atual no horizonte de uma caminhada), mas em horizontes de
+> horas empata com o nosso perfil horário e ambos batem a persistência — a matéria-prima do
+> roteiro.
 
 ---
 
@@ -948,7 +956,10 @@ o que dá valor a uma previsão — seria sempre de alguns minutos.
 
 Verificado em produção: 158 previsões guardadas, 26 atrações, cobrindo sete horas à frente.
 
-##### 📅 Agendado: avaliar o forecast da fonte em **27/09/2026**
+##### ✅ Avaliar o forecast da fonte — agendado para 27/09, **feito em 27/10/2026**
+
+*O resultado está no fim deste bloco. O plano original fica como foi escrito, porque o
+contraste entre o que se planejou e o que se encontrou é parte da história.*
 
 Uma semana de coleta a partir de 20/09. O prazo não é arredondamento: **filas de sábado
 não se parecem com as de terça**, e o `forecast` é exatamente um perfil de padrão do dia.
@@ -970,12 +981,74 @@ Avaliar só com dias úteis mediria metade do fenômeno.
 a implementação que hoje não se justifica. Se não bater, fica registrado que **as duas
 alternativas foram medidas** — o que é uma conclusão bem mais forte que nunca ter testado.
 
+##### O que a avaliação encontrou (27/10/2026)
+
+**Primeiro, o passo 1 do roteiro reprovou a coleta.** O coletor gravou de **7 a 23 ciclos
+por dia** desde 22/09, contra ~156 esperados só no horário do parque — cerca de 10%. O padrão é sempre o
+mesmo: o Render acorda, coleta 3 ou 4 vezes nos 15 minutos de tolerância e volta a dormir
+por horas. A causa foi o `keep-alive.yml`: **244 execuções em 37 dias**, quando deveriam ser
+~5.300, com intervalo mediano de **4 horas**. Todas terminaram verdes. Detalhes e correção
+na Fase 8, item 8.0.
+
+Mesmo assim havia o que medir, porque os buracos vêm do cron do GitHub, e não do nível da
+fila: não há motivo para enviesarem o erro de um modelo contra outro. Cada previsão
+guardada foi cruzada com a medição mais próxima do horário previsto (até 7,5 min), e
+comparada com dois concorrentes **sobre exatamente os mesmos casos**:
+
+- **persistência** — a fila conhecida quando vimos a previsão pela primeira vez;
+- **perfil horário** — a média da mesma atração, ±30 min da mesma hora, **nos outros dias**
+  (o dia avaliado fica de fora, senão o perfil conheceria a resposta).
+
+605 casos, 22 atrações, 30 dias:
+
+| Antecedência | Casos | Forecast da fonte | Persistência | Perfil horário |
+|---|---|---|---|---|
+| até 30 min | 102 | 9,52 | **2,03** | 6,74 |
+| 30 min – 1 h | 22 | 10,45 | **4,77** | 8,68 |
+| 1 – 2 h | 33 | 7,27 | 7,94 | **6,88** |
+| 2 – 4 h | 38 | **10,13** | 14,18 | 11,18 |
+| 4 – 8 h | 260 | **9,23** | 14,75 | 9,83 |
+| mais de 8 h | 150 | **8,90** | 13,11 | 9,43 |
+
+*(erro médio absoluto em minutos; menor é melhor)*
+
+**Para o ranking, nada muda — agora por medição dupla.** No horizonte de uma caminhada a
+persistência erra 2,03 min, e o forecast da fonte, 9,52. O 2,03 também confere com o 2,50
+do backtest de 20/09, feito sobre outros dados e com outro método: dois experimentos
+independentes concordando é a verificação de que a régua está certa. As duas alternativas
+à fila atual — extrapolar a tendência e usar a previsão da fonte — foram medidas, e as duas
+perderam.
+
+**Para a Fase 8, há resultado novo.** Em horizontes de horas a persistência desaba
+(~14 min: a fila da manhã não diz nada da tarde), e **tanto o forecast quanto o perfil
+horário erram cerca de 35% menos**. É exatamente a pergunta que o roteiro precisa responder.
+
+O que a tabela não diz sozinha:
+
+- **Fonte e perfil empatam.** Partindo os dias ao meio, a fonte ganha na primeira metade
+  (7,69 contra 9,37 acima de 4 h) e o perfil na segunda (9,97 contra 10,42). Não há
+  vencedor estável.
+- **A fonte superestima**, em média **+5,3 min**. A persistência subestima (−6,3), porque a
+  medição da manhã é menor que a da tarde.
+- **A fonte atualiza o perfil**: a mesma atração na mesma hora recebeu em média 3,2 valores
+  diferentes ao longo dos dias. Não é uma tabela fixa.
+- Só nos casos em que a fila mudou, o placar acima de 4 h fica em 9,97 (fonte) contra
+  17,37 (persistência).
+
+> ⚠️ **Amostra parcial.** Com a coleta a ~10%, os casos se concentram nas janelas em que o
+> Render estava acordado. A medição deve ser repetida com coleta contínua antes de escolher
+> entre fonte e perfil no 8.2.
+
 **Limitação conhecida, herdada do plano gratuito:** o Render hiberna após ~15 min sem
 acesso **de entrada**, e requisições que o coletor faz para fora não contam como
 atividade. Com o serviço dormindo, não há coleta. O `keep-alive.yml`, que existia para o
 link de portfólio não abrir em tela branca, passou a ser o que mantém o histórico contínuo
 — uma responsabilidade bem maior que a original. Se o GitHub desativar o agendamento por
 inatividade do repositório, o histórico ganha buracos silenciosos.
+
+*Atualização de 27/10/2026:* os buracos vieram, e não pela desativação — o agendamento
+rodou o tempo todo, só que a cada ~4 horas. O ping principal passou para o cron-job.org;
+ver Fase 8, item 8.0.
 
 ### Fase 7 — Personalização ✅ *concluída em 21/09/2026*
 
@@ -1405,7 +1478,7 @@ erra 1,86 min a 5 minutos e 2,50 a 10.
 
 | # | Entrega | Por que nesta ordem |
 |---|---|---|
-| 8.0 | **Consertar a coleta** — cobertura horária e continuidade | Pré-requisito de tudo; hoje há 2 dias e 47% das células com menos de 3 medições |
+| 8.0 | **Consertar a coleta** — cobertura horária e continuidade 🔧 *27/10: causa achada e corrigida; falta confirmar uma semana contínua* | Pré-requisito de tudo; hoje há 2 dias e 47% das células com menos de 3 medições |
 | 8.1 | **Matriz de caminhada** atração→atração | `geo.py` só sabe visitante→atração; o roteiro precisa dos 1225 pares |
 | 8.2 | **O otimizador** — sequência de 3–4 paradas | O coração técnico da fase |
 | 8.3 | **Replanejamento** a cada conclusão | Um roteiro rígido morre no primeiro desvio |
@@ -1414,6 +1487,52 @@ erra 1,86 min a 5 minutos e 2,50 a 10.
 O 8.0 é infraestrutura e não gera tela nova, mas sem ele o 8.2 seria otimização sobre dado
 inventado. Ele também é pré-requisito da avaliação do forecast agendada para 27/09 — as
 duas coisas pedem a mesma correção.
+
+#### 8.0 — A auditoria da coleta 🔧 *27/10/2026*
+
+Um mês depois da investigação, a expectativa era ter cinco semanas de histórico contínuo.
+**A auditoria mostrou outra coisa: o coletor esteve parado ~90% do tempo.**
+
+| Medida | Esperado | Medido |
+|---|---|---|
+| Ciclos de coleta por dia | ~156 (a cada 5 min, ~13 h de parque aberto) | **7 a 23** |
+| Execuções do `keep-alive.yml` em 37 dias | ~5.300 (a cada 10 min) | **244** |
+| Intervalo entre execuções do `keep-alive` | 10 min | mediana de **4 h**; nenhum abaixo de 12 min |
+| Execuções com falha | — | **0** |
+
+Um dia típico (24/10, horário de Orlando) mostra o mecanismo: gravações às 08:04, 08:09 e
+08:14; depois só às 11:53, 11:58 e 12:03; depois às 14:41… O Render acorda com um ping
+tardio, fica de pé os 15 minutos de tolerância, o coletor roda três ou quatro vezes, e o
+serviço volta a dormir por horas.
+
+> ⚠️ **A lição: um job verde não prova que o trabalho aconteceu.** O `keep-alive` nunca
+> falhou — ele simplesmente não rodava. O comentário do arquivo dizia que o GitHub atrasa
+> agendamentos "em minutos"; foram horas. A suposição era razoável e nunca tinha sido
+> medida. O que detectou o problema foi olhar **o efeito** (ciclos gravados no banco), e
+> não **a causa** (o painel do Actions).
+
+**A correção:** o ping principal passou para o **cron-job.org**, chamando `/api/health` a
+cada **5 minutos**, com notificação de falha ligada. Serviços desse tipo existem para ser
+pontuais, que é justamente o que o cron do GitHub não promete. O `keep-alive.yml` fica como
+reserva, com o cabeçalho corrigido pelos números medidos. Cinco minutos, e não dez ou
+quinze, porque a hibernação é aos 15: o intervalo curto tolera até duas falhas seguidas.
+O plano gratuito do Render dá 750 h por mês, o que cobre um serviço ligado o mês inteiro.
+
+**O que se salvou do histórico:** para o *perfil por hora*, mais do que parece — 59% das
+células (atração, hora) têm 10 dias distintos ou mais, porque as poucas medições diárias se
+espalharam por cinco semanas. Para qualquer coisa de *horizonte curto*, pouco: só existem
+pares de medições dentro das janelas de 15 minutos.
+
+**O perfil horário, remedido.** Com 2 dias de dado, a investigação de 21/09 achou 13,58 min
+de erro. Com cinco semanas, deixando o dia avaliado de fora, o perfil erra **~9–10 min**
+acima de 2 horas de antecedência — e empata com o forecast da própria fonte (tabela
+completa na Fase 6, bloco da avaliação do forecast). Melhorou, e continua grande demais para
+um plano do dia inteiro: **a decisão das 3–4 paradas replanejadas se mantém**, agora sobre
+cinco semanas e não sobre dois dias.
+
+**A pergunta que fica para o 8.2:** qual previsão usar para "mais tarde". A fonte funciona em
+qualquer parque desde o primeiro dia; o perfil é dado nosso, mas exige semanas de coleta
+por parque. Decidir depois de repetir a medição com uma semana de coleta contínua.
 
 #### O problema não é o Caixeiro Viajante
 
@@ -1440,6 +1559,7 @@ injetada como `trends` e `popularity` já são hoje. O otimizador não sabe o qu
 | GPS impreciso dentro do parque | Médio | Permitir escolha manual da área onde o visitante está |
 | Cobertura de dados varia por parque | Baixo | Focar em Walt Disney World no MVP, onde a cobertura foi verificada |
 | Escopo crescer sem controle | **Alto** | Roadmap em fases; nada da Fase N+1 antes da Fase N estar pronta |
+| Coleta parar sem ninguém notar (hibernação do Render) | **Alto** | Pinger externo a cada 5 min com alerta de falha; `keep-alive.yml` como reserva. Aconteceu: ~10% de cobertura entre 22/09 e 27/10, com todos os jobs verdes |
 
 ### Aspectos legais e éticos
 - Dados públicos, consumidos por API pública, sem burlar autenticação ou bloqueio.
@@ -1735,7 +1855,13 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 21/09/2026 | Comparar **médias do parque entre dias é inválido** | Se a coleta não cobriu as mesmas atrações, a média se move sem a fila mudar. Só o par (atração, janela) é honesto — quase gerou a conclusão errada |
 | 21/09/2026 | O 8.2 é **Orienteering com custo dependente do tempo**, não TSP | Escolhe subconjunto, tem janela de tempo, o custo do nó muda com a hora da chegada e os nós têm prêmios diferentes. A seção 4 supunha Caixeiro Viajante |
 | 22/09/2026 | Skills do projeto em `.claude/skills/`, **versionadas** | Fluxos que se repetem viram instrução executável em vez de prosa no CLAUDE.md; e mostram a quem lê o repositório que o próprio processo é automatizado |
+| 27/10/2026 | Ping principal no **cron-job.org**, a cada 5 min; `keep-alive.yml` vira reserva | Medido: o cron do GitHub rodou 244 vezes em 37 dias, com mediana de 4 h entre execuções, e o coletor gravou 7–23 ciclos por dia contra ~156 no horário do parque. Todos os jobs verdes |
+| 27/10/2026 | Intervalo de **5 min**, e não 10 ou 15 | A hibernação é aos 15 min sem acesso; 5 tolera duas falhas seguidas, e 15 é o próprio limite |
+| 27/10/2026 | Saúde da coleta se confere **no banco**, nunca no painel do job | O painel mostrou 100% de sucesso enquanto a coleta rodava a ~10%. Só o efeito (ciclos gravados) prova a causa |
+| 27/10/2026 | O forecast da fonte **não** entra no ranking | Medido: no horizonte de uma caminhada (até 30 min) erra 9,52 min, contra 2,03 da fila atual. Confere com o 2,50 do backtest de 20/09 |
+| 27/10/2026 | Para horizontes de **horas**, fonte e perfil horário empatam e batem a persistência | ~9–10 min contra ~14 acima de 2 h. Partindo os dias ao meio, cada um ganha numa metade — sem vencedor estável. A escolha fica para depois de uma semana de coleta contínua |
+| 27/10/2026 | O perfil de avaliação **deixa de fora o dia avaliado** | Senão a média já contém a resposta e o modelo parece melhor do que é |
 
 ---
 
-*Mantido por Gabriel de Angelis, com Claude Code. Última atualização: 22/09/2026.*
+*Mantido por Gabriel de Angelis, com Claude Code. Última atualização: 27/10/2026.*

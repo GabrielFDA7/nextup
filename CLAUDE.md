@@ -105,10 +105,11 @@ interface exigem `pip install -e ".[dev,e2e]"` e `playwright install chromium`.
 que não roda como root e que respeita a variável `PORT`. **Docker não está instalado na
 máquina** — a validação é toda pelo CI. Todo push na `main` republica no Render sozinho.
 
-**Limitação do plano gratuito:** hiberna após ~15 min sem acesso. Mitigado pelo workflow
-`keep-alive.yml`, que chama `/api/health` a cada 10 min. Dois cuidados: o ping usa
-`/api/health` porque essa rota não consulta a ThemeParks.wiki, e o GitHub desativa
-agendamentos em repositórios públicos parados há 60 dias.
+**Limitação do plano gratuito:** hiberna após ~15 min sem acesso. Mitigado por um job no
+**cron-job.org** (conta do Gabriel) que chama `/api/health` a cada 5 min, com alerta de
+falha. O `keep-alive.yml` do GitHub fica só como reserva: medido em 27/10/2026, ele rodava a
+cada ~4 h, e não a cada 10 min. O ping usa `/api/health` porque essa rota não consulta a
+ThemeParks.wiki.
 
 **Refino visual feito (13/09/2026).** Direção escolhida pelo Gabriel: "personalidade de
 parque" — paleta de pôr do sol (coral, âmbar, roxo profundo), fonte Outfit, cantos
@@ -172,6 +173,14 @@ se sabe onde o visitante esteve, aonde ele quer chegar, que limites ele impõe e
 atrações são as principais. Essa é a frente que mais diferencia tecnicamente — otimização
 combinatória, parente do Caixeiro Viajante. **É o próximo passo natural do projeto.**
 
+**Fase 8 — em investigação.** Desenho atual (seção 7, Fase 8): roteiro de **3–4 paradas
+replanejadas a cada conclusão**, porque previsão de horas erra ~9–10 min por parada. O 8.2
+é um *Orienteering Problem* com custo dependente do tempo, não TSP. **Situação em
+27/10/2026:** o 8.0 (consertar a coleta) teve a causa corrigida; falta confirmar uma
+semana de coleta contínua e então **repetir a avaliação forecast × perfil horário** para
+escolher qual previsão o roteiro usa. Os scripts de medição não ficam no repositório — o
+método está descrito na seção 7.
+
 **A personalização mora no `localStorage`** (`web/preferencias.js`), sem conta de usuário: o
 app é usado no celular dentro do parque por algumas horas, e exigir cadastro antes de
 responder "para onde vou agora" mataria o produto. O arquivo tem uma base comum e dois
@@ -214,13 +223,11 @@ candidato que não dava para avaliar sem histórico dele. Guarda a **primeira** 
 cada previsão — sobrescrever destruiria a medida de antecedência, que é o que dá valor a
 uma previsão.
 
-> 📅 **AGENDADO PARA 27/09/2026 — avaliar o forecast da fonte.**
->
-> Uma semana de coleta, para cobrir fim de semana: filas de sábado não se parecem com as
-> de terça, e o forecast é um perfil de padrão do dia. O roteiro está na seção 7 de
-> `docs/PROJETO.md`, no fim do bloco da Fase 6.6. **Antes de concluir qualquer coisa,
-> conferir se houve buracos na coleta** — o Render hiberna, e uma madrugada perdida
-> enviesaria a medição em silêncio.
+**O forecast da fonte foi avaliado (27/10/2026) e também não entra no ranking.** No
+horizonte de uma caminhada erra 9,52 min contra 2,03 da fila atual. Em horizontes de
+**horas** a persistência desaba (~14 min) e o forecast e o nosso perfil horário empatam em
+~9–10 min — sem vencedor estável entre os dois. Isso é matéria-prima do roteiro (Fase 8),
+não do ranking. Tabela no cabeçalho de `core/forecast.py`.
 
 **O histórico na API e na tela (6.4 e 6.5).** A rota de histórico é o primeiro endpoint
 que serve **dado nosso**. O gráfico é SVG escrito à mão — sem biblioteca, coerente com a
@@ -252,9 +259,15 @@ a cada build seria má educação com uma API pública mantida por voluntários.
 
 > ⚠️ **O Render hiberna após ~15 min sem acesso *de entrada*.** As requisições que o
 > coletor faz para fora **não** contam como atividade. Com o serviço dormindo não há
-> coleta, então o `keep-alive.yml` deixou de ser só cosmético: é ele que mantém o
-> histórico contínuo. Se o GitHub desativar o agendamento por inatividade do repositório,
-> aparecem buracos silenciosos no histórico.
+> coleta, então o pinger externo é o que mantém o histórico contínuo.
+
+> ⚠️ **A saúde da coleta se confere NO BANCO, nunca no painel do job.** Entre 22/09 e
+> 27/10/2026 o coletor gravou 7–23 ciclos por dia, contra ~156 esperados (~10%), enquanto o
+> `keep-alive.yml` exibia 100% de sucesso — ele não falhava, só não rodava. Antes de
+> qualquer medição sobre o histórico, contar ciclos por hora **com o parque aberto**
+> (`recorded_at` distintos por minuto): ~12 por hora é coleta contínua. Ciclo sem
+> medição nova não deixa linha — a unicidade descarta a repetição —, então de
+> madrugada o vazio é normal e não prova nada.
 
 **O banco (Fase 6).** Produção é um **Postgres no Neon** — projeto
 `mute-forest-48970873`, branch `production`, região `sa-east-1` — com a migração já
