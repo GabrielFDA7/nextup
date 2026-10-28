@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapa real</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap">
+<style>
+/* Paletas 3c (claro) e 3b (escuro), geradas das cores conferidas no contraste */
+.t-noite-claro{--bg:#fbf7fc;--sf:#ffffff;--sf2:#f2ecf6;--line:#e4d9ea;--ink:#2a1e4a;--ink2:#625780;--hero:#2b2250;--on-hero:#ffffff;--on-hero2:#d8cff0;--glow:#ffe27a;--glow-ink:#ffb8d4;--on-glow:#2b2250;--walk:#2f6fae;--walk-hi:#a9d3ff;--queue:#d94c86;--queue-hi:#ffb3d1;--good:#1e7a4c;--good-soft:#e2f5eb;--good-hi:#a6ecc6;--adult:#54498a;--adult-soft:#eeebf8;--warn:#805400;--warn-soft:#fff2c9;--up:#ad4519;--fab:#2b2250;--on-fab:#ffffff;--accent:#2b2250;--on-accent:#ffffff;--scrim:rgba(43,34,80,.32);--m-bg:#f1ecf6;--m-l1:#e8e0f0;--m-l2:#dfd4ea;--m-water:#cfe4fb;--m-path:#ffffff;--m-stroke:#d4c8e0;--m-text:#6c6189;--m-dot:#b3a8c6;--m-pin:#2b2250;--m-pin-ink:#ffffff;--m-pin-ring:#ffffff;--m-hero:#ffd84d;--m-hero-ink:#2b2250;--m-route:#2f6fae;--m-me:#1d4ed8;--m-label-bg:#2b2250;--m-label-ink:#ffffff}
+.t-ceu-escuro{--bg:#0e1527;--sf:#172038;--sf2:#202b48;--line:#2e3b5d;--ink:#eef5ff;--ink2:#adbad5;--hero:#1f3357;--on-hero:#ffffff;--on-hero2:#c8d8f3;--glow:#ffc2d9;--glow-ink:#bfe0fd;--on-glow:#1d2a4a;--walk:#a9d3ff;--walk-hi:#a9d3ff;--queue:#ff9ec4;--queue-hi:#ffb3d1;--good:#8fe3b6;--good-soft:#173527;--good-hi:#8fe3b6;--adult:#d3d0f6;--adult-soft:#29284a;--warn:#ffe08a;--warn-soft:#352d12;--up:#ffb48c;--fab:#ffc2d9;--on-fab:#1d2a4a;--accent:#ffc2d9;--on-accent:#1d2a4a;--scrim:rgba(0,0,0,.45);--m-bg:#121b31;--m-l1:#1a2540;--m-l2:#212e4c;--m-water:#24406e;--m-path:#2f3d60;--m-stroke:#384869;--m-text:#9fb0cf;--m-dot:#4a5a7d;--m-pin:#eef5ff;--m-pin-ink:#1d2a4a;--m-pin-ring:#121b31;--m-hero:#ffc2d9;--m-hero-ink:#1d2a4a;--m-route:#a9d3ff;--m-me:#7fb0ff;--m-label-bg:#ffc2d9;--m-label-ink:#1d2a4a}
+body{margin:0;background:#ece7ef;font-family:'Bricolage Grotesque',system-ui,sans-serif}
+.palco{display:flex;gap:40px;padding:34px;flex-wrap:wrap}
+.legenda{font:400 12px/1.4 system-ui,sans-serif;color:rgba(0,0,0,.6);margin:0 0 8px}
+.legenda b{color:#1a1a1a}
+.fone{width:390px;height:520px;border-radius:46px 46px 0 0;overflow:hidden;position:relative;
+  box-shadow:0 0 0 10px #15110f,0 24px 60px rgba(0,0,0,.28);background:var(--m-bg);color:var(--ink)}
+.mapa{position:absolute;inset:0;background:var(--m-bg)}
+/* O Leaflet põe cor por atributo; regra CSS vence atributo, e é aí que entra o tema */
+.m-verde{fill:var(--m-l1);fill-opacity:1;stroke:none}
+.m-agua{fill:var(--m-water);fill-opacity:1;stroke:var(--m-water);stroke-width:2}
+.m-predio{fill:var(--m-l2);fill-opacity:1;stroke:var(--m-stroke);stroke-width:.6}
+.m-trilha{fill:none;stroke:var(--m-path);stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}
+/* Hierarquia: praça é área, via é traço largo, calçada é traço fino. A borda da praça
+   só existe para a rota; desenhada, cada praça virava um anel */
+.m-praca{fill:var(--m-path);fill-opacity:.9;stroke:none}
+.m-trilha.m-via{stroke-width:4}
+.m-trilha.m-calcada{stroke-width:1.8}
+.m-trilha.m-borda{stroke:none}
+.m-rota-halo{fill:none;stroke:var(--m-route);stroke-width:12;stroke-opacity:.16;stroke-linecap:round}
+.m-rota{fill:none;stroke:var(--m-route);stroke-width:4;stroke-dasharray:1 8;stroke-linecap:round}
+.leaflet-container{background:var(--m-bg);font-family:inherit}
+.leaflet-control-attribution{background:color-mix(in srgb,var(--sf) 80%,transparent)!important;color:var(--ink2)!important;font-size:9px}
+.leaflet-control-attribution a{color:var(--ink2)!important}
+.pin{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--m-pin);color:var(--m-pin-ink);
+  font-weight:800;font-size:13px;box-shadow:0 0 0 6px color-mix(in srgb,var(--m-pin) 18%,transparent)}
+.rotulo{position:absolute;white-space:nowrap;font-weight:700;font-size:11.5px;line-height:1.3;color:var(--m-pin);
+  text-shadow:0 0 3px var(--m-bg),0 0 3px var(--m-bg),0 0 3px var(--m-bg)}
+/* As quatro posições que rotulos.js escolhe; as distâncias batem com retangulo() de lá */
+.rotulo.dir{left:31px;top:50%;transform:translateY(-50%)}
+.rotulo.esq{right:31px;top:50%;transform:translateY(-50%)}
+.rotulo.cima{bottom:31px;left:50%;transform:translateX(-50%)}
+.rotulo.baixo{top:31px;left:50%;transform:translateX(-50%)}
+.rotulo.oculto{display:none}
+.heroi{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:var(--m-hero);color:var(--m-hero-ink);
+  box-shadow:0 0 0 3px var(--m-pin-ring),0 6px 14px rgba(0,0,0,.2)}
+.etiqueta{position:absolute;bottom:46px;left:50%;transform:translateX(-50%);white-space:nowrap;padding:5px 11px;border-radius:13px;
+  background:var(--m-label-bg);color:var(--m-label-ink);font-weight:800;font-size:12.5px}
+.voce{width:17px;height:17px;border-radius:50%;background:var(--m-me);border:3px solid #fff;box-sizing:border-box;
+  box-shadow:0 0 0 8px color-mix(in srgb,var(--m-me) 25%,transparent)}
+.voce b{position:absolute;left:24px;top:-1px;font-size:12px;color:var(--m-pin);text-shadow:0 0 3px var(--m-bg),0 0 3px var(--m-bg)}
+.topo{position:absolute;z-index:500;left:14px;right:14px;top:14px;display:flex;justify-content:space-between;pointer-events:none}
+.chip{display:flex;align-items:center;gap:7px;height:42px;padding:0 15px;background:var(--sf);border-radius:21px;
+  box-shadow:0 6px 18px rgba(20,12,50,.16);font-weight:800;font-size:20px;letter-spacing:-.03em}
+.chip i{display:block;width:9px;height:9px;border-radius:50%;background:var(--glow);box-shadow:0 0 0 3px var(--hero)}
+.chip.fresco{font-size:13.5px;font-weight:600;letter-spacing:0;color:var(--ink2)}
+.chip.fresco i{background:var(--good);box-shadow:none;width:7px;height:7px}
+</style>
+</head>
+<body>
+<div class="palco">
+  <div><p class="legenda"><b>Modo claro · 3c</b> · trilhas, água e prédios reais do OpenStreetMap</p>
+    <div class="fone t-noite-claro"><div class="topo"><span class="chip">nextup<i></i></span><span class="chip fresco"><i></i>Filas de 2 min atrás</span></div><div class="mapa" id="mapa-claro"></div></div></div>
+  <div><p class="legenda"><b>Modo escuro · 3b</b> · o mesmo arquivo, outras variáveis CSS</p>
+    <div class="fone t-ceu-escuro"><div class="topo"><span class="chip">nextup<i></i></span><span class="chip fresco"><i></i>Filas de 2 min atrás</span></div><div class="mapa" id="mapa-escuro"></div></div></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// Coordenadas reais do catálogo (tests/fixtures/children_magic_kingdom.json)
+const VOCE = [28.41625, -81.58118];
+const PARADAS = [
+  ["Space Mountain", 28.418834, -81.578196],
+  ["TRON", 28.419625, -81.577985],
+  ["Seven Dwarfs", 28.420370, -81.580310],
+  ["Peter Pan", 28.420264, -81.581892],
+  ["Big Thunder", 28.419964, -81.584642],
+];
+const HEROI = ["Jungle Cruise", 28.417978, -81.583439];
+
+function desenhar(id, geo, pernas, rotulos) {
+  const mapa = L.map(id, { zoomControl: false, attributionControl: true, zoomSnap: 0.25 });
+  mapa.attributionControl.setPrefix(false).addAttribution('© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>');
+  const rota = [VOCE, ...PARADAS.map(p => [p[1], p[2]])];
+  // Enquadrar ANTES das camadas: sem centro e zoom, o Leaflet não sabe recortar as linhas
+  mapa.fitBounds(L.latLngBounds([...rota, [HEROI[1], HEROI[2]]]), { paddingTopLeft: [24, 70], paddingBottomRight: [24, 20] });
+  L.geoJSON(geo, { style: f => ({ className: "m-" + f.properties.c + (f.properties.t ? " m-" + f.properties.t : "") }),
+    interactive: false }).addTo(mapa);
+
+  const tracado = pernas.map(p => p.pontos);
+  L.polyline(tracado, { className: "m-rota-halo", interactive: false }).addTo(mapa);
+  L.polyline(tracado, { className: "m-rota", interactive: false }).addTo(mapa);
+
+  const marcadores = PARADAS.map((p, i) => L.marker([p[1], p[2]], { icon: L.divIcon({ className: "", iconSize: [24, 24],
+    html: '<div class="pin">' + (i + 1) + '</div><span class="rotulo">' + p[0] + '</span>' }) }).addTo(mapa));
+  const heroi = L.marker([HEROI[1], HEROI[2]], { icon: L.divIcon({ className: "", iconSize: [38, 38],
+    html: '<div class="heroi"><svg width="18" height="18" viewBox="-10 -10 20 20"><path fill="currentColor" d="M0 -9 L2.6 -3 L9 -2.8 L4 1.4 L5.6 8 L0 4.4 L-5.6 8 L-4 1.4 L-9 -2.8 L-2.6 -3 Z"/></svg></div><span class="etiqueta">Agora · 11 min</span>' }) }).addTo(mapa);
+  const voce = L.marker(VOCE, { icon: L.divIcon({ className: "", iconSize: [17, 17], html: '<div class="voce"><b>Você</b></div>' }) }).addTo(mapa);
+
+  // Raio 13: o círculo tem 24 px, e o anel em volta dele também não pode ser coberto.
+  const paradas = marcadores.map(marcador => ({ marcador, raio: 13 }));
+  const fone = mapa.getContainer().parentElement;
+  const obstaculos = () => [
+    ...heroi.getElement().querySelectorAll(".heroi, .etiqueta"),
+    ...voce.getElement().querySelectorAll(".voce, b"),
+    ...fone.querySelectorAll(".topo .chip"),
+  ];
+  const reposicionar = () => rotulos.posicionarRotulos(mapa, paradas, obstaculos());
+  reposicionar();
+  document.fonts.ready.then(reposicionar); // a largura do nome muda quando a fonte chega
+  mapa.on("zoomend moveend", reposicionar);
+  window.__mapas = (window.__mapas || []).concat(mapa);
+
+}
+
+Promise.all([fetch("../../../web/mapas/magic-kingdom.geojson").then(r => r.json()), import("./rota.js"), import("./rotulos.js")]).then(([geo, rota, rotulos]) => {
+  const rede = rota.montarRede(geo);
+  const pernas = rota.rotaPelasTrilhas(rede, [VOCE, ...PARADAS.map(p => [p[1], p[2]])]);
+  window.__pernas = pernas.map(p => ({ metros: Math.round(p.metros), pelaTrilha: p.pelaTrilha,
+    retaM: Math.round(rota.distanciaM(p.pontos[0], p.pontos[p.pontos.length - 1])) }));
+  desenhar("mapa-claro", geo, pernas, rotulos);
+  desenhar("mapa-escuro", geo, pernas, rotulos);
+});
+</script>
+</body>
+</html>

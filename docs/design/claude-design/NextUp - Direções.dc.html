@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Archivo:wdth,wght@62..125,100..900&family=Bricolage+Grotesque:opsz,wght@12..96,300..800&display=swap"><style>body{margin:0;background:#f0eee9;font-family:system-ui,sans-serif}a{color:#a8351b}a:hover{color:#6b1f0d}.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 14px}.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}.dv-tname{font:600 13px/1.2 system-ui,sans-serif;color:#1a1a1a}.dv-opts{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 12px/1.3 system-ui,sans-serif;color:rgba(0,0,0,.6)}.dv-card{max-width:100%;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden}.dv-opt:target .dv-oid{background:#2a78d6;color:#fff}.dv-next{margin:22px 0 0;font:12px/1.5 system-ui,sans-serif;color:rgba(0,0,0,.55)}</style></helmet>
+<section class="dv-turn" id="t2">
+<div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Refinamento de <a class="dv-oid" href="#1c">1c</a> · Fita do tempo, mais fluida e sem o vermelho</span></div>
+<div style="max-width:900px;margin:0 0 26px;display:flex;flex-direction:column;gap:6px;font:13px/1.55 system-ui,sans-serif;color:#3a3530">
+<p style="margin:0">Todas as telas abaixo são o protótipo vivo (<a href="NextUp.dc.html">NextUp.dc.html</a>) aberto em estados diferentes. Dá para tocar em tudo: “Já fui”, alvos ⚑, filtros, perfil, GPS.</p>
+</div>
+<div class="dv-opts">
+<div class="dv-opt" id="2a">
+<div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a><span><b style="color:#1a1a1a">Estado 1 · primeira abertura</b> · o parque aparece na hora, o painel faz só as duas perguntas</span></div>
+<div class="dv-card" style="display:flex;gap:40px;padding:34px;background:#e6e1d9">
+<div style="width:390px;height:844px;border-radius:46px;overflow:hidden;box-shadow:0 0 0 10px #15110f,0 24px 60px rgba(0,0,0,.28)"><dc-import name="NextUp" theme="claro" start="primeira" hint-size="390px,844px"></dc-import></div>
+<div style="width:390px;height:844px;border-radius:46px;overflow:hidden;box-shadow:0 0 0 10px #15110f,0 24px 60px rgba(0,0,0,.28)"><dc-import name="NextUp" theme="escuro" start="primeira" hint-size="390px,844px"></dc-import></div>
+</div>
+</div>
+<div class="dv-opt" id="2b">
+<div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a><span><b style="color:#1a1a1a">Estado 2 · em uso</b> · criança de 95 cm, de tudo um pouco, 5 alvos</span></div>
+<div class="dv-card" style="display:flex;gap:40px;padding:34px;background:#e6e1d9">
+<div style="width:390px;height:844px;border-radius:46px;overflow:hidden;box-shadow:0 0 0 10px #15110f,0 24px 60px rgba(0,0,0,.28)"><dc-import name="NextUp" theme="claro" start="principal" hint-size="390px,844px"></dc-import></div>
+<div style="width:390px;height:844px;border-radius:46px;overflow:hidden;box-shadow:0 0 0 10px #15110f,0 24px 60px rgba(0,0,0,.28)"><dc-import name="NextUp" theme="escuro" start="principal" hint-size="390px,844px"></dc-import></div>
+</div>
+</div>
+<div class="dv-opt" id="2c">
+<div class="dv-olabel"><a class="dv-oid" href="#2c">2c</a><span><b style="color:#1a1a1a">Bordas</b> · GPS negado · lista vazia por filtro apertado</span></div>
+<div class="dv-card" style="display:flex;gap:40px;padding:34px;background:#e6e1d9">
+<div style="width:390px;height:844px;border-radius:46px;overflow:hidden;box-shadow:0 0 0 10px #15110f,0 24px 60px rgba(0,0,0,.28)"><dc-import name="NextUp" theme="claro" start="gps" hint-size="390px,844px"></dc-import></div>
+<div style="width:390px;height:844px;border-radius:46px;overflow:hidden;box-shadow:0 0 0 10px #15110f,0 24px 60px rgba(0,0,0,.28)"><dc-import name="NextUp" theme="claro" start="vazia" hint-size="390px,844px"></dc-import></div>
+</div>
+</div>
+<div class="dv-opt" id="2d">
+<div class="dv-olabel"><a class="dv-oid" href="#2d">2d</a><span><b style="color:#1a1a1a">Componentes isolados</b> · cartão, parada, item da lista, selos e frases de vazio</span></div>
+<div class="dv-card" style="display:flex;gap:40px;padding:34px;background:#e6e1d9;align-items:flex-start">
+<div style="border-radius:24px;overflow:hidden;--bg:#fbf7f3;--sf:#ffffff;--sf2:#f2ede8;--line:#e4dcd4;--ink:#1d1838;--ink2:#5b5572;--hero:#201a45;--on-hero:#ffffff;--on-hero2:#cbc5e8;--glow:#ffb48c;--walk:oklch(0.52 0.09 200);--walk-hi:oklch(0.86 0.08 195);--queue:oklch(0.52 0.14 295);--queue-hi:oklch(0.82 0.09 295);--good:oklch(0.47 0.12 155);--good-soft:oklch(0.95 0.04 155);--adult:oklch(0.42 0.06 280);--adult-soft:oklch(0.94 0.02 280);--warn:oklch(0.48 0.11 60);--warn-soft:oklch(0.95 0.05 80);--up:oklch(0.5 0.12 50);--accent:#201a45;--on-accent:#ffffff"><dc-import name="NextUpComponentes" hint-size="390px,1600px"></dc-import></div>
+<div style="border-radius:24px;overflow:hidden;--bg:#0f0c1f;--sf:#1a1630;--sf2:#241f3d;--line:#352f55;--ink:#f2eeff;--ink2:#b5aed3;--hero:#28215a;--on-hero:#ffffff;--on-hero2:#cdc6ee;--glow:#ffb48c;--walk:oklch(0.82 0.08 195);--walk-hi:oklch(0.86 0.08 195);--queue:oklch(0.78 0.1 295);--queue-hi:oklch(0.82 0.09 295);--good:oklch(0.83 0.12 155);--good-soft:oklch(0.3 0.05 155);--adult:oklch(0.86 0.04 280);--adult-soft:oklch(0.3 0.03 280);--warn:oklch(0.85 0.11 80);--warn-soft:oklch(0.32 0.05 70);--up:oklch(0.82 0.1 55);--accent:#ffb48c;--on-accent:#1d1838"><dc-import name="NextUpComponentes" hint-size="390px,1600px"></dc-import></div>
+</div>
+</div>
+<div class="dv-opt" id="2e">
+<div class="dv-olabel"><a class="dv-oid" href="#2e">2e</a><span><b style="color:#1a1a1a">Nota de escolhas</b></span></div>
+<div class="dv-card" style="width:440px;padding:28px 30px;display:flex;flex-direction:column;gap:14px;font:14px/1.6 system-ui,sans-serif;color:#2a2622">
+<p style="margin:0"><b>Hierarquia.</b> A primeira tela responde uma pergunta só: para onde ir agora. O tempo total é o maior número da tela, e logo abaixo ele se abre em “a pé” e “fila”, porque é essa soma que o visitante não faz de cabeça. O porquê vem numa frase, e o “Já fui” fica ao alcance do polegar. O roteiro vem em seguida e o mapa fica no topo. A lista completa fica num painel que só abre quando alguém pede.</p>
+<p style="margin:0"><b>Quem pergunta muda a resposta.</b> O resumo do perfil fica dentro do cartão, colado na resposta. Com criança de 95 cm, o destaque é o Jungle Cruise. Space Mountain, TRON, Seven Dwarfs e Big Thunder seguem no roteiro, marcadas como só para os adultos e com a dica do Rider Switch.</p>
+<p style="margin:0"><b>Identidade.</b> A ideia é mostrar o tempo como desenho, sem depender de logotipo. Caminhada é sempre pontilhada (no mapa, no cartão e no roteiro) e a fila é sempre uma cápsula que cresce com os minutos. O índigo do cartão e o pêssego do número vêm do céu de fim de tarde, e o tema escuro é o mesmo céu à noite. A fila saiu do vermelho, que lia como alarme, e foi para a lavanda (há tweak para dourado). A fonte é a Bricolage Grotesque. Nada imita a Disney.</p>
+<p style="margin:0"><b>Fluidez.</b> A rota do mapa virou curva, os painéis sobem deslizando e o cartão troca de atração com um deslize lateral. Todo “Já fui” tem desfazer por 5 s, para o toque errado de quem usa uma mão só. Tudo é CSS, sem biblioteca.</p>
+<p style="margin:0"><b>Honestidade.</b> Fila desconhecida aparece como “?” com cápsula tracejada, e filtro ligado sempre avisa quantas ficaram de fora. Dado velho muda a cor do selo de atualização e ganha um aviso dentro do cartão (veja o tweak “dados”).</p>
+</div>
+</div>
+</div>
+<p class="dv-next">Próximo: “teste o dourado na fila” · “o roteiro deveria começar depois do próximo passo” · “prepare o handoff em HTML/CSS puro com Leaflet”.</p>
+</section>
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Três direções · tela principal em uso (criança de 95 cm · de tudo um pouco · 5 alvos), claro e escuro</span></div>
+<div style="max-width:860px;margin:0 0 26px;display:flex;flex-direction:column;gap:6px;font:13px/1.55 system-ui,sans-serif;color:#3a3530">
+<p style="margin:0"><b>Premissa que muda a tela:</b> com a criança de 95 cm, 4 dos 5 alvos são só para adultos (Seven Dwarfs e Big Thunder pedem 97 cm). Pela regra, nenhum deles pode ser o próximo passo do grupo. Quem ganha é o Jungle Cruise (6 + 5 = 11 min, oportunidade, a criança pode ir). Sem a criança, seria a Space Mountain (12 min).</p>
+<p style="margin:0">As três têm a mesma hierarquia (próximo passo → roteiro → mapa → todas as filas). Mudam layout, tipo, cor e como o tempo é desenhado. O mapa é desenho próprio, sem tiles do OSM. Horários partem de 19:42. Role dentro de cada celular.</p>
+</div>
+<div class="dv-opts">
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a><span><b style="color:#1a1a1a">Pôr do sol</b> · evolução da atual. Mapa inteiro atrás, painel deslizante por cima. Outfit, coral, âmbar e roxo.</span></div>
+<div class="dv-card" style="display:flex;gap:40px;padding:34px;background:#e6e1d9">
+<div style="width:390px;height:844px;border-radius:46px;overflow:hidden;box-shadow:0 0 0 10px #15110f,0 24px 60px rgba(0,0,0,.28);--bg:#fdf7f1;--sf:#ffffff;--sf2:#f8ece0;--line:#ead8c8;--ink:#2a1a14;--ink2:#6f574c;--acc:#c8401f;--acc2:#a8351b;--on-acc:#ffffff;--amb:#c77a1a;--deep:#4c2a6b;--on-deep:#ffffff;--deep-soft:#f0e7f7;--good:#15703f;--good-soft:#e2f2e8;--m-bg:#f1e3d2;--m-l1:#e9d3ba;--m-l2:#e2c8ab;--m-water:#cfc6ea;--m-path:#fffaf3;--m-stroke:#c9ab8c;--m-text:#8a6a55;--m-dot:#b59a82;--m-pin:#4c2a6b;--m-pin-ink:#ffffff;--m-pin-ring:#ffffff;--m-hero:#c8401f;--m-hero-ink:#ffffff;--m-route:#4c2a6b;--m-me:#2563eb;--m-label-bg:#2a1a14;--m-label-ink:#ffffff"><dc-import name="NextUpA" hint-size="390px,844px"></dc-import></div>
+<div style="width:390px;height:844px;border-radius:46px;overflow:hidden;box-shadow:0 0 0 10px #15110f,0 24px 60px rgba(0,0,0,.28);--bg:#170f1d;--sf:#231829;--sf2:#2e2135;--line:#3e2e48;--ink:#f8eee6;--ink2:#c3afbb;--acc:#ff7a52;--acc2:#ffa07c;--on-acc:#2a1206;--amb:#e9a23b;--deep:#d2b3f2;--on-deep:#22123a;--deep-soft:#33234a;--good:#62d69c;--good-soft:#173727;--m-bg:#1d1426;--m-l1:#2a1e35;--m-l2:#33253f;--m-water:#1c2650;--m-path:#43344f;--m-stroke:#4b3b58;--m-text:#9c87a8;--m-dot:#5f4d6c;--m-pin:#d2b3f2;--m-pin-ink:#22123a;--m-pin-ring:#170f1d;--m-hero:#ff7a52;--m-hero-ink:#2a1206;--m-route:#d2b3f2;--m-me:#6ea0ff;--m-label-bg:#f8eee6;--m-label-ink:#2a1a14"><dc-import name="NextUpA" hint-size="390px,844px"></dc-import></div>
+</div>
+</div>
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a><span><b style="color:#1a1a1a">Sinalização</b> · placa de parque. Preto sobre amarelo de alta visibilidade, Archivo condensada, roteiro como linha de metrô, filas numa aba.</span></div>
+<div class="dv-card" style="display:flex;gap:40px;padding:34px;background:#e6e1d9">
+<div style="width:390px;height:844px;border-radius:46px;overflow:hidden;box-shadow:0 0 0 10px #15110f,0 24px 60px rgba(0,0,0,.28);--bg:#f3f0e8;--sf:#ffffff;--sf2:#e7e2d6;--line:#121110;--mute-line:#cdc6b6;--ink:#121110;--ink2:#47443d;--sign:#ffc21a;--good:#0d6e3e;--m-bg:#f3f0e8;--m-l1:#e6e0d1;--m-l2:#dcd4c1;--m-water:#121110;--m-path:#121110;--m-stroke:#121110;--m-text:#121110;--m-dot:#121110;--m-pin:#121110;--m-pin-ink:#ffc21a;--m-pin-ring:#121110;--m-hero:#ffc21a;--m-hero-ink:#121110;--m-route:#121110;--m-me:#1d4ed8;--m-label-bg:#ffc21a;--m-label-ink:#121110"><dc-import name="NextUpB" hint-size="390px,844px"></dc-import></div>
+<div style="width:390px;height:844px;border-radius:46px;overflow:hidden;box-shadow:0 0 0 10px #15110f,0 24px 60px rgba(0,0,0,.28);--bg:#0c0c0b;--sf:#171614;--sf2:#24221f;--line:#f3f0e8;--mute-line:#3b3833;--ink:#f3f0e8;--ink2:#bdb7aa;--sign:#ffc21a;--good:#4fd18b;--m-bg:#0c0c0b;--m-l1:#1a1917;--m-l2:#22211e;--m-water:#8a8578;--m-path:#f3f0e8;--m-stroke:#f3f0e8;--m-text:#f3f0e8;--m-dot:#f3f0e8;--m-pin:#f3f0e8;--m-pin-ink:#0c0c0b;--m-pin-ring:#0c0c0b;--m-hero:#ffc21a;--m-hero-ink:#121110;--m-route:#ffc21a;--m-me:#60a5fa;--m-label-bg:#ffc21a;--m-label-ink:#121110"><dc-import name="NextUpB" hint-size="390px,844px"></dc-import></div>
+</div>
+</div>
+<div class="dv-opt" id="1c">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a><span><b style="color:#1a1a1a">Fita do tempo</b> · a noite desenhada em tempo. Faixas proporcionais (a pé hachurado, fila cheio), cartão índigo, Bricolage Grotesque.</span></div>
+<div class="dv-card" style="display:flex;gap:40px;padding:34px;background:#e6e1d9">
+<div style="width:390px;height:844px;border-radius:46px;overflow:hidden;box-shadow:0 0 0 10px #15110f,0 24px 60px rgba(0,0,0,.28);--bg:#fbf6f1;--sf:#ffffff;--sf2:#f2ebe5;--line:#e3d9d1;--ink:#1d1838;--ink2:#5b5572;--hero:#201a45;--on-hero:#ffffff;--on-hero2:#c9c3e6;--glow:#ffb48c;--walk:oklch(0.5 0.13 255);--queue:oklch(0.52 0.15 32);--walk-hi:oklch(0.8 0.1 255);--queue-hi:oklch(0.8 0.11 32);--good:oklch(0.48 0.12 155);--good-soft:oklch(0.95 0.04 155);--good-hi:oklch(0.84 0.12 155);--deep:oklch(0.42 0.13 295);--deep-soft:oklch(0.94 0.03 295);--fab:#1d1838;--on-fab:#ffffff;--m-bg:#ebe4ee;--m-l1:#e0d6e8;--m-l2:#d6cbe1;--m-water:#c9d5f0;--m-path:#f9f6fb;--m-stroke:#cfc3db;--m-text:#7b7194;--m-dot:#a99dbd;--m-pin:#201a45;--m-pin-ink:#ffffff;--m-pin-ring:#ffffff;--m-hero:#ff9a6a;--m-hero-ink:#201a45;--m-route:#201a45;--m-me:#2563eb;--m-label-bg:#201a45;--m-label-ink:#ffffff"><dc-import name="NextUpC" hint-size="390px,844px"></dc-import></div>
+<div style="width:390px;height:844px;border-radius:46px;overflow:hidden;box-shadow:0 0 0 10px #15110f,0 24px 60px rgba(0,0,0,.28);--bg:#0f0c1f;--sf:#1a1630;--sf2:#241f3d;--line:#332d52;--ink:#f2eeff;--ink2:#b5aed3;--hero:#28215a;--on-hero:#ffffff;--on-hero2:#cdc6ee;--glow:#ffb48c;--walk:oklch(0.78 0.1 255);--queue:oklch(0.78 0.11 32);--walk-hi:oklch(0.8 0.1 255);--queue-hi:oklch(0.8 0.11 32);--good:oklch(0.82 0.12 155);--good-soft:oklch(0.3 0.05 155);--good-hi:oklch(0.84 0.12 155);--deep:oklch(0.84 0.08 295);--deep-soft:oklch(0.3 0.06 295);--fab:#ffb48c;--on-fab:#1d1838;--m-bg:#141029;--m-l1:#1e1939;--m-l2:#251f45;--m-water:#0f1a3d;--m-path:#2f2858;--m-stroke:#3a3366;--m-text:#8f86b8;--m-dot:#4a4278;--m-pin:#f2eeff;--m-pin-ink:#1d1838;--m-pin-ring:#141029;--m-hero:#ffb48c;--m-hero-ink:#1d1838;--m-route:#ffb48c;--m-me:#7fb0ff;--m-label-bg:#ffb48c;--m-label-ink:#1d1838"><dc-import name="NextUpC" hint-size="390px,844px"></dc-import></div>
+</div>
+</div>
+</div>
+<p class="dv-next">Próximo: escolha uma (ou misture, por exemplo “layout da <a class="dv-oid" href="#1a">1a</a> com a tipografia da <a class="dv-oid" href="#1b">1b</a>”) e eu faço o resto: Estado 1, componentes isolados, GPS negado, lista vazia, nota de escolhas e o protótipo vivo.</p>
+</section>
+</x-dc>
+</body>
+</html>

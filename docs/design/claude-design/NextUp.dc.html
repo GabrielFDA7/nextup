@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&display=swap"><style>body{margin:0;background:#e9e5df}a{color:#4a3db8}a:hover{color:#2f2490}</style></helmet>
+<div style="{{ themeVars }}">
+<div ref="{{ rootRef }}" data-screen-label="NextUp" style="position:relative;width:390px;height:844px;overflow:hidden;background:var(--bg);color:var(--ink);font-family:'Bricolage Grotesque',system-ui,sans-serif;-webkit-font-smoothing:antialiased">
+
+<div style="position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none">
+<div style="position:relative;height:430px;overflow:hidden">
+<x-import component-from-global-scope="nu-map" from="./nu-map.js" look="c" view="0 -20 400 440" data="{{ mapData }}" hint-size="390px,430px" style="width:100%;height:100%"></x-import>
+<div style="position:absolute;left:0;right:0;top:0;padding:0 14px;display:flex;flex-direction:column;gap:6px;pointer-events:none">
+<div style="height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-size:15px;font-weight:700"><span>19:42</span><span style="display:block;width:26px;height:13px;border:2px solid currentColor;border-radius:4px"></span></div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+<div style="display:flex;align-items:center;gap:7px;height:44px;padding:0 16px;background:var(--sf);border-radius:22px;box-shadow:0 6px 18px rgba(20,12,50,.16)"><span style="font-size:21px;font-weight:800;letter-spacing:-0.03em">nextup</span><span style="display:block;width:9px;height:9px;border-radius:50%;background:var(--glow);box-shadow:0 0 0 3px var(--hero)"></span></div>
+<button type="button" onClick="{{ refresh }}" style="{{ freshStyle }}"><span style="{{ freshDot }}"></span>{{ freshLabel }}</button>
+</div>
+</div>
+<sc-if value="{{ isGps }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:50%;top:176px;transform:translateX(-50%);display:flex;align-items:center;gap:9px;height:46px;padding:0 18px 0 12px;border-radius:23px;background:var(--hero);color:var(--on-hero);font-size:15px;font-weight:700;white-space:nowrap;box-shadow:0 10px 26px rgba(20,12,50,.3);pointer-events:none"><span style="position:relative;display:block;width:22px;height:22px;border-radius:50%;border:2.5px solid var(--glow)"><span style="position:absolute;left:5px;top:5px;width:7px;height:7px;border-radius:50%;background:var(--glow)"></span></span>Toque no mapa onde você está</div>
+</sc-if>
+<sc-if value="{{ showListPill }}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{ openList }}" style="position:absolute;right:14px;bottom:112px;display:flex;align-items:center;gap:8px;height:44px;padding:0 16px;border:0;border-radius:22px;background:var(--fab);color:var(--on-fab);font:700 15px 'Bricolage Grotesque',system-ui,sans-serif;box-shadow:0 8px 20px rgba(20,12,50,.28);cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:2.8;stroke-linecap:round"><path d="M4 6h16M4 12h16M4 18h10"></path></svg>Todas as filas · {{ openCount }}</button>
+</sc-if>
+</div>
+
+<div style="position:relative;margin:-56px 12px 0;padding:16px 18px 18px;background:var(--hero);color:var(--on-hero);border-radius:30px;display:flex;flex-direction:column;gap:12px;box-shadow:0 18px 40px rgba(20,12,50,.28)">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+<span style="font-size:15px;font-weight:700;color:var(--glow-ink, var(--glow));white-space:nowrap">{{ eyebrow }}</span>
+<button type="button" onClick="{{ editProfile }}" style="flex:none;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border-radius:22px;border:1.5px solid rgba(255,255,255,.3);background:transparent;color:var(--on-hero);font:600 13.5px 'Bricolage Grotesque',system-ui,sans-serif;white-space:nowrap;cursor:pointer">{{ profileShort }}<svg width="13" height="13" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round"><path d="M4 20h4L19 9l-4-4L4 16z"></path></svg></button>
+</div>
+
+<sc-if value="{{ isGps }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:12px">
+<h2 style="margin:0;font-size:30px;font-weight:700;letter-spacing:-0.025em;line-height:1.05">Onde você está?</h2>
+<p style="margin:0;font-size:16px;line-height:1.4;color:var(--on-hero2);text-wrap:pretty">Sem a localização, não dá para contar a caminhada. Toque no mapa no ponto onde você está, ou escolha um lugar perto:</p>
+<div style="display:flex;flex-wrap:wrap;gap:8px">
+<sc-for list="{{ places }}" as="p" hint-placeholder-count="6">
+<button type="button" onClick="{{ p.onPick }}" style="min-height:44px;padding:0 15px;border-radius:22px;border:0;background:rgba(255,255,255,.12);color:var(--on-hero);font:600 15px 'Bricolage Grotesque',system-ui,sans-serif;cursor:pointer">{{ p.label }}</button>
+</sc-for>
+</div>
+<button type="button" onClick="{{ retryGps }}" style="align-self:flex-start;min-height:44px;padding:0;border:0;background:none;color:var(--glow-ink, var(--glow));font:700 15px 'Bricolage Grotesque',system-ui,sans-serif;text-decoration:underline;text-underline-offset:3px;cursor:pointer">Tentar o GPS de novo</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ hasHero }}" hint-placeholder-val="{{ true }}">
+<div style="{{ heroAnim }}">
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px">
+<h2 style="{{ hero.nameStyle }}">{{ hero.n }}</h2>
+<div style="flex:none;display:flex;align-items:baseline;gap:4px;color:var(--glow-ink, var(--glow))"><span style="font-size:96px;font-weight:700;line-height:.8;letter-spacing:-0.05em;font-variant-numeric:tabular-nums">{{ hero.total }}</span><span style="font-size:24px;font-weight:700">min</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:7px">
+<div style="display:flex;align-items:center;gap:5px;height:24px">
+<span style="flex:none;display:block;width:12px;height:12px;border-radius:50%;border:3px solid var(--walk-hi)"></span>
+<span style="{{ hero.walkSeg }}"></span>
+<span style="{{ hero.queueSeg }}"></span>
+<span style="flex:none;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--glow);color:var(--on-glow, var(--hero))"><svg width="12" height="12" viewBox="0 0 24 24" style="fill:currentColor"><path d="M12 2l3 6.9 7.5.6-5.7 4.9 1.8 7.3L12 17.8 5.4 21.7l1.8-7.3L1.5 9.5 9 8.9z"></path></svg></span>
+</div>
+<div style="display:flex;gap:5px;padding:0 0 0 17px;font-size:14px;font-weight:600;white-space:nowrap"><span style="{{ hero.walkL }}">{{ hero.w }} a pé</span><span style="{{ hero.queueL }}">{{ hero.q }} de fila</span><span style="flex:none;color:var(--on-hero2);font-weight:500;font-variant-numeric:tabular-nums">lá às {{ hero.at }}</span></div>
+</div>
+<p style="margin:0;font-size:17px;line-height:1.4;text-wrap:pretty">{{ hero.reason }}</p>
+<sc-if value="{{ stale }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.1);font-size:14px;line-height:1.35"><svg width="16" height="16" viewBox="0 0 24 24" style="flex:none;margin-top:1px;fill:none;stroke:var(--glow-ink, var(--glow));stroke-width:2.6;stroke-linecap:round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg><span>Estas filas são de 12 min atrás e podem ter mudado. Confira o painel na entrada da fila.</span></div>
+</sc-if>
+<div style="display:flex;flex-wrap:wrap;gap:6px">
+<sc-if value="{{ hero.opp }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 11px;border-radius:15px;background:var(--good-hi);color:#13213a;font-size:13px;font-weight:700"><svg width="14" height="14" viewBox="0 0 24 24" style="fill:currentColor"><path d="M12 2l3 6.9 7.5.6-5.7 4.9 1.8 7.3L12 17.8 5.4 21.7l1.8-7.3L1.5 9.5 9 8.9z"></path></svg>Oportunidade</span></sc-if>
+<span style="display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 11px;border-radius:15px;background:rgba(255,255,255,.12);font-size:13px;font-weight:600"><svg width="16" height="14" viewBox="0 0 16 14" style="fill:currentColor"><rect x="0" y="9" width="4" height="5" rx="1"></rect><rect x="6" y="5" width="4" height="9" rx="1" style="{{ hero.b2 }}"></rect><rect x="12" y="1" width="4" height="13" rx="1" style="{{ hero.b3 }}"></rect></svg>{{ hero.intL }}</span>
+<sc-if value="{{ hero.down }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 11px;border-radius:15px;background:rgba(255,255,255,.12);font-size:13px;font-weight:600"><svg width="14" height="14" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round"><path d="M12 4v16M6 14l6 6 6-6"></path></svg>{{ hero.trT }}</span></sc-if>
+<sc-if value="{{ hero.up }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 11px;border-radius:15px;background:rgba(255,255,255,.12);font-size:13px;font-weight:600"><svg width="14" height="14" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round"><path d="M12 20V4M6 10l6-6 6 6"></path></svg>{{ hero.trT }}</span></sc-if>
+
+</div>
+</div>
+</div>
+<button type="button" onClick="{{ heroDone }}" style="height:56px;border:0;border-radius:18px;background:var(--glow);color:var(--on-glow, #1d1838);font:700 18px 'Bricolage Grotesque',system-ui,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer"><svg width="20" height="20" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Já fui</button>
+</sc-if>
+
+<sc-if value="{{ heroEmpty }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:12px">
+<h2 style="margin:0;font-size:27px;font-weight:700;letter-spacing:-0.02em;line-height:1.1">{{ emptyHero.title }}</h2>
+<p style="margin:0;font-size:16px;line-height:1.4;color:var(--on-hero2)">{{ emptyHero.text }}</p>
+<button type="button" onClick="{{ openList }}" style="height:52px;border:0;border-radius:18px;background:var(--glow);color:var(--on-glow, #1d1838);font:700 17px 'Bricolage Grotesque',system-ui,sans-serif;cursor:pointer">Ver todas as filas</button>
+</div>
+</sc-if>
+</div>
+
+<sc-if value="{{ prefHiddenN }}" hint-placeholder-val="{{ false }}">
+<div style="margin:12px 12px 0;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 6px 6px 16px;border-radius:20px;background:var(--sf2);font-size:14px;line-height:1.35"><span>{{ prefHiddenText }}</span><button type="button" onClick="{{ undoPref }}" style="flex:none;min-height:44px;padding:0 14px;border-radius:16px;border:1.5px solid var(--line);background:var(--sf);color:var(--ink);font:700 14px 'Bricolage Grotesque',system-ui,sans-serif;cursor:pointer">Mostrar todas</button></div>
+</sc-if>
+
+<div style="padding:26px 16px 0;display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px"><h3 style="margin:0;font-size:26px;font-weight:700;letter-spacing:-0.02em">Seu roteiro</h3><span style="font-size:14px;font-weight:600;color:var(--ink2)">{{ routeMeta }}</span></div>
+<sc-if value="{{ hasRoute }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:8px">
+<p style="margin:0;font-size:15px;line-height:1.4;color:var(--ink2);text-wrap:pretty">A ordem que menos anda entre os seus alvos. Ela se refaz a cada parada.</p>
+<div style="display:flex;gap:18px;font-size:13px;font-weight:600;color:var(--ink2)"><span style="display:inline-flex;align-items:center;gap:7px"><span style="display:block;width:22px;height:6px;background:radial-gradient(circle at 3px 3px,var(--walk) 2.4px,transparent 2.9px) 0 0/8px 6px repeat-x"></span>a pé</span><span style="display:inline-flex;align-items:center;gap:7px"><span style="display:block;width:22px;height:10px;border-radius:5px;background:var(--queue)"></span>fila</span></div>
+<sc-if value="{{ riderNote }}" hint-placeholder-val="{{ true }}"><div style="margin-top:2px;padding:12px 14px;border-radius:18px;background:var(--adult-soft);color:var(--adult);font-size:14px;line-height:1.4;font-weight:500">{{ riderNote }}</div></sc-if>
+</div>
+</sc-if>
+</div>
+<sc-if value="{{ hasRoute }}" hint-placeholder-val="{{ true }}">
+<div style="padding:12px 16px 0;display:flex;flex-direction:column">
+<sc-for list="{{ stops }}" as="s" hint-placeholder-count="5">
+<div style="display:grid;grid-template-columns:40px 16px minmax(0,1fr) 44px;column-gap:10px;padding-bottom:12px">
+<span style="{{ s.etaStyle }}">{{ s.eta }}</span>
+<div style="position:relative;display:flex;flex-direction:column;align-items:center">
+<span style="position:absolute;top:0;bottom:-12px;left:50%;width:2px;margin-left:-1px;border-radius:1px;background:var(--line)"></span>
+<span style="{{ s.walkStyle }}"></span>
+<span style="position:relative;flex:none;display:grid;place-items:center;width:24px;height:24px;margin:3px 0;border-radius:50%;background:var(--ink);color:var(--bg);font-size:13px;font-weight:800">{{ s.num }}</span>
+<span style="{{ s.queueStyle }}"></span>
+</div>
+<div style="{{ s.bodyStyle }}">
+<span style="font-size:17px;font-weight:700;line-height:1.15">{{ s.n }}</span>
+<span style="font-size:14px;color:var(--ink2)"><b style="color:var(--ink)">{{ s.total }} min</b> · {{ s.meta }}</span>
+<div style="display:flex;flex-wrap:wrap;gap:6px">
+<sc-if value="{{ s.adults }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:4px 10px;border-radius:14px;background:var(--adult-soft);color:var(--adult);font-size:13px;font-weight:700;line-height:1.2"><svg width="13" height="13" viewBox="0 0 24 24" style="flex:none;fill:none;stroke:currentColor;stroke-width:2.8;stroke-linecap:round"><path d="M12 3v18M7 3h10M7 21h10"></path></svg>{{ s.hLabel }}</span></sc-if>
+<sc-if value="{{ s.group }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:4px 10px;border-radius:14px;background:var(--good-soft);color:var(--good);font-size:13px;font-weight:700"><svg width="13" height="13" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Todo o grupo</span></sc-if>
+<sc-if value="{{ s.opp }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:4px 10px;border-radius:14px;background:var(--good-soft);color:var(--good);font-size:13px;font-weight:700"><svg width="13" height="13" viewBox="0 0 24 24" style="fill:currentColor"><path d="M12 2l3 6.9 7.5.6-5.7 4.9 1.8 7.3L12 17.8 5.4 21.7l1.8-7.3L1.5 9.5 9 8.9z"></path></svg>Oportunidade</span></sc-if>
+</div>
+<span style="font-size:13.5px;line-height:1.35;color:var(--ink2)">{{ s.hint }}</span>
+</div>
+<button type="button" onClick="{{ s.onDone }}" aria-label="Já fui" style="{{ s.doneBtn }}"><svg width="18" height="18" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></button>
+</div>
+</sc-for>
+<div style="display:grid;grid-template-columns:40px 16px minmax(0,1fr);column-gap:10px;align-items:center"><span style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums">{{ routeEnd }}</span><span style="display:block;width:16px;height:16px;border-radius:50%;border:3px solid var(--ink)"></span><span style="font-size:15px;font-weight:600;color:var(--ink2)">Fim do roteiro</span></div>
+</div>
+</sc-if>
+<sc-if value="{{ noRoute }}" hint-placeholder-val="{{ false }}">
+<div style="margin:6px 16px 0;padding:18px;border-radius:24px;background:var(--sf);border:1.5px dashed var(--line);display:flex;flex-direction:column;gap:10px">
+<span style="font-size:17px;font-weight:700">Quais vocês vieram fazer?</span>
+<span style="font-size:15px;line-height:1.4;color:var(--ink2)">Marque as atrações favoritas como alvo. A gente monta a ordem que menos anda e refaz a cada parada.</span>
+<button type="button" onClick="{{ openList }}" style="align-self:flex-start;min-height:44px;padding:0 18px;border-radius:22px;border:0;background:var(--accent);color:var(--on-accent);font:700 15px 'Bricolage Grotesque',system-ui,sans-serif;cursor:pointer">Escolher alvos</button>
+</div>
+</sc-if>
+<button type="button" onClick="{{ openList }}" style="margin:20px 16px 0;width:calc(100% - 32px);display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:64px;padding:12px 18px;border-radius:22px;border:1.5px solid var(--line);background:var(--sf);color:var(--ink);text-align:left;font-family:inherit;cursor:pointer"><span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:17px;font-weight:700">Ver todas as filas</span><span style="font-size:14px;color:var(--ink2)">{{ openCount }} abertas · filtre por fila e caminhada</span></span><svg width="22" height="22" viewBox="0 0 24 24" style="flex:none;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round"><path d="M9 6l6 6-6 6"></path></svg></button>
+<p style="margin:20px 16px 32px;font-size:12.5px;line-height:1.5;color:var(--ink2)">Dados de ThemeParks.wiki. Sem vínculo com a The Walt Disney Company.</p>
+</div>
+
+<sc-if value="{{ listOpen }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ closeList }}" style="{{ listScrim }}"></div>
+<div style="{{ listSheet }}">
+<div style="display:flex;flex-direction:column;gap:12px;padding:10px 16px 12px;border-bottom:1px solid var(--line)">
+<span style="align-self:center;display:block;width:44px;height:5px;border-radius:3px;background:var(--line)"></span>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+<div style="display:flex;flex-direction:column;gap:1px"><span style="font-size:24px;font-weight:700;letter-spacing:-0.02em">Todas as filas</span><span style="font-size:13.5px;color:var(--ink2)">Pelo tempo total · {{ freshLabel }}</span></div>
+<button type="button" onClick="{{ closeList }}" aria-label="Fechar" style="flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:22px;border:0;background:var(--sf2);color:var(--ink);cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:2.8;stroke-linecap:round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+<label style="display:flex;flex-direction:column;gap:2px"><span style="display:flex;justify-content:space-between;font-size:14px;font-weight:600"><span style="color:var(--ink2)">Fila máxima</span><span style="font-variant-numeric:tabular-nums">{{ maxQLabel }}</span></span><input type="range" min="5" max="60" step="5" value="{{ maxQ }}" onChange="{{ onMaxQ }}" style="width:100%;height:30px;margin:0;accent-color:var(--accent)"></label>
+<label style="display:flex;flex-direction:column;gap:2px"><span style="display:flex;justify-content:space-between;font-size:14px;font-weight:600"><span style="color:var(--ink2)">Caminhada máxima</span><span style="font-variant-numeric:tabular-nums">{{ maxWLabel }}</span></span><input type="range" min="3" max="15" step="1" value="{{ maxW }}" onChange="{{ onMaxW }}" style="width:100%;height:30px;margin:0;accent-color:var(--accent)"></label>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px"><span>Preferência: <b>{{ prefLabel }}</b></span><button type="button" onClick="{{ editProfile }}" style="min-height:44px;padding:0 4px;border:0;background:none;color:var(--ink);font:700 14px 'Bricolage Grotesque',system-ui,sans-serif;text-decoration:underline;text-underline-offset:3px;cursor:pointer">Mudar</button></div>
+</div>
+<div style="flex:1;overflow-y:auto;scrollbar-width:none;padding:12px 12px 24px;display:flex;flex-direction:column;gap:8px">
+<sc-for list="{{ notices }}" as="nt" hint-placeholder-count="0">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 4px 4px 14px;border-radius:18px;background:var(--sf2);font-size:14px;line-height:1.3"><span>{{ nt.text }}</span><button type="button" onClick="{{ nt.onClick }}" style="flex:none;min-height:44px;padding:0 14px;border-radius:14px;border:0;background:var(--sf);color:var(--ink);font:700 14px 'Bricolage Grotesque',system-ui,sans-serif;cursor:pointer">{{ nt.action }}</button></div>
+</sc-for>
+<sc-for list="{{ items }}" as="it" hint-placeholder-count="5">
+<div style="{{ it.rowStyle }}">
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:52px;height:56px;border-radius:16px;background:var(--sf2)"><span style="{{ it.totalStyle }}">{{ it.total }}</span><span style="font-size:11px;font-weight:700;color:var(--ink2)">min</span></div>
+<div style="display:flex;flex-direction:column;gap:5px;min-width:0">
+<span style="font-size:16px;font-weight:700;line-height:1.2">{{ it.n }}</span>
+<div style="display:flex;align-items:center;gap:3px;height:8px"><span style="{{ it.wSeg }}"></span><span style="{{ it.qSeg }}"></span></div>
+<span style="font-size:13.5px;color:var(--ink2)">{{ it.meta }}</span>
+<div style="display:flex;flex-wrap:wrap;gap:5px">
+<sc-if value="{{ it.opp }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:5px;min-height:26px;padding:3px 9px;border-radius:13px;background:var(--good-soft);color:var(--good);font-size:12.5px;font-weight:700"><svg width="12" height="12" viewBox="0 0 24 24" style="fill:currentColor"><path d="M12 2l3 6.9 7.5.6-5.7 4.9 1.8 7.3L12 17.8 5.4 21.7l1.8-7.3L1.5 9.5 9 8.9z"></path></svg>Oportunidade</span></sc-if>
+<span style="display:inline-flex;align-items:center;gap:5px;min-height:26px;padding:3px 9px;border-radius:13px;background:var(--sf2);font-size:12.5px;font-weight:600"><svg width="14" height="12" viewBox="0 0 16 14" style="fill:currentColor"><rect x="0" y="9" width="4" height="5" rx="1"></rect><rect x="6" y="5" width="4" height="9" rx="1" style="{{ it.b2 }}"></rect><rect x="12" y="1" width="4" height="13" rx="1" style="{{ it.b3 }}"></rect></svg>{{ it.intL }}</span>
+<sc-if value="{{ it.down }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:5px;min-height:26px;padding:3px 9px;border-radius:13px;background:var(--sf2);color:var(--good);font-size:12.5px;font-weight:700"><svg width="12" height="12" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round"><path d="M12 4v16M6 14l6 6 6-6"></path></svg>{{ it.trT }}</span></sc-if>
+<sc-if value="{{ it.up }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:5px;min-height:26px;padding:3px 9px;border-radius:13px;background:var(--sf2);color:var(--up);font-size:12.5px;font-weight:700"><svg width="12" height="12" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round"><path d="M12 20V4M6 10l6-6 6 6"></path></svg>{{ it.trT }}</span></sc-if>
+<sc-if value="{{ it.hasH }}" hint-placeholder-val="{{ false }}"><span style="{{ it.hStyle }}"><svg width="12" height="12" viewBox="0 0 24 24" style="flex:none;fill:none;stroke:currentColor;stroke-width:2.8;stroke-linecap:round"><path d="M12 3v18M7 3h10M7 21h10"></path></svg>{{ it.hLabel }}</span></sc-if>
+<sc-if value="{{ it.noHist }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:5px;min-height:26px;padding:3px 9px;border-radius:13px;border:1.5px dashed var(--ink2);color:var(--ink2);font-size:12.5px;font-weight:700">Sem histórico</span></sc-if>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px">
+<button type="button" onClick="{{ it.onTarget }}" aria-pressed="{{ it.isTarget }}" aria-label="Alvo" style="{{ it.targetStyle }}"><svg width="18" height="18" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round"><path d="M5 21V4h12l-2 4.5L17 13H5"></path></svg></button>
+<button type="button" onClick="{{ it.onDone }}" aria-pressed="{{ it.isDone }}" aria-label="Já fui" style="{{ it.doneStyle }}"><svg width="18" height="18" viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></button>
+</div>
+</div>
+</sc-for>
+<sc-if value="{{ listEmpty }}" hint-placeholder-val="{{ false }}">
+<div style="margin-top:8px;padding:22px 20px;border-radius:24px;background:var(--sf);border:1.5px dashed var(--line);display:flex;flex-direction:column;gap:10px">
+<span style="font-size:19px;font-weight:700;line-height:1.2">{{ emptyList.title }}</span>
+<span style="font-size:15px;line-height:1.45;color:var(--ink2);text-wrap:pretty">{{ emptyList.text }}</span>
+<button type="button" onClick="{{ emptyList.onClick }}" style="align-self:flex-start;min-height:48px;padding:0 20px;border-radius:24px;border:0;background:var(--accent);color:var(--on-accent);font:700 16px 'Bricolage Grotesque',system-ui,sans-serif;cursor:pointer">{{ emptyList.action }}</button>
+</div>
+</sc-if>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ profileOpen }}" hint-placeholder-val="{{ false }}">
+<div style="{{ profScrim }}"></div>
+<div style="{{ profSheet }}">
+<div style="display:flex;flex-direction:column;gap:18px;padding:10px 20px 22px">
+<span style="align-self:center;display:block;width:44px;height:5px;border-radius:3px;background:var(--line)"></span>
+<div style="display:flex;flex-direction:column;gap:4px">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span style="font-size:25px;font-weight:700;letter-spacing:-0.02em;line-height:1.1">{{ profTitle }}</span><button type="button" onClick="{{ skipProfile }}" style="flex:none;min-height:44px;padding:0 6px;border:0;background:none;color:var(--ink2);font:700 15px 'Bricolage Grotesque',system-ui,sans-serif;cursor:pointer">{{ profSkipLabel }}</button></div>
+<span style="font-size:15px;line-height:1.4;color:var(--ink2);text-wrap:pretty">Duas perguntas, as duas opcionais. As respostas ficam só neste celular, sem conta nem e-mail.</span>
+</div>
+<div style="display:flex;flex-direction:column;gap:9px">
+<span style="font-size:17px;font-weight:700;line-height:1.25">Tem criança no grupo? Qual a altura da mais baixa?</span>
+<span style="font-size:14px;line-height:1.35;color:var(--ink2)">Para não te mandar para uma fila em que a criança não pode entrar.</span>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:4px;border-radius:18px;background:var(--sf2)">
+<button type="button" onClick="{{ setNoKids }}" style="{{ segNoKids }}">Sem crianças</button>
+<button type="button" onClick="{{ setKids }}" style="{{ segKids }}">Tem criança</button>
+</div>
+<sc-if value="{{ dKids }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px;border-radius:18px;border:1.5px solid var(--line)">
+<button type="button" onClick="{{ hDown }}" aria-label="Menos" style="display:grid;place-items:center;width:48px;height:48px;border-radius:24px;border:0;background:var(--sf2);color:var(--ink);font:700 24px 'Bricolage Grotesque',system-ui,sans-serif;cursor:pointer">−</button>
+<span style="font-size:30px;font-weight:700;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">{{ dH }} cm</span>
+<button type="button" onClick="{{ hUp }}" aria-label="Mais" style="display:grid;place-items:center;width:48px;height:48px;border-radius:24px;border:0;background:var(--sf2);color:var(--ink);font:700 24px 'Bricolage Grotesque',system-ui,sans-serif;cursor:pointer">+</button>
+</div>
+<span style="font-size:14px;line-height:1.4;color:var(--adult)">{{ kidsHint }}</span>
+</div>
+</sc-if>
+</div>
+<div style="display:flex;flex-direction:column;gap:9px">
+<span style="font-size:17px;font-weight:700;line-height:1.25">Que tipo de atração vocês curtem?</span>
+<span style="font-size:14px;line-height:1.35;color:var(--ink2)">Se algo ficar escondido por isso, a tela avisa quantas e deixa desfazer.</span>
+<div style="display:grid;grid-template-columns:1fr 1.25fr 1fr;gap:6px;padding:4px;border-radius:18px;background:var(--sf2)">
+<button type="button" onClick="{{ setInt1 }}" style="{{ segInt1 }}">Tranquilas</button>
+<button type="button" onClick="{{ setInt2 }}" style="{{ segInt2 }}">De tudo um pouco</button>
+<button type="button" onClick="{{ setInt3 }}" style="{{ segInt3 }}">Quero emoção</button>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px">
+<button type="button" onClick="{{ saveProfile }}" style="height:56px;border:0;border-radius:18px;background:var(--accent);color:var(--on-accent);font:700 18px 'Bricolage Grotesque',system-ui,sans-serif;cursor:pointer">{{ profCta }}</button>
+<sc-if value="{{ isFirst }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:flex-start;gap:8px;font-size:13.5px;line-height:1.4;color:var(--ink2)"><svg width="16" height="16" viewBox="0 0 24 24" style="flex:none;margin-top:1px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round"><path d="M12 21s7-5.2 7-11a7 7 0 1 0-14 0c0 5.8 7 11 7 11z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>Depois pedimos sua localização, para contar a caminhada. Se preferir não dar, é só tocar no mapa.</span></sc-if>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ ask }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;z-index:40;display:grid;place-items:center;padding:28px;background:rgba(10,8,30,.5)">
+<div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:10px;padding:22px 20px 18px;border-radius:24px;background:var(--sf);box-shadow:0 24px 60px rgba(0,0,0,.35)">
+<span style="font-size:13px;font-weight:600;color:var(--ink2)">nextup.app</span>
+<span style="font-size:19px;font-weight:700;line-height:1.25">Quer saber sua localização</span>
+<span style="font-size:15px;line-height:1.4;color:var(--ink2)">Usamos sua posição só para contar quanto você vai andar até cada atração.</span>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+<button type="button" onClick="{{ denyLoc }}" style="height:48px;border-radius:16px;border:1.5px solid var(--line);background:var(--sf);color:var(--ink);font:700 15px 'Bricolage Grotesque',system-ui,sans-serif;cursor:pointer">Não permitir</button>
+<button type="button" onClick="{{ allowLoc }}" style="height:48px;border-radius:16px;border:0;background:var(--accent);color:var(--on-accent);font:700 15px 'Bricolage Grotesque',system-ui,sans-serif;cursor:pointer">Permitir</button>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:12px;right:12px;bottom:16px;z-index:35;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:56px;padding:6px 6px 6px 18px;border-radius:20px;background:var(--fab);color:var(--on-fab);font-size:15px;font-weight:600;box-shadow:0 12px 30px rgba(10,8,30,.3)">
+<span>{{ toastMsg }}</span>
+<sc-if value="{{ toastUndo }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ undo }}" style="flex:none;min-height:44px;padding:0 16px;border-radius:14px;border:1.5px solid currentColor;background:transparent;color:inherit;font:700 15px 'Bricolage Grotesque',system-ui,sans-serif;cursor:pointer">Desfazer</button></sc-if>
+</div>
+</sc-if>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;claro&quot;,&quot;escuro&quot;],&quot;default&quot;:&quot;claro&quot;,&quot;tsType&quot;:&quot;'claro'|'escuro'&quot;,&quot;section&quot;:&quot;Tela&quot;},&quot;start&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;primeira&quot;,&quot;principal&quot;,&quot;gps&quot;,&quot;vazia&quot;],&quot;default&quot;:&quot;principal&quot;,&quot;tsType&quot;:&quot;'primeira'|'principal'|'gps'|'vazia'&quot;,&quot;section&quot;:&quot;Tela&quot;},&quot;fila&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Lavanda&quot;,&quot;Dourado&quot;,&quot;Coral&quot;],&quot;default&quot;:&quot;Lavanda&quot;,&quot;tsType&quot;:&quot;'Lavanda'|'Dourado'|'Coral'&quot;,&quot;section&quot;:&quot;Cor da fila&quot;},&quot;dados&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;frescos&quot;,&quot;velhos&quot;],&quot;default&quot;:&quot;frescos&quot;,&quot;tsType&quot;:&quot;'frescos'|'velhos'&quot;,&quot;section&quot;:&quot;Dados&quot;}}">
+const NOW = 19 * 60 + 42, RIDE = 7, ME0 = [200, 330];
+const A = [
+  { k: 'jungle', n: 'Jungle Cruise', s: 'Jungle Cruise', x: 60, y: 270, q: 5, opp: true, int: 1, tr: 'down', trT: 'Caiu de 25 para 5 em 30 min', h: null, pop: 'top' },
+  { k: 'space', n: 'Space Mountain', s: 'Space Mountain', x: 346, y: 202, q: 5, opp: true, int: 3, h: 112, pop: 'top' },
+  { k: 'tron', n: 'TRON Lightcycle / Run', s: 'TRON', x: 340, y: 126, q: 40, int: 3, tr: 'down', trT: 'Caiu de 60 para 40 em 30 min', h: 122, pop: 'top' },
+  { k: 'dwarfs', n: 'Seven Dwarfs Mine Train', s: 'Seven Dwarfs', x: 226, y: 118, q: 30, int: 3, h: 97, pop: 'top' },
+  { k: 'peter', n: "Peter Pan's Flight", s: 'Peter Pan', x: 166, y: 130, q: 20, int: 2, tr: 'up', trT: 'Subiu de 10 para 20 em 30 min', h: null, pop: 'top' },
+  { k: 'thunder', n: 'Big Thunder Mountain Railroad', s: 'Big Thunder', x: 30, y: 120, q: 5, opp: true, int: 3, tr: 'down', trT: 'Caiu de 30 para 5 em 30 min', h: 97, pop: 'top' },
+  { k: 'dumbo', n: 'Dumbo the Flying Elephant', s: 'Dumbo', x: 292, y: 96, q: 5, int: 1, h: null, pop: 'quiet' },
+  { k: 'pirates', n: 'Pirates of the Caribbean', s: 'Pirates', x: 74, y: 254, q: 10, int: 2, h: null, pop: 'mid' },
+  { k: 'haunted', n: 'Haunted Mansion', s: 'Haunted Mansion', x: 150, y: 152, q: 15, int: 2, tr: 'up', trT: 'Subiu de 5 para 15 em 30 min', h: null, pop: 'mid' },
+  { k: 'buzz', n: "Buzz Lightyear's Space Ranger Spin", s: 'Buzz Lightyear', x: 292, y: 256, q: 15, int: 1, h: null, pop: 'mid' },
+  { k: 'tea', n: 'Mad Tea Party', s: 'Mad Tea Party', x: 268, y: 160, q: 10, int: 2, h: null, pop: 'quiet' },
+  { k: 'people', n: 'Tomorrowland Transit Authority PeopleMover', s: 'PeopleMover', x: 320, y: 240, q: 10, int: 1, h: null, pop: 'quiet' },
+  { k: 'tiana', n: "Tiana's Bayou Adventure", s: "Tiana's", x: 34, y: 206, q: 35, int: 3, tr: 'up', trT: 'Subiu de 20 para 35 em 30 min', h: 102, pop: 'top' },
+  { k: 'swiss', n: 'Swiss Family Treehouse', s: 'Swiss Family', x: 110, y: 270, q: null, int: 1, h: null, pop: null },
+  { k: 'barn', n: 'The Barnstormer', s: 'Barnstormer', x: 316, y: 80, q: 10, int: 2, h: 89, pop: 'mid' },
+  { k: 'mermaid', n: 'Under the Sea - Journey of The Little Mermaid', s: 'Little Mermaid', x: 250, y: 92, q: 10, int: 1, h: null, pop: 'mid' }
+];
+const BY = {}; A.forEach(a => { BY[a.k] = a; });
+const TARGETS0 = ['space', 'tron', 'dwarfs', 'peter', 'thunder'];
+const INT = { 1: 'Tranquila', 2: 'Moderada', 3: 'Radical' };
+const PREF = {
+  tranquilas: { l: 'Tranquilas', s: 'Tranquilas', hide: 3, what: 'radicais' },
+  tudo: { l: 'De tudo um pouco', s: 'De tudo', hide: 0 },
+  emocao: { l: 'Quero emoção', s: 'Emoção', hide: 1, what: 'tranquilas' }
+};
+const PAIRS = {
+  'space>tron': 'A TRON fica ao lado da Space Mountain.', 'tron>space': 'A Space Mountain fica ao lado da TRON.',
+  'tron>dwarfs': 'Saindo da TRON, Fantasyland é a vizinha.', 'dwarfs>peter': 'Vizinhas em Fantasyland, a poucos passos.',
+  'peter>dwarfs': 'Vizinhas em Fantasyland, a poucos passos.', 'peter>thunder': 'Termina no lado oeste, sem voltar pelo parque.'
+};
+const PLACES = [['Entrada', 200, 330], ['Hub central', 200, 240], ['Adventureland', 110, 272], ['Frontierland', 62, 182], ['Fantasyland', 220, 106], ['Tomorrowland', 314, 226]];
+const QC = {
+  Lavanda: { claro: ['oklch(0.52 0.14 295)', 'oklch(0.82 0.09 295)'], escuro: ['oklch(0.78 0.1 295)', 'oklch(0.82 0.09 295)'] },
+  Dourado: { claro: ['oklch(0.66 0.13 78)', 'oklch(0.87 0.12 88)'], escuro: ['oklch(0.84 0.12 86)', 'oklch(0.87 0.12 88)'] },
+  Coral: { claro: ['oklch(0.55 0.15 32)', 'oklch(0.8 0.11 32)'], escuro: ['oklch(0.78 0.11 32)', 'oklch(0.8 0.11 32)'] }
+};
+const T = {
+  claro: {
+    '--bg': '#fbf7f3', '--sf': '#ffffff', '--sf2': '#f2ede8', '--line': '#e4dcd4', '--ink': '#1d1838', '--ink2': '#5b5572',
+    '--hero': '#201a45', '--on-hero': '#ffffff', '--on-hero2': '#cbc5e8', '--glow': '#ffb48c',
+    '--walk': 'oklch(0.52 0.09 200)', '--walk-hi': 'oklch(0.86 0.08 195)',
+    '--good': 'oklch(0.47 0.12 155)', '--good-soft': 'oklch(0.95 0.04 155)', '--good-hi': 'oklch(0.86 0.12 155)',
+    '--adult': 'oklch(0.42 0.06 280)', '--adult-soft': 'oklch(0.94 0.02 280)', '--warn': 'oklch(0.48 0.11 60)', '--warn-soft': 'oklch(0.95 0.05 80)',
+    '--up': 'oklch(0.5 0.12 50)', '--fab': '#1d1838', '--on-fab': '#ffffff', '--accent': '#201a45', '--on-accent': '#ffffff', '--scrim': 'rgba(20,14,50,.32)',
+    '--m-bg': '#ebe5ef', '--m-l1': '#e1d8e9', '--m-l2': '#d8cde3', '--m-water': '#cbd7f1', '--m-path': '#faf7fc', '--m-stroke': '#cfc3db',
+    '--m-text': '#6f6589', '--m-dot': '#a99dbd', '--m-pin': '#201a45', '--m-pin-ink': '#ffffff', '--m-pin-ring': '#ffffff', '--m-hero': '#ff9a6a',
+    '--m-hero-ink': '#201a45', '--m-route': 'oklch(0.52 0.09 200)', '--m-me': '#2563eb', '--m-label-bg': '#201a45', '--m-label-ink': '#ffffff'
+  },
+  escuro: {
+    '--bg': '#0f0c1f', '--sf': '#1a1630', '--sf2': '#241f3d', '--line': '#352f55', '--ink': '#f2eeff', '--ink2': '#b5aed3',
+    '--hero': '#28215a', '--on-hero': '#ffffff', '--on-hero2': '#cdc6ee', '--glow': '#ffb48c',
+    '--walk': 'oklch(0.82 0.08 195)', '--walk-hi': 'oklch(0.86 0.08 195)',
+    '--good': 'oklch(0.83 0.12 155)', '--good-soft': 'oklch(0.3 0.05 155)', '--good-hi': 'oklch(0.86 0.12 155)',
+    '--adult': 'oklch(0.86 0.04 280)', '--adult-soft': 'oklch(0.3 0.03 280)', '--warn': 'oklch(0.85 0.11 80)', '--warn-soft': 'oklch(0.32 0.05 70)',
+    '--up': 'oklch(0.82 0.1 55)', '--fab': '#ffb48c', '--on-fab': '#1d1838', '--accent': '#ffb48c', '--on-accent': '#1d1838', '--scrim': 'rgba(0,0,0,.45)',
+    '--m-bg': '#141029', '--m-l1': '#1e1939', '--m-l2': '#251f45', '--m-water': '#0f1a3d', '--m-path': '#2f2858', '--m-stroke': '#3a3366',
+    '--m-text': '#958cbf', '--m-dot': '#4a4278', '--m-pin': '#f2eeff', '--m-pin-ink': '#1d1838', '--m-pin-ring': '#141029', '--m-hero': '#ffb48c',
+    '--m-hero-ink': '#1d1838', '--m-route': 'oklch(0.82 0.08 195)', '--m-me': '#7fb0ff', '--m-label-bg': '#ffb48c', '--m-label-ink': '#1d1838'
+  },
+  // Algodão-doce: o pastel fica nos fundos; texto usa o tom escuro da mesma cor (contraste WCAG)
+  'rosa-claro': {"--bg": "#fff8fb", "--sf": "#ffffff", "--sf2": "#fcecf3", "--line": "#f1d6e2", "--ink": "#3a1f3d", "--ink2": "#74586f", "--hero": "#ffc8dd", "--on-hero": "#3a1f3d", "--on-hero2": "#6b4563", "--glow": "#ffe27a", "--glow-ink": "#a3245f", "--on-glow": "#3a1f3d", "--walk": "#2f6fae", "--walk-hi": "#2a64a0", "--queue": "#d94c86", "--queue-hi": "#c23a74", "--good": "#1e7a4c", "--good-soft": "#e2f5eb", "--good-hi": "#bdebd2", "--adult": "#5a4a86", "--adult-soft": "#efebf8", "--warn": "#855800", "--warn-soft": "#fff3cf", "--up": "#ad4519", "--fab": "#3a1f3d", "--on-fab": "#ffffff", "--accent": "#3a1f3d", "--on-accent": "#ffffff", "--scrim": "rgba(58,31,61,.32)", "--m-bg": "#f7eef6", "--m-l1": "#f1e1ee", "--m-l2": "#ead4e5", "--m-water": "#cde5fb", "--m-path": "#ffffff", "--m-stroke": "#e2cada", "--m-text": "#7a5b74", "--m-dot": "#c9adc2", "--m-pin": "#3a1f3d", "--m-pin-ink": "#ffffff", "--m-pin-ring": "#ffffff", "--m-hero": "#ffd84d", "--m-hero-ink": "#3a1f3d", "--m-route": "#2f6fae", "--m-me": "#1d4ed8", "--m-label-bg": "#3a1f3d", "--m-label-ink": "#ffffff"},
+  'rosa-escuro': {"--bg": "#1c1120", "--sf": "#28192d", "--sf2": "#332238", "--line": "#4a3150", "--ink": "#ffeef6", "--ink2": "#d6b9cb", "--hero": "#45223f", "--on-hero": "#ffffff", "--on-hero2": "#ecc9dc", "--glow": "#ffe27a", "--glow-ink": "#ffbad6", "--on-glow": "#2b1530", "--walk": "#a9d3ff", "--walk-hi": "#a9d3ff", "--queue": "#ff9ec4", "--queue-hi": "#ffb3d1", "--good": "#8fe3b6", "--good-soft": "#1c3a2b", "--good-hi": "#8fe3b6", "--adult": "#dccff6", "--adult-soft": "#32264a", "--warn": "#ffe08a", "--warn-soft": "#3a3014", "--up": "#ffb48c", "--fab": "#ffc8dd", "--on-fab": "#2b1530", "--accent": "#ffc8dd", "--on-accent": "#2b1530", "--scrim": "rgba(0,0,0,.45)", "--m-bg": "#21142a", "--m-l1": "#2c1c36", "--m-l2": "#352240", "--m-water": "#1b2a4f", "--m-path": "#47324f", "--m-stroke": "#4f3a58", "--m-text": "#b49bb4", "--m-dot": "#62506c", "--m-pin": "#ffeef6", "--m-pin-ink": "#2b1530", "--m-pin-ring": "#21142a", "--m-hero": "#ffe27a", "--m-hero-ink": "#2b1530", "--m-route": "#a9d3ff", "--m-me": "#7fb0ff", "--m-label-bg": "#ffc8dd", "--m-label-ink": "#2b1530"},
+  'ceu-claro': {"--bg": "#fffbec", "--sf": "#ffffff", "--sf2": "#fff3cc", "--line": "#efe1b0", "--ink": "#1d2a4a", "--ink2": "#56607d", "--hero": "#bfe0fd", "--on-hero": "#1d2a4a", "--on-hero2": "#3c5076", "--glow": "#ffc2d9", "--glow-ink": "#1d2a4a", "--on-glow": "#1d2a4a", "--walk": "#2f6fae", "--walk-hi": "#1d2a4a", "--queue": "#d94c86", "--queue-hi": "#c23a74", "--good": "#1e7a4c", "--good-soft": "#e2f5eb", "--good-hi": "#ffffff", "--adult": "#4d4a86", "--adult-soft": "#ecebf8", "--warn": "#805400", "--warn-soft": "#fff0c2", "--up": "#ad4519", "--fab": "#1d2a4a", "--on-fab": "#ffffff", "--accent": "#1d2a4a", "--on-accent": "#ffffff", "--scrim": "rgba(29,42,74,.32)", "--m-bg": "#fbf4dc", "--m-l1": "#f4eac6", "--m-l2": "#ece0b4", "--m-water": "#bfe0fd", "--m-path": "#ffffff", "--m-stroke": "#e0d29e", "--m-text": "#6d6440", "--m-dot": "#cdbf8a", "--m-pin": "#1d2a4a", "--m-pin-ink": "#ffffff", "--m-pin-ring": "#ffffff", "--m-hero": "#ff8fba", "--m-hero-ink": "#1d2a4a", "--m-route": "#2f6fae", "--m-me": "#1d4ed8", "--m-label-bg": "#1d2a4a", "--m-label-ink": "#ffffff"},
+  'ceu-escuro': {"--bg": "#0e1527", "--sf": "#172038", "--sf2": "#202b48", "--line": "#2e3b5d", "--ink": "#eef5ff", "--ink2": "#adbad5", "--hero": "#1f3357", "--on-hero": "#ffffff", "--on-hero2": "#c8d8f3", "--glow": "#ffc2d9", "--glow-ink": "#bfe0fd", "--on-glow": "#1d2a4a", "--walk": "#a9d3ff", "--walk-hi": "#a9d3ff", "--queue": "#ff9ec4", "--queue-hi": "#ffb3d1", "--good": "#8fe3b6", "--good-soft": "#173527", "--good-hi": "#8fe3b6", "--adult": "#d3d0f6", "--adult-soft": "#29284a", "--warn": "#ffe08a", "--warn-soft": "#352d12", "--up": "#ffb48c", "--fab": "#ffc2d9", "--on-fab": "#1d2a4a", "--accent": "#ffc2d9", "--on-accent": "#1d2a4a", "--scrim": "rgba(0,0,0,.45)", "--m-bg": "#121b31", "--m-l1": "#1a2540", "--m-l2": "#212e4c", "--m-water": "#24406e", "--m-path": "#2f3d60", "--m-stroke": "#384869", "--m-text": "#9fb0cf", "--m-dot": "#4a5a7d", "--m-pin": "#eef5ff", "--m-pin-ink": "#1d2a4a", "--m-pin-ring": "#121b31", "--m-hero": "#ffc2d9", "--m-hero-ink": "#1d2a4a", "--m-route": "#a9d3ff", "--m-me": "#7fb0ff", "--m-label-bg": "#ffc2d9", "--m-label-ink": "#1d2a4a"},
+  'noite-claro': {"--bg": "#fbf7fc", "--sf": "#ffffff", "--sf2": "#f2ecf6", "--line": "#e4d9ea", "--ink": "#2a1e4a", "--ink2": "#625780", "--hero": "#2b2250", "--on-hero": "#ffffff", "--on-hero2": "#d8cff0", "--glow": "#ffe27a", "--glow-ink": "#ffb8d4", "--on-glow": "#2b2250", "--walk": "#2f6fae", "--walk-hi": "#a9d3ff", "--queue": "#d94c86", "--queue-hi": "#ffb3d1", "--good": "#1e7a4c", "--good-soft": "#e2f5eb", "--good-hi": "#a6ecc6", "--adult": "#54498a", "--adult-soft": "#eeebf8", "--warn": "#805400", "--warn-soft": "#fff2c9", "--up": "#ad4519", "--fab": "#2b2250", "--on-fab": "#ffffff", "--accent": "#2b2250", "--on-accent": "#ffffff", "--scrim": "rgba(43,34,80,.32)", "--m-bg": "#f1ecf6", "--m-l1": "#e8e0f0", "--m-l2": "#dfd4ea", "--m-water": "#cfe4fb", "--m-path": "#ffffff", "--m-stroke": "#d4c8e0", "--m-text": "#6c6189", "--m-dot": "#b3a8c6", "--m-pin": "#2b2250", "--m-pin-ink": "#ffffff", "--m-pin-ring": "#ffffff", "--m-hero": "#ffd84d", "--m-hero-ink": "#2b2250", "--m-route": "#2f6fae", "--m-me": "#1d4ed8", "--m-label-bg": "#2b2250", "--m-label-ink": "#ffffff"},
+  'noite-escuro': {"--bg": "#110d21", "--sf": "#1b1632", "--sf2": "#251f42", "--line": "#38315e", "--ink": "#f5f0ff", "--ink2": "#b8afd6", "--hero": "#2d2560", "--on-hero": "#ffffff", "--on-hero2": "#d6cdf3", "--glow": "#ffe27a", "--glow-ink": "#ffb8d4", "--on-glow": "#221a46", "--walk": "#a9d3ff", "--walk-hi": "#a9d3ff", "--queue": "#ffa8ca", "--queue-hi": "#ffb3d1", "--good": "#8fe3b6", "--good-soft": "#1a3528", "--good-hi": "#8fe3b6", "--adult": "#d6cff6", "--adult-soft": "#2c2650", "--warn": "#ffe08a", "--warn-soft": "#342c14", "--up": "#ffb48c", "--fab": "#ffe27a", "--on-fab": "#221a46", "--accent": "#ffe27a", "--on-accent": "#221a46", "--scrim": "rgba(0,0,0,.45)", "--m-bg": "#151029", "--m-l1": "#1f1939", "--m-l2": "#262045", "--m-water": "#1c2b57", "--m-path": "#322a5a", "--m-stroke": "#3c3468", "--m-text": "#a39ac8", "--m-dot": "#4c447a", "--m-pin": "#f5f0ff", "--m-pin-ink": "#221a46", "--m-pin-ring": "#151029", "--m-hero": "#ffe27a", "--m-hero-ink": "#221a46", "--m-route": "#a9d3ff", "--m-me": "#7fb0ff", "--m-label-bg": "#ffb8d4", "--m-label-ink": "#221a46"}
+};
+function walk(p, a) { return Math.round(1 + Math.hypot(p[0] - a.x, p[1] - a.y) / 30); }
+function hhmm(m) { m = Math.round(m); return Math.floor(m / 60) % 24 + ':' + String(m % 60).padStart(2, '0'); }
+const EASE = 'cubic-bezier(.2,.8,.2,1)';
+
+class Component extends DCLogic {
+  rootRef = React.createRef();
+  state = this.initial(this.props.start ?? 'principal');
+
+  initial(start) {
+    const base = {
+      kids: true, childH: 95, pref: 'tudo', profileSet: true, targets: TARGETS0.slice(), done: {}, pos: ME0, manual: false, mode: 'main',
+      heroPhase: 'idle', listOpen: false, listShown: false, profileOpen: false, profileShown: false, profMode: 'edit',
+      dKids: true, dH: 95, dInt: 'tudo', ask: false, maxQ: 60, maxW: 15, showDone: false, showPref: false, toast: null,
+      stale: this.props.dados === 'velhos'
+    };
+    if (start === 'primeira') return { ...base, kids: null, profileSet: false, targets: [], pos: null, mode: 'first', profileOpen: true, profileShown: true, profMode: 'first', dKids: null };
+    if (start === 'gps') return { ...base, pos: null, mode: 'gps' };
+    if (start === 'vazia') return { ...base, listOpen: true, listShown: true, maxQ: 5, maxW: 5 };
+    return base;
+  }
+  componentDidMount() {
+    this.onPick = (e) => {
+      const r = this.rootRef.current;
+      if (!r || !r.contains(e.target)) return;
+      const s = this.state;
+      if (s.mode === 'gps' || s.manual) this.setState({ pos: [e.detail.x, e.detail.y], mode: 'main', manual: true });
+    };
+    document.addEventListener('nu-pick', this.onPick);
+  }
+  componentWillUnmount() { document.removeEventListener('nu-pick', this.onPick); clearTimeout(this.tToast); }
+  componentDidUpdate(pp) {
+    if (pp.start !== this.props.start) this.setState(this.initial(this.props.start ?? 'principal'));
+    if (pp.dados !== this.props.dados) this.setState({ stale: this.props.dados === 'velhos' });
+  }
+
+  prefHidden(a, s) { const h = PREF[s.pref].hide; return !!h && a.int === h; }
+  eligible(a, s) {
+    if (s.done[a.k] || a.q == null) return false;
+    if (s.kids && a.h && a.h > s.childH) return false;
+    return !this.prefHidden(a, s);
+  }
+  pickHero(s) {
+    if (!s.pos) return null;
+    let best = null;
+    A.forEach(a => {
+      if (!this.eligible(a, s)) return;
+      const w = walk(s.pos, a), t = w + a.q;
+      if (!best || t < best.t || (t === best.t && a.opp)) best = { a, w, t };
+    });
+    return best;
+  }
+  route(s) {
+    let cur = s.pos || ME0, t = NOW, prev = null;
+    const left = s.targets.filter(k => !s.done[k]).map(k => BY[k]), out = [];
+    while (left.length) {
+      let bi = 0, bw = 1e9;
+      left.forEach((a, i) => { const w = walk(cur, a); if (w < bw) { bw = w; bi = i; } });
+      const a = left.splice(bi, 1)[0], q = a.q ?? 10, eta = t + bw;
+      out.push({ a, w: bw, q, eta, prev });
+      t = eta + q + RIDE; cur = [a.x, a.y]; prev = a;
+    }
+    return { stops: out, end: t };
+  }
+  openSheet(key, extra) {
+    clearTimeout(this['t' + key]);
+    this.setState({ [key + 'Open']: true, [key + 'Shown']: false, ...(extra || {}) }, () =>
+      requestAnimationFrame(() => requestAnimationFrame(() => this.setState({ [key + 'Shown']: true }))));
+  }
+  closeSheet(key, after) {
+    this.setState({ [key + 'Shown']: false });
+    clearTimeout(this['t' + key]);
+    this['t' + key] = setTimeout(() => { this.setState({ [key + 'Open']: false }); if (after) after(); }, 320);
+  }
+  say(msg, undo) {
+    clearTimeout(this.tToast);
+    this.setState({ toast: { msg, ...(undo || {}) } });
+    this.tToast = setTimeout(() => this.setState({ toast: null }), 5000);
+  }
+  markDone(k, fromHero) {
+    const a = BY[k], prevPos = this.state.pos;
+    const apply = () => {
+      this.setState(s => ({ done: { ...s.done, [k]: true }, pos: [a.x, a.y], heroPhase: fromHero ? 'pre' : 'idle' }), () => {
+        if (fromHero) requestAnimationFrame(() => requestAnimationFrame(() => this.setState({ heroPhase: 'idle' })));
+      });
+      this.say(a.s + ': feita hoje.', { undo: true, k, prevPos });
+    };
+    if (fromHero) { this.setState({ heroPhase: 'out' }); setTimeout(apply, 230); } else apply();
+  }
+  sheetStyle(shown, top) {
+    return { position: 'absolute', left: 0, right: 0, bottom: 0, top: top == null ? 'auto' : top, zIndex: 20, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      background: top == null ? 'var(--sf)' : 'var(--bg)', borderRadius: '30px 30px 0 0', boxShadow: '0 -12px 40px rgba(10,8,30,.25)',
+      transform: shown ? 'translateY(0)' : 'translateY(104%)', transition: 'transform .36s ' + EASE };
+  }
+  scrimStyle(shown, light) {
+    return { position: 'absolute', inset: 0, zIndex: 19, background: 'var(--scrim)', opacity: shown ? (light ? 0.45 : 1) : 0, transition: 'opacity .3s ease' };
+  }
+  seg(on) {
+    return { minHeight: 48, padding: '0 6px', borderRadius: 14, border: 0, cursor: 'pointer', font: "700 14.5px 'Bricolage Grotesque',system-ui,sans-serif", lineHeight: 1.15,
+      background: on ? 'var(--accent)' : 'transparent', color: on ? 'var(--on-accent)' : 'var(--ink)', boxShadow: on ? '0 4px 12px rgba(20,12,50,.18)' : 'none', transition: 'background .2s ease, color .2s ease' };
+  }
+
+  renderVals() {
+    const s = this.state, theme = T[this.props.theme] ? this.props.theme : 'claro';
+    const qc = (QC[this.props.fila] || QC.Lavanda)[theme];
+    const themeVars = { ...T[theme], ...(qc ? { '--queue': qc[0], '--queue-hi': qc[1] } : {}), width: 390, height: 844 };
+    const pos = s.pos || ME0, pref = PREF[s.pref];
+    const isMain = s.mode === 'main', isGps = s.mode === 'gps';
+    const hp = isMain ? this.pickHero(s) : null;
+    const r = this.route(s);
+    const nOpen = A.filter(a => a.q != null || true).length;
+
+    let hero = null;
+    if (hp) {
+      const a = hp.a;
+      const reason = a.opp ? 'Uma das principais do parque, e hoje bem abaixo da média dela.'
+        : a.tr === 'down' ? 'A fila ' + a.trT.replace('Caiu', 'caiu') + '.'
+        : hp.w <= 3 ? 'Fica a ' + hp.w + ' min de você, e a fila está curta.'
+        : 'O menor tempo total para o grupo agora.';
+      const fw = Math.max(hp.w, 4), fq = Math.max(a.q, 4);
+      hero = {
+        n: a.n, total: hp.t, w: hp.w, q: a.q, at: hhmm(NOW + hp.t), reason, opp: !!a.opp, intL: INT[a.int],
+        b2: { opacity: a.int >= 2 ? 1 : 0.3 }, b3: { opacity: a.int >= 3 ? 1 : 0.3 },
+        down: a.tr === 'down', up: a.tr === 'up', trT: (a.trT || '').replace(' em 30 min', ''), group: !!s.kids,
+        nameStyle: { margin: 0, fontSize: a.n.length > 26 ? 22 : a.n.length > 16 ? 26 : 30, fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.05, textWrap: 'balance', minWidth: 0 },
+        walkSeg: { flex: fw, height: 6, background: 'radial-gradient(circle at 3px 3px, var(--walk-hi) 2.6px, transparent 3.1px) 0 0/10px 6px repeat-x' },
+        queueSeg: { flex: fq, height: 16, borderRadius: 8, background: 'var(--queue-hi)' },
+        walkL: { flex: fw }, queueL: { flex: fq }
+      };
+    }
+    const heroAnim = s.heroPhase === 'out' ? { opacity: 0, transform: 'translateX(-28px)', transition: 'opacity .22s ease, transform .22s ' + EASE }
+      : s.heroPhase === 'pre' ? { opacity: 0, transform: 'translateX(28px)', transition: 'none' }
+      : { opacity: 1, transform: 'none', transition: 'opacity .3s ease, transform .36s ' + EASE };
+    const allDone = isMain && !hp;
+    const emptyHero = { title: 'Vocês já passaram por todas', text: 'Todas as atrações que cabem no seu perfil estão marcadas como feitas hoje. Dá para rever na lista completa.' };
+
+    const prefHiddenN = pref.hide ? A.filter(a => !s.done[a.k] && a.int === pref.hide).length : 0;
+
+    const kidsAdults = r.stops.filter(x => s.kids && x.a.h && x.a.h > s.childH).length;
+    const stops = r.stops.map((x, i) => {
+      const a = x.a, wH = Math.max(14, x.w * 4), qH = Math.max(10, Math.round(x.q * 2.2));
+      const adults = !!(s.kids && a.h && a.h > s.childH);
+      return {
+        num: i + 1, n: a.n, eta: hhmm(x.eta), total: x.w + x.q, meta: x.w + ' a pé + ' + (a.q == null ? 'fila não medida' : x.q + ' de fila'),
+        adults, hLabel: 'A partir de ' + a.h + ' cm · só os adultos', group: !!s.kids && !adults, opp: !!a.opp,
+        hint: i === 0 ? (s.pos ? 'A mais perto de você entre os alvos.' : 'Primeira da ordem.') : (PAIRS[x.prev.k + '>' + a.k] || x.w + ' min a pé desde ' + x.prev.s + '.'),
+        etaStyle: { paddingTop: wH + 6, fontSize: 15, fontWeight: 700, fontVariantNumeric: 'tabular-nums' },
+        walkStyle: { position: 'relative', flex: 'none', width: 6, height: wH, background: 'radial-gradient(circle at 3px 3px, var(--walk) 2.4px, transparent 2.9px) 0 0/6px 8px repeat-y' },
+        queueStyle: { position: 'relative', flex: 'none', width: 12, height: qH, borderRadius: 6, background: 'var(--queue)' },
+        bodyStyle: { display: 'flex', flexDirection: 'column', gap: 5, paddingTop: wH + 4, minWidth: 0 },
+        doneBtn: { marginTop: wH, width: 44, height: 44, borderRadius: 14, border: '1.5px solid var(--line)', background: 'var(--sf)', color: 'var(--ink2)', display: 'grid', placeItems: 'center', cursor: 'pointer' },
+        onDone: () => this.markDone(a.k, false)
+      };
+    });
+    const nT = r.stops.length;
+    const riderNote = kidsAdults ? (kidsAdults === nT ? 'Todas são só para os adultos.' : kidsAdults + ' das ' + nT + ' são só para os adultos.') + ' Peça o Rider Switch na entrada: um adulto vai, o outro fica com a criança, depois trocam.' : '';
+
+    const pins = r.stops.map((x, i) => ({ x: x.a.x, y: x.a.y, n: i + 1, label: x.a.s }));
+    const used = {}; r.stops.forEach(x => { used[x.a.k] = 1; }); if (hp) used[hp.a.k] = 1;
+    const first = s.mode === 'first';
+    const mapData = JSON.stringify({
+      pins: first ? [] : pins,
+      hero: hp ? { x: hp.a.x, y: hp.a.y, tag: 'Agora · ' + hp.t + ' min' } : null,
+      me: first || !s.pos ? null : s.pos,
+      dots: A.filter(a => first || !used[a.k]).map(a => [a.x, a.y]),
+      route: first ? [] : (s.pos ? [s.pos] : []).concat(pins.map(p => [p.x, p.y])),
+      pick: isGps || s.manual
+    });
+
+    const qOn = s.maxQ < 60, wOn = s.maxW < 15;
+    const passes = (a) => !(qOn && (a.q == null || a.q > s.maxQ)) && !(wOn && walk(pos, a) > s.maxW);
+    const shown = A.filter(a => (!s.done[a.k] || s.showDone) && (!this.prefHidden(a, s) || s.showPref) && passes(a))
+      .map(a => ({ a, w: walk(pos, a) }))
+      .sort((x, y) => (x.a.q == null) - (y.a.q == null) || (x.w + (x.a.q || 0)) - (y.w + (y.a.q || 0)));
+    const btn = (on, onBg, onColor) => ({ width: 44, height: 44, borderRadius: 14, display: 'grid', placeItems: 'center', cursor: 'pointer',
+      border: on ? '0' : '1.5px solid var(--line)', background: on ? onBg : 'var(--sf)', color: on ? onColor : 'var(--ink2)', transition: 'background .2s ease, color .2s ease' });
+    const items = shown.map(({ a, w }) => {
+      const isT = s.targets.includes(a.k), isD = !!s.done[a.k];
+      const adults = !!(s.kids && a.h && a.h > s.childH);
+      return {
+        n: a.n, total: a.q == null ? '?' : w + a.q, meta: w + ' a pé + ' + (a.q == null ? 'fila não medida' : a.q + ' de fila') + (isD ? ' · já fui hoje' : ''),
+        totalStyle: { fontSize: 24, fontWeight: 700, lineHeight: 1, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', color: a.q == null ? 'var(--ink2)' : 'var(--ink)' },
+        wSeg: { flex: 'none', width: w * 3, height: 4, background: 'radial-gradient(circle at 2px 2px, var(--walk) 1.8px, transparent 2.2px) 0 0/6px 4px repeat-x' },
+        qSeg: a.q == null ? { flex: 'none', width: 28, height: 8, borderRadius: 4, border: '1.5px dashed var(--ink2)', boxSizing: 'border-box' } : { flex: 'none', width: Math.min(a.q * 3, 150), height: 8, borderRadius: 4, background: 'var(--queue)' },
+        opp: !!a.opp, intL: INT[a.int], b2: { opacity: a.int >= 2 ? 1 : 0.3 }, b3: { opacity: a.int >= 3 ? 1 : 0.3 },
+        down: a.tr === 'down', up: a.tr === 'up', trT: a.trT || '', hasH: !!a.h, noHist: a.pop == null,
+        hLabel: adults ? 'A partir de ' + a.h + ' cm · só os adultos' : 'A partir de ' + a.h + ' cm',
+        hStyle: { display: 'inline-flex', alignItems: 'center', gap: 5, minHeight: 26, padding: '3px 9px', borderRadius: 13, fontSize: 12.5, fontWeight: 700, lineHeight: 1.2,
+          background: adults ? 'var(--adult-soft)' : 'var(--sf2)', color: adults ? 'var(--adult)' : 'var(--ink)' },
+        rowStyle: { display: 'grid', gridTemplateColumns: '52px minmax(0,1fr) 44px', gap: 12, alignItems: 'start', padding: 12, borderRadius: 22, background: 'var(--sf)',
+          border: '1.5px solid ' + (isT ? 'var(--accent)' : 'var(--line)'), opacity: isD ? 0.6 : 1, transition: 'opacity .25s ease, border-color .25s ease' },
+        isTarget: isT, isDone: isD,
+        targetStyle: btn(isT, 'var(--accent)', 'var(--on-accent)'), doneStyle: btn(isD, 'var(--good-soft)', 'var(--good)'),
+        onTarget: () => { this.setState(st => ({ targets: isT ? st.targets.filter(k => k !== a.k) : st.targets.concat(a.k) })); this.say(isT ? a.s + ' saiu dos alvos.' : a.s + ' virou alvo. O roteiro se refez.'); },
+        onDone: () => { if (isD) this.setState(st => { const d = { ...st.done }; delete d[a.k]; return { done: d }; }); else this.markDone(a.k, false); }
+      };
+    });
+    const doneN = A.filter(a => s.done[a.k]).length;
+    const notices = [];
+    if (prefHiddenN) notices.push({ text: prefHiddenN + ' ' + pref.what + ' escondidas por “' + pref.l + '”.', action: s.showPref ? 'Esconder' : 'Mostrar', onClick: () => this.setState(st => ({ showPref: !st.showPref })) });
+    if (doneN) notices.push({ text: doneN + (doneN === 1 ? ' já feita hoje.' : ' já feitas hoje.'), action: s.showDone ? 'Esconder' : 'Mostrar', onClick: () => this.setState(st => ({ showDone: !st.showDone })) });
+    const listEmpty = items.length === 0;
+    let emptyList = { title: '', text: '', action: '', onClick: () => {} };
+    if (listEmpty) {
+      const cands = A.filter(a => !s.done[a.k] && !this.prefHidden(a, s) && a.q != null);
+      if (!cands.length) emptyList = { title: 'Vocês já passaram por todas', text: 'Tudo o que cabe no seu perfil já está marcado como feito hoje.', action: 'Mostrar as feitas', onClick: () => this.setState({ showDone: true }) };
+      else {
+        const c = cands.map(a => ({ a, w: walk(pos, a) })).sort((x, y) => (x.w + x.a.q) - (y.w + y.a.q))[0];
+        emptyList = { title: 'Nenhuma atração cabe nesses filtros', text: 'Até ' + s.maxQ + ' min de fila e ' + s.maxW + ' min a pé é apertado demais agora. A mais perto disso: ' + c.a.n + ', ' + c.w + ' a pé + ' + c.a.q + ' de fila.', action: 'Afrouxar filtros', onClick: () => this.setState({ maxQ: 60, maxW: 15 }) };
+      }
+    }
+
+    const dEx = A.filter(a => a.h && a.h > s.dH).sort((x, y) => y.h - x.h).map(a => a.s);
+    const kidsHint = dEx.length ? 'Com ' + s.dH + ' cm, fica de fora: ' + dEx.join(', ') + '. Os adultos ainda podem ir, revezando.' : 'Com ' + s.dH + ' cm, a criança pode ir em todas.';
+    const profileShort = !s.profileSet && !s.kids ? 'Sem restrições' : (s.kids ? s.childH + ' cm' : 'Sem crianças') + ' · ' + pref.s;
+    const isFirst = s.profMode === 'first';
+
+    return {
+      eyebrow: 'Seu próximo passo',
+      themeVars, rootRef: this.rootRef, mapData, isGps, hasHero: !!hero, hero: hero || {}, heroAnim, heroEmpty: allDone, emptyHero,
+      stale: s.stale,
+      freshLabel: s.stale ? 'Filas de 12 min atrás' : 'Filas de 2 min atrás',
+      freshStyle: { pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 7, height: 44, padding: '0 16px', border: 0, borderRadius: 22, cursor: 'pointer',
+        background: s.stale ? 'var(--warn-soft)' : 'var(--sf)', color: s.stale ? 'var(--warn)' : 'var(--ink2)', font: "600 14px 'Bricolage Grotesque',system-ui,sans-serif", boxShadow: '0 6px 18px rgba(20,12,50,.16)' },
+      freshDot: { display: 'block', width: 8, height: 8, borderRadius: '50%', background: s.stale ? 'var(--warn)' : 'var(--good)' },
+      refresh: () => { if (s.stale) { this.setState({ stale: false }); this.say('Filas atualizadas agora.'); } },
+      showListPill: !s.listOpen && s.mode !== 'first', openCount: A.length,
+      profileShort, editProfile: () => this.openSheet('profile', { profMode: 'edit', dKids: s.kids === true ? true : (s.profileSet ? false : null), dH: s.childH, dInt: s.pref }),
+      places: PLACES.map(p => ({ label: p[0], onPick: () => { this.setState({ pos: [p[1], p[2]], mode: 'main', manual: true }); this.say('Posição marcada. Toque no mapa para ajustar.'); } })),
+      retryGps: () => this.setState({ ask: true }),
+      heroDone: () => { if (hp) this.markDone(hp.a.k, true); },
+      prefHiddenN: !!prefHiddenN && isMain, prefHiddenText: prefHiddenN + ' ' + (pref.what || '') + ' escondidas por “' + pref.l + '”.',
+      undoPref: () => { this.setState({ pref: 'tudo' }); this.say('Mostrando todas as intensidades.'); },
+      hasRoute: nT > 0, noRoute: nT === 0, stops, riderNote,
+      routeMeta: nT ? nT + (nT === 1 ? ' alvo' : ' alvos') + ' · ' + (r.end - NOW) + ' min · até ' + hhmm(r.end) : 'sem alvos',
+      routeEnd: hhmm(r.end),
+      listOpen: s.listOpen, listSheet: this.sheetStyle(s.listShown, 56), listScrim: this.scrimStyle(s.listShown),
+      openList: () => this.openSheet('list'), closeList: () => this.closeSheet('list'),
+      maxQ: s.maxQ, maxW: s.maxW, maxQLabel: qOn ? 'até ' + s.maxQ + ' min' : 'Sem limite', maxWLabel: wOn ? 'até ' + s.maxW + ' min' : 'Sem limite',
+      onMaxQ: (e) => this.setState({ maxQ: Number(e.target.value) }), onMaxW: (e) => this.setState({ maxW: Number(e.target.value) }),
+      prefLabel: pref.l, notices, items, listEmpty, emptyList,
+      profileOpen: s.profileOpen, profSheet: this.sheetStyle(s.profileShown, null), profScrim: this.scrimStyle(s.profileShown, isFirst),
+      profTitle: isFirst ? 'Antes do primeiro passo' : 'Seu grupo', profSkipLabel: isFirst ? 'Pular' : 'Fechar', isFirst,
+      profCta: isFirst ? 'Ver meu próximo passo' : 'Salvar',
+      dKids: s.dKids === true, dH: s.dH, kidsHint,
+      segNoKids: this.seg(s.dKids === false), segKids: this.seg(s.dKids === true),
+      setNoKids: () => this.setState({ dKids: false }), setKids: () => this.setState({ dKids: true }),
+      hDown: () => this.setState(st => ({ dH: Math.max(60, st.dH - 1) })), hUp: () => this.setState(st => ({ dH: Math.min(160, st.dH + 1) })),
+      segInt1: this.seg(s.dInt === 'tranquilas'), segInt2: this.seg(s.dInt === 'tudo'), segInt3: this.seg(s.dInt === 'emocao'),
+      setInt1: () => this.setState({ dInt: 'tranquilas' }), setInt2: () => this.setState({ dInt: 'tudo' }), setInt3: () => this.setState({ dInt: 'emocao' }),
+      saveProfile: () => {
+        this.setState({ kids: s.dKids === true, childH: s.dH, pref: s.dInt, profileSet: s.dKids !== null || s.dInt !== 'tudo' });
+        this.closeSheet('profile', isFirst ? () => this.setState({ ask: true }) : null);
+      },
+      skipProfile: () => {
+        if (isFirst) { this.setState({ kids: false, pref: 'tudo', profileSet: false }); this.closeSheet('profile', () => this.setState({ ask: true })); }
+        else this.closeSheet('profile');
+      },
+      ask: s.ask,
+      allowLoc: () => this.setState({ ask: false, pos: ME0, mode: 'main', manual: false }),
+      denyLoc: () => this.setState({ ask: false, pos: null, mode: 'gps' }),
+      hasToast: !!s.toast, toastMsg: s.toast ? s.toast.msg : '', toastUndo: !!(s.toast && s.toast.undo),
+      undo: () => {
+        const t = s.toast; if (!t || !t.k) return;
+        clearTimeout(this.tToast);
+        this.setState(st => { const d = { ...st.done }; delete d[t.k]; return { done: d, pos: t.prevPos, toast: null }; });
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

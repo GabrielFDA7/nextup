@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas"><style>body{margin:0;background:#f4f0f2;font-family:system-ui,sans-serif}.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08)}.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 14px}.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px}.dv-tname{font:600 13px/1.2 system-ui,sans-serif;color:#1a1a1a}.dv-opts{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px}.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px}.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 12px/1.3 system-ui,sans-serif;color:rgba(0,0,0,.6)}.dv-card{max-width:100%;border:1px solid rgba(0,0,0,.08);border-radius:8px;overflow:hidden;display:flex;gap:40px;padding:34px}.dv-phone{width:390px;height:844px;border-radius:46px;overflow:hidden;box-shadow:0 0 0 10px #15110f,0 24px 60px rgba(0,0,0,.28)}.dv-sw{display:flex;gap:6px;align-items:center}.dv-sw span{display:block;width:18px;height:18px;border-radius:50%;border:1px solid rgba(0,0,0,.12)}</style></helmet>
+<section class="dv-turn" id="t3">
+<div class="dv-thd"><span class="dv-tid">3</span><span class="dv-tname">Algodão-doce · três paletas pastel sobre o protótipo 2 (mesmo layout, só cor)</span></div>
+<div style="max-width:900px;margin:0 0 26px;display:flex;flex-direction:column;gap:6px;font:13px/1.55 system-ui,sans-serif;color:#3a3530">
+<p style="margin:0"><b>A regra das três:</b> azul é sempre <b>caminhada</b> (pontilhado, no mapa e no cartão), rosa é sempre <b>fila</b> (a cápsula) e amarelo é o <b>destaque</b> (a estrela no mapa, o botão “Já fui”). A cor passa a ter significado, como já tinham o pontilhado e a cápsula. A 3a e a 3c seguem a regra inteira; a 3b abre mão dela para equilibrar as três cores.</p>
+<p style="margin:0"><b>O limite do pastel:</b> rosa-claro sobre branco dá contraste 1,44:1, e o mínimo para texto é 4,5:1. Por isso o pastel fica nos fundos e preenchimentos, e todo texto usa o tom escuro da mesma família. Os 24 pares de cada tema foram medidos pela fórmula da WCAG, e os 6 temas passam.</p>
+</div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="3a">
+<div class="dv-olabel"><span class="dv-oid">3a</span><span class="dv-sw"><span style="background:#ffc8dd"></span><span style="background:#ffe27a"></span><span style="background:#bfe0fd"></span></span><span><b style="color:#1a1a1a">Algodão rosa</b> · o cartão é o próprio algodão-doce. Número em framboesa, botão amarelo, fundo quase branco.</span></div>
+<div class="dv-card" style="background:#f6e3ec">
+<div class="dv-phone"><dc-import name="NextUp" theme="rosa-claro" start="principal" hint-size="390px,844px"></dc-import></div>
+<div class="dv-phone"><dc-import name="NextUp" theme="rosa-escuro" start="principal" hint-size="390px,844px"></dc-import></div>
+<div class="dv-phone"><dc-import name="NextUp" theme="rosa-claro" start="primeira" hint-size="390px,844px"></dc-import></div>
+</div>
+</div>
+
+<div class="dv-opt" id="3b">
+<div class="dv-olabel"><span class="dv-oid">3b</span><span class="dv-sw"><span style="background:#bfe0fd"></span><span style="background:#ffc2d9"></span><span style="background:#fff3cc"></span></span><span><b style="color:#1a1a1a">Céu de algodão</b> · cartão azul-céu, botões rosa, página creme. As três cores dividem a tela em partes iguais, mas com um custo: o rosa aparece no botão e na fila, então a regra “rosa é fila” fica mais fraca aqui.</span></div>
+<div class="dv-card" style="background:#f3ecd2">
+<div class="dv-phone"><dc-import name="NextUp" theme="ceu-claro" start="principal" hint-size="390px,844px"></dc-import></div>
+<div class="dv-phone"><dc-import name="NextUp" theme="ceu-escuro" start="principal" hint-size="390px,844px"></dc-import></div>
+<div class="dv-phone"><dc-import name="NextUp" theme="ceu-claro" start="primeira" hint-size="390px,844px"></dc-import></div>
+</div>
+</div>
+
+<div class="dv-opt" id="3c">
+<div class="dv-olabel"><span class="dv-oid">3c</span><span class="dv-sw"><span style="background:#2b2250"></span><span style="background:#ffb8d4"></span><span style="background:#a9d3ff"></span><span style="background:#ffe27a"></span></span><span><b style="color:#1a1a1a">Algodão à noite</b> · a estrutura da 2, com os pastéis acesos sobre o cartão escuro, como as luzes do parque à noite.</span></div>
+<div class="dv-card" style="background:#e7e1ee">
+<div class="dv-phone"><dc-import name="NextUp" theme="noite-claro" start="principal" hint-size="390px,844px"></dc-import></div>
+<div class="dv-phone"><dc-import name="NextUp" theme="noite-escuro" start="principal" hint-size="390px,844px"></dc-import></div>
+<div class="dv-phone"><dc-import name="NextUp" theme="noite-claro" start="primeira" hint-size="390px,844px"></dc-import></div>
+</div>
+</div>
+
+</div>
+</section>
+</x-dc>
+</body>
+</html>
