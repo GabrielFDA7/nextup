@@ -2338,6 +2338,33 @@ class TestMapaLegivel:
             for b in pinos:
                 assert not _caixas_batem(a, b), "o nome de uma área cobre um número"
 
+    def test_o_enquadramento_sobrevive_a_uma_animacao_em_curso(self, navegador, servidor):
+        """Bug real: no meio de uma animação de zoom, o Leaflet descarta um novo
+        enquadramento sem erro. Na abertura o mapa anima até o parque inteiro, e um
+        GPS rápido caía nessa janela — o mapa ficava longe da resposta.
+
+        Aqui a janela é provocada de propósito: uma animação começa e o
+        enquadramento é pedido no mesmo instante.
+        """
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+        _mapa_parado(pagina)
+        perto = pagina.evaluate("mapa.getZoom()")
+
+        # A animação do Leaflet começa no quadro seguinte; dois quadros depois ela
+        # está em curso, como a da abertura quando a resposta chega.
+        pagina.evaluate(
+            """async () => {
+                enquadramentoFeito = null;
+                mapa.setView(mapa.getCenter(), 14);
+                await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+                enquadrarResposta(estado.ultimoRanking.recommendations);
+            }"""
+        )
+        _mapa_parado(pagina)
+
+        assert pagina.evaluate("mapa.getZoom()") == perto, "o enquadramento foi descartado"
+
     def test_no_tema_claro_as_trilhas_tem_contorno(self, navegador, servidor):
         """Caminho branco sobre chão claro sumia (Gabriel, 28/10/2026). No escuro o
         caminho já é o que tem mais luz, e o contorno não existe."""

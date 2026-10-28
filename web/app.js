@@ -509,11 +509,19 @@ function enquadrarResposta(recomendacoes) {
       .map((r) => [r.attraction.latitude, r.attraction.longitude]),
   ];
   // Folga maior no topo, onde a marca flutua sobre o mapa.
-  mapa.fitBounds(pontos, {
-    paddingTopLeft: [36, 76],
-    paddingBottomRight: [36, 44],
-    maxZoom: 18,
-  });
+  const enquadrar = () =>
+    mapa.fitBounds(pontos, {
+      paddingTopLeft: [36, 76],
+      paddingBottomRight: [36, 44],
+      maxZoom: 18,
+    });
+
+  // Pedido no meio de uma animação de zoom, o enquadramento é DESCARTADO em
+  // silêncio pelo Leaflet (`_tryAnimatedZoom` responde "já movi" sem mover). Na
+  // abertura o mapa anima até o parque inteiro, e um GPS rápido caía bem nessa
+  // janela: o mapa ficava longe, sem erro nenhum. Esperar o fim da animação resolve.
+  if (mapaEmMovimento) mapa.once("moveend", enquadrar);
+  else enquadrar();
 }
 
 /* Enquadra o parque inteiro, em vez de centralizar num ponto.
