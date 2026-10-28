@@ -1320,6 +1320,10 @@ class TestGpsNegado:
         pagina = abrir(navegador, servidor, com_gps=False)
         pagina.click("#btn-localizar")
 
+        # O aviso acima do mapa troca de "Procurando…" para a recusa, e a altura
+        # muda: medir o mapa no meio da troca clicava onde ele *estava*. Falhou
+        # uma vez em 28/10/2026, numa suíte que passa inteira na seguinte.
+        expect(pagina.locator("#aviso")).to_contain_text("negou")
         caixa = pagina.locator("#mapa").bounding_box()
         pagina.mouse.click(caixa["x"] + caixa["width"] / 2, caixa["y"] + caixa["height"] / 2)
         pagina.wait_for_selector("[data-modo='ranking'] .item")
