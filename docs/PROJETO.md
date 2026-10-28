@@ -16,8 +16,9 @@
 > caminhada (7.3) e popularidade (7.4). A última fecha o ciclo da Fase 6 — é a primeira
 > feature construída **sobre o histórico que nós mesmos coletamos**, e não sobre a API.
 >
-> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **509
-> testes**: 413 na suíte rápida e 96 de interface em navegador.
+> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **781
+> testes**: 685 na suíte rápida (272 do roteiro, a maioria instâncias aleatórias
+> conferidas contra força bruta) e 96 de interface em navegador.
 >
 > **Fase 8 — Roteiro do dia: em investigação (27/10/2026).** A auditoria da coleta (8.0)
 > descobriu o coletor parado ~90% do tempo por um mês — o cron do GitHub rodava a cada
@@ -25,7 +26,9 @@
 > forecast da fonte, agendada para 27/09, foi feita: ele **não** entra no ranking (erra
 > 9,52 min contra 2,03 da fila atual no horizonte de uma caminhada), mas em horizontes de
 > horas empata com o nosso perfil horário e ambos batem a persistência — a matéria-prima do
-> roteiro.
+> roteiro. A **matriz de caminhada (8.1)** está pronta, com o fator 1,3 medido contra o
+> OpenStreetMap. O **núcleo do otimizador (8.2)** também: um backtest mostrou que planejar
+> ganha do guloso em ~4%, e que o ganho vem da geografia, não da previsão.
 
 ---
 
@@ -1480,7 +1483,7 @@ erra 1,86 min a 5 minutos e 2,50 a 10.
 |---|---|---|
 | 8.0 | **Consertar a coleta** — cobertura horária e continuidade 🔧 *27/10: causa achada e corrigida; falta confirmar uma semana contínua* | Pré-requisito de tudo; hoje há 2 dias e 47% das células com menos de 3 medições |
 | 8.1 | **Matriz de caminhada** atração→atração ✅ *27/10/2026* | `geo.py` só sabe visitante→atração; o roteiro precisa dos 1225 pares |
-| 8.2 | **O otimizador** — sequência de 3–4 paradas | O coração técnico da fase |
+| 8.2 | **O otimizador** — sequência de 3–4 paradas 🔧 *27/10: backtest de ensaio e núcleo prontos; falta confirmar na coleta contínua e a rota da API* | O coração técnico da fase |
 | 8.3 | **Replanejamento** a cada conclusão | Um roteiro rígido morre no primeiro desvio |
 | 8.4 | **Interface** — linha do tempo | Mostrar um plano é diferente de mostrar uma lista |
 
@@ -1575,6 +1578,74 @@ Os testes (`tests/test_geo_matriz.py`) comparam contra os números do OSM, verif
 desigualdade triangular — uma matriz que a violasse daria ao otimizador "atalhos" que só
 existem na conta — e **documentam a limitação do rio** como teste, para ela não ser
 esquecida.
+
+#### 8.2 — O otimizador: backtest primeiro, núcleo depois ✅ *27/10/2026 (núcleo)*
+
+**A pergunta que veio antes do código:** planejar bate o guloso? O ranking de hoje já é
+um guloso replanejado a cada parada — o roteiro só se justifica se planejar à frente der
+ganho *medido* sobre isso. Com ~9 min de erro na previsão de horas, havia motivo real para
+duvidar.
+
+**O backtest.** Cenário: o visitante chega à entrada numa hora do dia com 5 alvos e quer
+concluir todos no menor tempo. Quatro estratégias, todas replanejando a cada parada, com a
+fila real (interpolada) como juiz:
+
+| Estratégia | Contra o guloso | Vence | Perde |
+|---|---|---|---|
+| **Plano supondo filas paradas** (persistência) | **-7,7 min (-4,1%)** | 136 de 178 | 28 |
+| Plano com o perfil horário | -5,0 min (-2,7%) | 119 | 47 |
+| Oráculo — conhece as filas futuras (teto) | -14,2 min (-7,6%) | 170 | 0 |
+
+A conclusão se manteve variando a duração das atrações (5, 8 e 15 min), com 4 alvos em vez
+de 5, e nas duas metades dos dias (-7,4 e -8,0 min).
+
+O que a tabela ensina:
+
+- **O ganho vem da geografia, não da previsão.** A estratégia vencedora supõe que nada
+  muda; o que ela faz melhor é a **ordem** — o guloso persegue a fila mais curta,
+  atravessa o parque e depois atravessa de volta. É a melhor notícia possível para o
+  produto: essa versão não precisa de histórico, e funciona em qualquer parque desde o
+  primeiro dia.
+- **O perfil horário atrapalha.** Planejar com ele rende *menos* que supor filas paradas —
+  coerente com a avaliação do forecast, em que nenhuma previsão nossa vale a troca na
+  escala de uma ou duas horas.
+- **O oráculo mede o prêmio que falta.** Nem uma previsão perfeita passaria de ~14 min em
+  cinco alvos. A geografia já captura metade do teto. O roteiro economiza uma fila a cada
+  três horas e acerta em três de cada quatro vezes — real, e modesto.
+
+> ⚠️ **Ensaio sobre histórico fragmentado.** A fila real entre medições foi interpolada
+> através de buracos de até 4 h, o que suaviza o mundo, e 85% dos cenários foram
+> descartados por falta de dado (com buracos de até 2 h, sobraram 4). **Repetir sobre a
+> coleta contínua antes da interface (8.4).** Se o ganho sumir, o núcleo fica como
+> resultado negativo documentado, como o `forecast.py`.
+
+**O núcleo — `core/itinerary.py`.** `plan_itinerary` devolve as próximas paradas na ordem
+que termina mais cedo. Três decisões de desenho:
+
+- **Busca exata por *branch and bound*.** As ordens crescem com o fatorial (5 alvos são
+  120; 10 são 3,6 milhões). A busca monta as sequências parada a parada e abandona um
+  ramo quando o começo dele já passa do melhor roteiro completo. O resultado é o mesmo da
+  força bruta — e os testes conferem isso em 210 instâncias aleatórias.
+- **Profundidade máxima de 5 paradas** (`ITINERARY_MAX_STOPS`), coerente com o desenho de
+  replanejar a cada parada. Medido no Magic Kingdom real:
+
+  | Alvos | Profundidade | Sequências possíveis | Avaliadas | Tempo médio |
+  |---|---|---|---|---|
+  | 10 | 5 | 30.240 | 5.952 | 2 ms |
+  | 35 | 5 | 39 milhões | 340 mil | 70 ms |
+  | 10 | 7 | 604.800 | 137 mil | 52 ms |
+
+  A poda corta 99% do trabalho. Profundidade 7 custaria 25 vezes mais sem ganho que o
+  backtest justifique.
+- **A previsão é injetada** (`WaitPredictor`), com a persistência como padrão. Trocar de
+  previsor não toca no otimizador — e só deve acontecer depois de um backtest.
+
+O tempo é sempre **minutos a partir de agora**: o `core/` continua sem saber de fuso. A
+duração de cada atração (`RIDE_DURATION_MINUTES`, 8 min) é estimativa, porque a fonte não
+a informa; a sensibilidade foi testada e não muda a conclusão.
+
+**Falta para fechar o 8.2:** confirmar o ganho na coleta contínua e expor o roteiro numa
+rota da API.
 
 #### O problema não é o Caixeiro Viajante
 
@@ -1744,6 +1815,11 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **Desigualdade triangular** | Ir de A a C passando por B nunca é mais curto que ir direto. Toda distância honesta obedece |
 | **OpenStreetMap (OSM)** | Mapa colaborativo e aberto do mundo, com trilhas de pedestre até dentro de parques |
 | **Orienteering Problem** | Parente do Caixeiro Viajante: com tempo limitado, escolher *quais* pontos visitar, e em que ordem, para somar o maior prêmio |
+| **Algoritmo guloso** | Escolhe o melhor *agora* e nunca olha adiante. Simples e rápido, mas atravessa o parque e depois volta |
+| **Fatorial / explosão combinatória** | 5 alvos têm 120 ordens; 10 têm 3,6 milhões. Testar tudo deixa de caber rápido |
+| **Branch and bound** | Busca que monta soluções aos poucos e abandona um ramo quando o começo dele já perde do melhor conhecido |
+| **Oráculo** | Num backtest, a estratégia que conhece o futuro. Não existe na prática; serve para medir o teto possível |
+| **Injeção de dependência** | Passar a peça trocável (aqui, a previsão) como parâmetro, em vez de fixá-la dentro da função |
 
 ---
 
@@ -1916,6 +1992,14 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 27/10/2026 | A matriz usa **linha reta × fator**, não roteamento sobre o OSM | O erro de caminhada (0,58 min) é pequeno diante do da fila (~9 min); roteador traria dependência, dado por parque e cobertura desigual fora da Disney |
 | 27/10/2026 | Matriz **simétrica, calculada uma vez**, `KeyError` para id desconhecido | As atrações não se movem e o otimizador consulta os pares centenas de milhares de vezes; um tempo inventado seria usado sem desconfiar |
 | 27/10/2026 | `travel_time_matrix` recebe **pontos, não `ParkCatalog`** | Mantém `geo.py` como "entra número, sai número"; quem conhece o catálogo é o módulo do roteiro |
+| 27/10/2026 | **Backtest guloso × plano antes de escrever o otimizador** | Com ~9 min de erro na previsão de horas, o ganho de planejar podia ser engolido. Medido: -4,1% com persistência, teto de -7,6% com o oráculo |
+| 27/10/2026 | O roteiro usa **persistência**, não o perfil horário | No backtest, planejar com o perfil rendeu -2,7% contra -4,1% supondo filas paradas. O ganho é de geografia |
+| 27/10/2026 | Oráculo como **teto** no backtest | Mostra o máximo que qualquer previsão poderia somar (~7 min em 5 alvos). Sem ele, não se sabe se vale investir em previsão |
+| 27/10/2026 | Busca **exata por *branch and bound***, não heurística | Com profundidade 5, até as 35 atrações do MK saem em ~70 ms; heurística trocaria a garantia de ótimo por velocidade de que não se precisa |
+| 27/10/2026 | Profundidade máxima de **5 paradas** | Medido: 7 custaria 25 vezes mais; e o roteiro se refaz a cada parada concluída |
+| 27/10/2026 | Previsão **injetada** (`WaitPredictor`) | Trocar de previsor não pode exigir tocar no otimizador — e só deve acontecer depois de um backtest |
+| 27/10/2026 | Tempo em **minutos a partir de agora** no `core/itinerary.py` | O `core/` continua sem saber de fuso; quem chama converte |
+| 27/10/2026 | Duração de atração **fixa em 8 min** (`RIDE_DURATION_MINUTES`) | A fonte não informa duração. Estimativa, com sensibilidade testada: 5, 8 e 15 min dão a mesma conclusão |
 
 ---
 

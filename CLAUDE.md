@@ -45,7 +45,8 @@ O **6.6 terminou com um resultado negativo medido**: prever a fila por extrapola
 mais que usar a fila atual, em todo horizonte. O ranking não mudou — mas agora há número
 para sustentar a escolha. Detalhes na seção 7 de `docs/PROJETO.md`.
 
-**509 testes passando**: 413 na suíte rápida (~9s) e 96 de interface em navegador (~130s).
+**781 testes passando**: 685 na suíte rápida (~9s; 272 são do roteiro, a maioria
+instâncias aleatórias conferidas contra força bruta) e 96 de interface em navegador (~130s).
 CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
 
 Já existe e funciona:
@@ -53,6 +54,9 @@ Já existe e funciona:
 - `config.py` com toda a configuração centralizada
 - `core/geo.py` — Haversine, sinuosidade (1,3, medido contra o OSM) e tempo de caminhada;
   `travel_time_matrix` dá o tempo entre todos os pares de atrações (Fase 8.1)
+- `core/itinerary.py` — **o otimizador do roteiro** (Fase 8.2, núcleo). `plan_itinerary`
+  ordena os alvos por *branch and bound* exato, até 5 paradas, com a previsão de fila
+  **injetada** (`persistence` é o padrão). Ainda sem rota na API nem tela
 - `models/` — `Destination`, `ParkCatalog` (com coordenadas GPS) e `LiveData`
 - `clients/cache.py` — cache com TTL, relógio injetável
 - `clients/themeparks.py` — cliente assíncrono, backoff exponencial, erros próprios
@@ -181,8 +185,17 @@ replanejadas a cada conclusão**, porque previsão de horas erra ~9–10 min por
 semana de coleta contínua e então **repetir a avaliação forecast × perfil horário** para
 escolher qual previsão o roteiro usa — preliminar na sexta 30/10, decisiva em 03/11, com o
 fim de semana. ⚠️ O horário de verão americano acaba em 01/11: a próxima avaliação precisa
-de fuso de verdade, não de UTC−4 fixo. O **8.1 (matriz de caminhada) está pronto**; o
-próximo código é o 8.2, o otimizador. Os scripts de medição não ficam no repositório — o
+de fuso de verdade, não de UTC−4 fixo. O **8.1 (matriz de caminhada) está pronto**, e o
+**núcleo do 8.2 também** (`core/itinerary.py`).
+
+> ⚠️ **O roteiro ganha do guloso pela GEOGRAFIA, não pela previsão.** Backtest de
+> 27/10/2026, 5 alvos: plano supondo filas paradas -4,1%; plano com perfil horário
+> -2,7% (pior!); oráculo que conhece o futuro -7,6% (o teto). Por isso o padrão é a
+> persistência. **Foi ensaio sobre histórico fragmentado (85% dos cenários
+> descartados): repetir sobre a coleta contínua antes de construir a tela (8.4).** O
+> simulador não fica no repositório; o método está na seção 7, Fase 8, item 8.2.
+>
+> Próximo código, se o ganho se confirmar: a rota da API do roteiro. Os scripts de medição não ficam no repositório — o
 método está descrito na seção 7.
 
 **A personalização mora no `localStorage`** (`web/preferencias.js`), sem conta de usuário: o
@@ -389,7 +402,7 @@ pip install -e ".[dev]"
 Verificar que tudo está de pé:
 
 ```bash
-pytest -m "not e2e"    # esperado: 413 testes, ~9s
+pytest -m "not e2e"    # esperado: 685 testes, ~9s
 ruff check .
 ruff format --check .
 ```

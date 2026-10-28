@@ -1500,6 +1500,70 @@ ser invertido se um dia a matriz passar a usar as trilhas.
 `geo.travel_time_matrix` e 10 testes novos: 413 na suíte rápida.
 
 ---
+
+### Prompt #057
+**Data:** 27/10/2026
+**Contexto:** O monitor confirmou a coleta contínua (gravações às 20:43 e 20:48, mais de
+meia hora depois do TEST RUN; o buraco de 8 min antes delas foi o redeploy do push).
+Os dois commits da matriz esperavam push.
+
+```
+Faça e qual o próximo passo?
+```
+
+**O que resultou:** push dos commits da 8.1, e a pergunta que o projeto ainda não tinha
+feito: **planejar 3–4 paradas bate o guloso?** O ranking atual já é um guloso replanejado a
+cada parada; o roteiro só se justifica com ganho medido sobre ele. Também apareceu uma
+lacuna de dado: a fonte não informa a duração dos brinquedos, e o roteiro precisa dela.
+
+---
+
+### Prompt #058
+**Data:** 27/10/2026
+**Contexto:** Proposta de ordem: simulador de backtest, depois `core/itinerary.py`.
+
+```
+Vamos continuar.
+```
+
+**O que resultou: o backtest guloso × plano, com um oráculo como teto.**
+
+Cenário: 5 alvos, quatro estratégias replanejando a cada parada, a fila real interpolada
+como juiz. O plano supondo filas **paradas** ganhou do guloso em 4,1%; com o perfil
+horário, só 2,7%; o oráculo, que conhece o futuro, 7,6%. A conclusão sobreviveu a
+duração de 5 e 15 min, a 4 alvos e às duas metades dos dias.
+
+A leitura: o ganho vem da **geografia** (o guloso atravessa o parque e volta), não da
+previsão — e nem uma previsão perfeita passaria de ~14 min em cinco alvos. Ressalva
+declarada: 85% dos cenários foram descartados pelo histórico fragmentado; com buracos de
+até 2 h sobraram 4. A rodada que vale é sobre a coleta contínua.
+
+---
+
+### Prompt #059
+**Data:** 27/10/2026
+**Contexto:** Proposta: construir o núcleo do otimizador agora, sem tela, e confirmar o
+ganho na coleta contínua antes da interface.
+
+```
+Bora
+```
+
+**O que resultou: `core/itinerary.py`, com busca exata por *branch and bound*.**
+
+Antes do código, a explicação do fatorial (120 ordens para 5 alvos, 3,6 milhões para 10)
+e da poda que torna a busca exata viável. Medido no Magic Kingdom real: até as 35
+atrações saem em ~70 ms com profundidade 5, e a poda corta 99% do trabalho.
+
+**O primeiro teste contra força bruta falhou em 37 de 150 casos — e o erro era do teste.**
+Todos os casos com 6 alvos: o roteiro planeja no máximo 5 paradas por padrão, e a força
+bruta ordenava 6. Respondiam perguntas diferentes. A correção acrescentou o teste que
+faltava, o da profundidade parcial, também contra força bruta.
+
+Testes resolvidos à mão: o zigue-zague (guloso 8 min, roteiro 7) e "deixe a TRON para
+depois" (55 contra 35 min, com uma previsão que muda no tempo). 685 na suíte rápida.
+
+---
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 
