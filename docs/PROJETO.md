@@ -16,9 +16,9 @@
 > caminhada (7.3) e popularidade (7.4). A última fecha o ciclo da Fase 6 — é a primeira
 > feature construída **sobre o histórico que nós mesmos coletamos**, e não sobre a API.
 >
-> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **834
+> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **857
 > testes**: 722 na suíte rápida (272 do roteiro, a maioria instâncias aleatórias
-> conferidas contra força bruta) e 112 de interface em navegador.
+> conferidas contra força bruta) e 135 de interface em navegador.
 >
 > **Fase 9 — Perfil do visitante: iniciada (27/10/2026).** Nasceu de uma crítica do
 > Gabriel: ver a fila não resolve nada que a fonte já não resolva. O app passa a saber
@@ -1767,7 +1767,7 @@ com commit e autor. O teste de arquitetura proíbe `core/` e `models/` de import
 | # | Entrega |
 |---|---|
 | 9.2 | As duas perguntas do perfil, no `localStorage`, como os filtros da 7.3 ✅ |
-| 9.3 | O redesenho da tela em torno do perfil: perfil → próximo passo → roteiro → "ver todas as filas" 🎨 *design em andamento* |
+| 9.3 | O redesenho da tela em torno do perfil: perfil → próximo passo → roteiro → "ver todas as filas" ✅ *(sem o roteiro, que espera 03/11)* |
 
 #### 9.2 — As duas perguntas ✅ *28/10/2026*
 
@@ -1823,8 +1823,43 @@ muita coisa. Próximo passo: revisar o que voltar contra o que a API realmente e
 
 **Primeira versão focada no Magic Kingdom** — decisão do Gabriel, porque só ele tem
 curadoria e histórico; nos outros parques o app seria a "lista de filas" que a Fase 9
-critica. Em consideração: tirar o seletor de parques, ou limitá-lo a outros igualmente
-famosos.
+critica. Decidido em 28/10: o seletor sai da tela, mas o código dos outros parques fica,
+atrás de uma chave, e continua testado.
+
+#### 9.3 — A implementação ✅ *28/10/2026* (sem o roteiro, que espera a medição de 03/11)
+
+Em três etapas, cada uma com commit e testes, para o app no ar nunca ficar pela metade:
+
+| Etapa | O que entrou |
+|---|---|
+| 1. Paleta e fonte | Algodão-doce: 3c no claro, 3b no escuro; Bricolage Grotesque. Os componentes não mudaram, só os valores dos tokens — cada par medido pela WCAG (o mais apertado, 5,3:1) |
+| 2. Mapa real | O GeoJSON no lugar dos tiles, pintado pelo CSS; rota até a melhor escolha pelas trilhas; nomes nos marcadores sem sobreposição. Os outros parques seguem com tiles |
+| 3. Layout | Mapa no topo, de borda a borda; o cartão **"Seu próximo passo"**; a lista inteira num painel aberto por "Todas as filas · 26" |
+
+**O cartão** tem três estados — sem posição (pede a localização), carregando, e com a
+melhor escolha do grupo. O total é o maior número da tela, aberto em caminhada e fila numa
+barra com a linguagem do mapa (pontilhado para quem anda, cápsula para quem espera), mais
+"entra às HH:MM" no fuso do parque. O "Já fui" do cartão tem 5 s para desfazer. Sem
+melhor escolha, o cartão some e o aviso explica, porque é o aviso que distingue as quatro
+causas de lista vazia. O cartão é escuro nos dois temas, e redefine dentro dele os tokens
+pensados para fundo claro.
+
+**O que os testes pegaram no caminho:**
+
+- Os tiles eram baixados de verdade em todo teste — furando "nenhum teste toca a
+  internet" desde a Fase 5. Agora são interceptados com um PNG de 1×1 (gerado com CRC
+  conferido: o primeiro, escrito de memória, estava errado).
+- Durante a animação de zoom, os nomes do mapa ficam em trânsito (até 45 px fora). O app
+  anuncia quando terminou de posicioná-los (`data-rotulos="prontos"`, por eventos
+  públicos do Leaflet), e os testes esperam o anúncio em vez de um tempo fixo.
+- Numa falha da API, o cartão era escondido com o esqueleto de carregamento dentro.
+- Um teste intermitente (o clique no mapa sem GPS) media o mapa no meio da troca de um
+  aviso acima dele; agora espera o aviso final.
+
+**Fica para depois:** o **roteiro** (o espaço dele é "Você veio por estas", logo abaixo do
+cartão) espera a medição de 03/11; os nomes da 1ª e da 2ª colocadas às vezes não cabem no
+mapa quando o visitante está no meio delas — a regra esconde em vez de sobrepor, e o
+cartão já diz o nome da primeira.
 
 ---
 
@@ -2227,6 +2262,17 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 28/10/2026 | Sem curadoria + criança no grupo = "altura mínima não conferida" | Calar seria ler "não sabemos" como "pode ir". Mas a atração continua elegível ao destaque: fora do Magic Kingdom nada tem curadoria, e o destaque sumiria |
 | 28/10/2026 | Painel do perfil em `<dialog>`, escolhas em rádios | Esc, foco preso e anúncio ao leitor de tela vêm do navegador; rádio já é escolha exclusiva com setas do teclado |
 | 28/10/2026 | Pular o perfil conta como resposta | Perguntar de novo a cada visita seria insistir com quem disse "agora não". O botão "Seu grupo" continua à vista |
+| 28/10/2026 | `--ambar` vira o amarelo de destaque nos dois temas, com tinta própria (`--sobre-ambar`) | A regra da paleta (amarelo destaca). Dividir o `--sobre-quente` com a cor de ação faria um dos dois ilegível: a ação é escura no claro, o amarelo pede tinta escura |
+| 28/10/2026 | Degradês de duas cores viram sólidos | Índigo → amarelo com texto branco seria ilegível na metade amarela |
+| 28/10/2026 | `rota.js` e `rotulos.js` como objetos globais, sem módulos ES | O app não tem etapa de build, e os outros scripts (`preferencias.js`) já seguem esse padrão |
+| 28/10/2026 | Nomes do mapa cortados com reticências | Inteiro, "Prince Charming Regal Carrousel" não cabia em lado nenhum, e a regra escondia justo o da primeira colocada |
+| 28/10/2026 | Testes esperam `data-rotulos="prontos"`, não um tempo fixo | No meio da animação de zoom os nomes estão em trânsito; tempo fixo é a receita do teste intermitente |
+| 28/10/2026 | Tiles interceptados nos testes | Eles iam à internet desde a Fase 5, furando a regra de que nenhum teste toca a internet |
+| 28/10/2026 | Só o Magic Kingdom: seletor fora da tela, código atrás de uma chave | Decisão do Gabriel. A chave (`MOSTRAR_SELETOR_DE_PARQUES`) mantém o código dos outros parques vivo e testado (`abrir(..., seletor=True)`), sem caminho na interface |
+| 28/10/2026 | A lista inteira num painel (`<dialog>`), aberto por "Todas as filas · N" | Decisão do Gabriel, como no design: a tela principal fica só com a resposta. O número no botão diz que a lista existe |
+| 28/10/2026 | O cartão do próximo passo some quando não há melhor escolha | O aviso distingue as quatro causas de lista vazia; o cartão repetiria só uma |
+| 28/10/2026 | "Já fui" do cartão com 5 s para desfazer | O cartão troca de atração na hora, e o toque errado de quem usa uma mão só ficaria sem volta |
+| 28/10/2026 | "entra às HH:MM", e não "lá às" (como no design) | Diz sem ambiguidade o que a hora é: agora + caminhada + fila. No fuso do parque |
 
 ---
 

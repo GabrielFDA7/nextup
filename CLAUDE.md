@@ -41,17 +41,17 @@ documentação de decisões **fazem parte da entrega** — não são extras opci
 > 🧭 **ONDE PARAMOS (28/10/2026) — leia primeiro.**
 >
 > **Frentes abertas:**
-> - **9.2 pronta (28/10); 9.3 — a tela nova — em implementação.** O design está fechado em
->   [`docs/design/claude-design/`](docs/design/claude-design/) (o README diz como abrir):
->   **3c no claro, 3b no escuro** (paleta algodão-doce), estrutura de **uma tela, dois
->   estados** (painel do perfil sobre o parque; depois próximo passo → roteiro → mapa →
->   lista de filas). O **mapa é real, sem tiles**: Leaflet pintando
->   `web/mapas/magic-kingdom.geojson` com as variáveis CSS; o protótipo está em
->   `mapa-real.html`, com `rota.js` (rota pelas trilhas, só desenho) e `rotulos.js`.
->   Revisar cada elemento do design **contra o que a API realmente entrega** ao portar.
->   ⚠️ O design usa dados de mentira (horários, minutos): nada dele vira constante.
-> - **Primeira versão focada no Magic Kingdom** (decisão do Gabriel). Em consideração:
->   tirar o seletor de parques ou limitá-lo a parques igualmente famosos.
+> - **9.2 e 9.3 prontas e no ar (28/10)**, menos o roteiro. A tela: mapa real no topo
+>   (sem tiles, `web/mapas/magic-kingdom.geojson` pintado pelo CSS, rota pelas trilhas,
+>   nomes sem sobreposição), o cartão **"Seu próximo passo"** e a lista num painel
+>   ("Todas as filas · N"). Paleta algodão-doce: **3c no claro, 3b no escuro**. O design
+>   de referência está em [`docs/design/claude-design/`](docs/design/claude-design/).
+> - **Próximo na interface:** o **roteiro** entra no lugar de "Você veio por estas" — só
+>   se a medição de 03/11 o liberar. Pendência menor: com o visitante no meio delas, os
+>   nomes da 1ª e da 2ª colocadas às vezes não cabem no mapa (a regra esconde).
+> - **Primeira versão só com o Magic Kingdom** (decisão do Gabriel, 28/10): o seletor saiu
+>   da tela, mas o código dos outros parques ficou atrás de `MOSTRAR_SELETOR_DE_PARQUES`
+>   e continua testado. Religar é trocar uma linha em `web/app.js`.
 >
 > **Agenda:**
 > - **30/10 (sex)** — preliminar: `python scripts/medicoes/simular_roteiro.py --desde
@@ -80,8 +80,8 @@ O **6.6 terminou com um resultado negativo medido**: prever a fila por extrapola
 mais que usar a fila atual, em todo horizonte. O ranking não mudou — mas agora há número
 para sustentar a escolha. Detalhes na seção 7 de `docs/PROJETO.md`.
 
-**834 testes passando**: 722 na suíte rápida (~4s; 272 são do roteiro, a maioria
-instâncias aleatórias conferidas contra força bruta) e 112 de interface em navegador (~160s).
+**857 testes passando**: 722 na suíte rápida (~4s; 272 são do roteiro, a maioria
+instâncias aleatórias conferidas contra força bruta) e 135 de interface em navegador (~210s).
 CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
 
 Já existe e funciona:
@@ -117,10 +117,12 @@ Já existe e funciona:
 - `web/preferencias.js` — `VISITADAS` (por dia, com fuso do parque) e `ALVOS` (sem prazo).
   Os alvos se escolhem num catálogo completo do parque, que funciona sem GPS.
   `FILTROS` (globais) limitam fila e caminhada
-- `web/` — interface em HTML/CSS/JS puro, servida pelo próprio FastAPI. Geolocation,
-  mapa Leaflet, e **tocar no mapa define a posição** (saída para quem nega o GPS).
-  Abre mostrando o parque antes de qualquer permissão; busca no seletor; o mapa
-  reenquadra ao trocar de parque
+- `web/` — interface em HTML/CSS/JS puro, servida pelo próprio FastAPI (Fase 9.3): mapa
+  no topo, cartão do próximo passo, lista num painel `<dialog>`. Geolocation, e **tocar
+  no mapa define a posição** (saída para quem nega o GPS). O Magic Kingdom é desenhado
+  do GeoJSON (`web/mapas/`), com `rota.js` (Dijkstra pelas trilhas, só desenho) e
+  `rotulos.js` (nomes sem sobreposição); os outros parques usam tiles. **Só o MK na
+  tela**: o seletor fica atrás de `MOSTRAR_SELETOR_DE_PARQUES` (os testes a ligam)
 - `storage/` — persistência (Fase 6). Duas tabelas: `queue_snapshots` (o que foi medido)
   e `queue_forecasts` (o que a fonte previu, para auditá-la). `tables.py` (desenho),
   `engine.py` (conexão) e `snapshots.py` (gravar, consultar, limpar). SQLAlchemy Core,
@@ -133,7 +135,8 @@ Já existe e funciona:
   `cli.py` porque orquestra `clients/` + `storage/`
 - `tests/test_arquitetura.py` — a regra de dependência é verificada automaticamente
 - `tests/test_migracoes.py` — aplica as migrações e compara com `tables.py`
-- `tests/test_web_e2e.py` — 112 testes em Chromium real (`pytest -m e2e`)
+- `tests/test_web_e2e.py` — 135 testes em Chromium real (`pytest -m e2e`). A lista mora
+  num painel: `_ver_filas` o abre, `_fechar_filas` o fecha antes de tocar no resto
 - Fixtures reais da API em `tests/fixtures/`; nenhum teste toca a internet
 - `.venv` local com **Python 3.13**, mesma versão mais alta testada no CI
 
@@ -242,8 +245,8 @@ para quem pergunta. Decisões dele: o perfil é **perguntado, não inferido**; *
 perguntas** (altura da criança mais baixa; tranquilas / de tudo / emoção), ambas
 puláveis; a altura **marca** ("só os adultos", pelo *Rider Switch*), não esconde, e a
 atração marcada não ganha o destaque de "melhor escolha". **9.1 (curadoria) e 9.2 (as
-perguntas, `PERFIL` no `localStorage`) prontas**; falta a 9.3 (o redesenho da tela —
-ver o bloco "Onde paramos" no topo). "Tranquilas" esconde as radicais, "Emoção" esconde
+perguntas, `PERFIL` no `localStorage`) e 9.3 (a tela nova) prontas**; o roteiro espera
+03/11. "Tranquilas" esconde as radicais, "Emoção" esconde
 as tranquilas, sempre com aviso e "Mostrar".
 
 > ⚠️ **Nada no design pode imitar a marca Disney** (logotipo, personagens, orelhas,
@@ -496,7 +499,7 @@ uvicorn nextup.api.main:app --reload     # http://127.0.0.1:8000
 Testes de interface (exigem `pip install -e ".[dev,e2e]"` e `playwright install chromium`):
 
 ```bash
-pytest -m e2e          # esperado: 112 testes, ~160s
+pytest -m e2e          # esperado: 135 testes, ~210s
 ```
 
 ---
