@@ -1115,3 +1115,205 @@ a {
   color: var(--verde-tendencia);
   font-weight: 600;
 }
+
+/* ---------------------------------------------------------------------------
+   Perfil do visitante (Fase 9.2)
+   --------------------------------------------------------------------------- */
+
+/* O resumo do perfil, sempre à vista: ele muda a resposta do app. */
+.botao-perfil {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 16px;
+  font: inherit;
+  font-weight: 700;
+  color: var(--tinta);
+  background: var(--superficie-alt);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-p);
+  cursor: pointer;
+}
+
+.botao-perfil__rotulo {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--tinta-suave);
+}
+
+/* O painel sobe da base da tela, como uma gaveta: no celular é onde o polegar
+   alcança, e o parque continua visível em cima — "uma tela, dois estados". */
+.painel {
+  width: min(100%, 520px);
+  max-height: 90vh;
+  margin: auto auto 0;
+  padding: 22px 20px 24px;
+  color: var(--tinta);
+  background: var(--superficie);
+  border: 0;
+  border-radius: var(--raio) var(--raio) 0 0;
+  box-shadow: var(--sombra-forte);
+  overflow-y: auto;
+}
+
+.painel::backdrop {
+  background: rgb(20 12 40 / 35%);
+}
+
+.painel__cabecalho {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.painel__cabecalho h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.painel__intro {
+  margin: 6px 0 18px;
+  font-size: 0.9rem;
+  color: var(--tinta-suave);
+}
+
+.painel .botao-principal {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.pergunta {
+  margin: 0 0 18px;
+  padding: 0;
+  border: 0;
+}
+
+.pergunta legend {
+  padding: 0;
+  font-weight: 700;
+}
+
+.pergunta__porque {
+  margin: 4px 0 10px;
+  font-size: 0.82rem;
+  color: var(--tinta-suave);
+}
+
+/* Rádios com cara de botões segmentados. O `<input>` continua lá, só invisível:
+   é ele quem dá as setas do teclado e o anúncio ao leitor de tela. */
+.segmentos {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  padding: 4px;
+  background: var(--superficie-alt);
+  border-radius: 16px;
+}
+
+.segmentos--tres {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.segmento {
+  position: relative;
+}
+
+.segmento input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segmento span {
+  display: grid;
+  place-items: center;
+  min-height: 48px;
+  padding: 4px 6px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.segmento input:checked + span {
+  color: var(--sobre-profundo);
+  background: var(--profundo);
+  box-shadow: var(--sombra);
+}
+
+.segmento input:focus-visible + span {
+  outline: 3px solid var(--destaque);
+  outline-offset: 2px;
+}
+
+.altura {
+  margin-top: 12px;
+}
+
+.altura__controle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.altura__passo {
+  width: 48px;
+  height: 48px;
+  min-height: 48px;
+  padding: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--tinta);
+  background: var(--superficie-alt);
+  border: 1px solid var(--borda);
+  border-radius: 50%;
+}
+
+.altura__valor {
+  min-width: 96px;
+  font-size: 1.6rem;
+  font-weight: 800;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.altura input[type="range"] {
+  width: 100%;
+  margin: 12px 0 0;
+  accent-color: var(--profundo);
+}
+
+/* "Só os adultos": a marca que substitui o esconder. Cor de aviso calmo, e o
+   texto diz tudo por extenso — a cor não carrega a informação sozinha. */
+.restricao {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  color: var(--profundo);
+}
+
+.restricao svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.restricao__dica {
+  display: block;
+  font-weight: 400;
+  color: var(--tinta-suave);
+}
+
+.restricao--desconhecida {
+  color: var(--tinta-suave);
+}

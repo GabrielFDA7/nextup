@@ -89,11 +89,22 @@ def navegador():
         nav.close()
 
 
-def abrir(navegador, servidor, *, com_gps: bool = True, api=None) -> Page:
+#: O perfil de quem "já respondeu e pulou": nada marcado, nada escondido — o app de
+#: antes da Fase 9. É o padrão do `abrir`, porque na primeira visita o painel das
+#: duas perguntas abre por cima da tela, e todo teste que não fala de perfil
+#: falharia por um motivo que não é o assunto dele.
+PERFIL_PULADO = {"respondido": True, "alturaCm": None, "intensidade": "tudo"}
+
+
+def abrir(
+    navegador, servidor, *, com_gps: bool = True, api=None, perfil: dict | None = PERFIL_PULADO
+) -> Page:
     """Abre a página com a API interceptada dentro do navegador.
 
     `api` recebe uma função que responde à rota de recomendações; o padrão
     devolve a fixture real do Magic Kingdom.
+
+    `perfil=None` abre como numa primeira visita de verdade, sem nada guardado.
     """
     contexto = navegador.new_context(
         viewport=CELULAR,
@@ -101,6 +112,13 @@ def abrir(navegador, servidor, *, com_gps: bool = True, api=None) -> Page:
         geolocation=POSICAO if com_gps else None,
         permissions=["geolocation"] if com_gps else [],
     )
+    if perfil is not None:
+        # Só grava se não houver: o script roda de novo a cada recarga, e
+        # sobrescrever apagaria justamente o que um teste de persistência salvou.
+        contexto.add_init_script(
+            "if (!localStorage.getItem('nextup:perfil')) "
+            f"localStorage.setItem('nextup:perfil', {json.dumps(json.dumps(perfil))});"
+        )
     pagina = contexto.new_page()
 
     pagina.route(
@@ -223,8 +241,20 @@ def _atracoes_como_a_api_devolve() -> dict:
         catalogo,
         ao_vivo,
         max((i.last_updated for i in ao_vivo.live_data), default=None),
+        curadoria=_curadoria_mk(),
     )
     return json.loads(resposta.model_dump_json())
+
+
+def _curadoria_mk():
+    """A curadoria de verdade, só as linhas conferidas — o que a rota de produção usa.
+
+    Sem ela a resposta sairia com `min_height_cm` e `intensity` nulos em todas as
+    atrações, e os testes do perfil passariam sem ter o que marcar ou esconder.
+    """
+    from nextup.data import load_curation
+
+    return load_curation(DEFAULT_PARK_ID).verified()
 
 
 def _recomendacoes_como_a_api_devolve(
@@ -323,6 +353,7 @@ def _recomendacoes_como_a_api_devolve(
         ranking,
         0,
         max((i.last_updated for i in ao_vivo.live_data), default=None),
+        curadoria=_curadoria_mk(),
     )
     return json.loads(resposta.model_dump_json())
 
@@ -1648,3 +1679,221 @@ class TestFiltroDePopularidade:
         pagina.wait_for_timeout(400)
 
         assert pagina.locator("[data-modo='ranking'] .item").count() > 0
+
+
+def _com_na_frente(trecho_do_nome: str) -> dict:
+    """O ranking real, com uma atração promovida a mais barata de todas.
+
+    Na fixture, as oito primeiras são todas tranquilas e sem altura mínima: um
+    teste de "Tranquilas esconde as radicais" passaria sem esconder nada. Aqui a
+    atração escolhida fica como se estivesse ao lado do visitante — 1 min a pé e
+    5 de fila —, com a conta fechando, para o perfil ter o que marcar ou esconder.
+    """
+    dados = _recomendacoes_como_a_api_devolve()
+    recs = dados["recommendations"]
+    alvo = next(r for r in recs if trecho_do_nome in r["attraction"]["name"])
+    recs.remove(alvo)
+    alvo.update(walking_minutes=1.0, queue_minutes=5, total_minutes=6.0)
+    recs.insert(0, alvo)
+    return dados
+
+
+def _api_com_na_frente(trecho_do_nome: str):
+    return lambda rota: rota.fulfill(json=_com_na_frente(trecho_do_nome))
+
+
+def _localizar(pagina) -> None:
+    """O ranking só existe depois de o visitante dizer onde está."""
+    pagina.click("#btn-localizar")
+    pagina.wait_for_selector("[data-modo='ranking'] .item")
+
+
+def _perfil(altura=None, intensidade="tudo") -> dict:
+    return {"respondido": True, "alturaCm": altura, "intensidade": intensidade}
+
+
+def _id_de(trecho_do_nome: str) -> str:
+    catalogo = carregar("children_magic_kingdom.json")
+    return next(c["id"] for c in catalogo["children"] if trecho_do_nome in c["name"])
+
+
+class TestPerfil:
+    """As duas perguntas da Fase 9: altura da criança mais baixa e gosto do grupo.
+
+    As regras são decisões do Gabriel (seção 7 do docs/PROJETO.md): **altura marca,
+    não esconde**, e a marcada não ganha o destaque; **intensidade esconde com
+    aviso** — "Tranquilas" tira as radicais, "Emoção" tira as tranquilas.
+
+    As alturas conferidas aqui vêm da listagem oficial (a curadoria): Seven Dwarfs
+    e Big Thunder pedem 97 cm, TRON 122, Space Mountain 112, Barnstormer 89.
+    """
+
+    def test_a_primeira_visita_abre_as_perguntas(self, navegador, servidor):
+        pagina = abrir(navegador, servidor, perfil=None)
+        expect(pagina.locator("#painel-perfil")).to_be_visible()
+        expect(pagina.locator("#painel-perfil-titulo")).to_have_text("Antes do primeiro passo")
+
+    def test_nada_vem_respondido_pelo_visitante(self, navegador, servidor):
+        """Pré-marcar "Sem crianças" seria responder por ele."""
+        pagina = abrir(navegador, servidor, perfil=None)
+        expect(pagina.locator("input[name='criancas']:checked")).to_have_count(0)
+
+    def test_pular_nao_pergunta_de_novo(self, navegador, servidor):
+        pagina = abrir(navegador, servidor, perfil=None)
+        pagina.click("#btn-pular-perfil")
+        expect(pagina.locator("#painel-perfil")).to_be_hidden()
+
+        pagina.reload(wait_until="networkidle")
+        expect(pagina.locator("#painel-perfil")).to_be_hidden()
+        expect(pagina.locator("#perfil-resumo")).to_have_text("Sem restrições")
+
+    def test_esc_na_primeira_visita_vale_como_pular(self, navegador, servidor):
+        pagina = abrir(navegador, servidor, perfil=None)
+        pagina.keyboard.press("Escape")
+        expect(pagina.locator("#painel-perfil")).to_be_hidden()
+
+        pagina.reload(wait_until="networkidle")
+        expect(pagina.locator("#painel-perfil")).to_be_hidden()
+
+    def test_a_altura_mostra_quem_fica_de_fora(self, navegador, servidor):
+        """A consequência aparece antes de confirmar, calculada no catálogo real."""
+        pagina = abrir(navegador, servidor, perfil=None)
+        pagina.locator("label.segmento", has_text="Tem criança").click()
+        for _ in range(5):  # 100 -> 95 cm
+            pagina.click("#btn-altura-menos")
+
+        expect(pagina.locator("#altura-valor")).to_have_text("95 cm")
+        dica = pagina.locator("#altura-dica")
+        for nome in ("TRON", "Space Mountain", "Big Thunder", "Seven Dwarfs"):
+            expect(dica).to_contain_text(nome)
+        # 89 cm: com 95, a criança entra no Barnstormer.
+        expect(dica).not_to_contain_text("Barnstormer")
+
+    def test_salvar_pelo_painel_muda_o_resumo(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        pagina.click("#btn-perfil")
+        expect(pagina.locator("#painel-perfil-titulo")).to_have_text("Seu grupo")
+
+        pagina.locator("label.segmento", has_text="Sem crianças").click()
+        pagina.locator("label.segmento", has_text="Tranquilas").click()
+        pagina.click("#btn-salvar-perfil")
+
+        expect(pagina.locator("#painel-perfil")).to_be_hidden()
+        expect(pagina.locator("#perfil-resumo")).to_have_text("Sem crianças · Tranquilas")
+
+    def test_o_perfil_sobrevive_a_recarregar(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        pagina.click("#btn-perfil")
+        pagina.locator("label.segmento", has_text="Tem criança").click()
+        pagina.click("#btn-altura-mais")
+        pagina.click("#btn-salvar-perfil")
+        expect(pagina.locator("#perfil-resumo")).to_contain_text("Criança de 101 cm")
+
+        pagina.reload(wait_until="networkidle")
+        expect(pagina.locator("#perfil-resumo")).to_contain_text("Criança de 101 cm")
+
+    def test_so_adultos_marca_em_vez_de_esconder(self, navegador, servidor):
+        pagina = abrir(
+            navegador, servidor, api=_api_com_na_frente("Seven Dwarfs"), perfil=_perfil(altura=95)
+        )
+        _localizar(pagina)
+
+        anoes = pagina.locator("#lista .item", has_text="Seven Dwarfs")
+        expect(anoes).to_have_count(1)
+        expect(anoes).to_contain_text("A partir de 97 cm · só os adultos")
+        expect(anoes).to_contain_text("Rider Switch")
+
+    def test_so_adultos_nao_ganha_o_destaque(self, navegador, servidor):
+        """A mais barata é a Seven Dwarfs, mas o destaque é para o grupo todo."""
+        pagina = abrir(
+            navegador, servidor, api=_api_com_na_frente("Seven Dwarfs"), perfil=_perfil(altura=95)
+        )
+        _localizar(pagina)
+
+        melhor = pagina.locator(".item--melhor")
+        expect(melhor).to_have_count(1)
+        expect(melhor).not_to_contain_text("Seven Dwarfs")
+
+    def test_com_altura_suficiente_nada_e_marcado(self, navegador, servidor):
+        pagina = abrir(
+            navegador, servidor, api=_api_com_na_frente("Seven Dwarfs"), perfil=_perfil(altura=97)
+        )
+        _localizar(pagina)
+
+        expect(pagina.locator(".restricao")).to_have_count(0)
+        expect(pagina.locator(".item--melhor")).to_contain_text("Seven Dwarfs")
+
+    def test_tranquilas_esconde_as_radicais_e_avisa(self, navegador, servidor):
+        pagina = abrir(
+            navegador,
+            servidor,
+            api=_api_com_na_frente("Space Mountain"),
+            perfil=_perfil(intensidade="tranquilas"),
+        )
+        _localizar(pagina)
+
+        expect(pagina.locator("#lista .item", has_text="Space Mountain")).to_have_count(0)
+        # As 5 radicais do ranking da fixture, todas fora — e o aviso diz quantas.
+        expect(pagina.locator("#perfil-aviso")).to_contain_text(
+            "5 radicais escondidas por “Tranquilas”"
+        )
+
+    def test_mostrar_traz_as_escondidas_de_volta(self, navegador, servidor):
+        pagina = abrir(
+            navegador,
+            servidor,
+            api=_api_com_na_frente("Space Mountain"),
+            perfil=_perfil(intensidade="tranquilas"),
+        )
+        _localizar(pagina)
+
+        pagina.click("#btn-mostrar-escondidas")
+        expect(pagina.locator("#lista .item", has_text="Space Mountain")).to_have_count(1)
+        expect(pagina.locator("#btn-mostrar-escondidas")).to_have_attribute("aria-pressed", "true")
+
+    def test_emocao_deixa_so_moderadas_e_radicais(self, navegador, servidor):
+        """No ranking da fixture: 19 tranquilas, 2 moderadas e 5 radicais."""
+        pagina = abrir(navegador, servidor, perfil=_perfil(intensidade="emocao"))
+        _localizar(pagina)
+
+        expect(pagina.locator("#lista .item")).to_have_count(7)
+        expect(pagina.locator("#perfil-aviso")).to_contain_text("19 tranquilas escondidas")
+
+    def test_o_alvo_escapa_do_perfil(self, navegador, servidor):
+        """ "Vim por esta" vence uma preferência geral, como vence os filtros."""
+        pagina = abrir(navegador, servidor, perfil=_perfil(intensidade="tranquilas"))
+        pagina.evaluate(
+            "([parque, id]) => localStorage.setItem('nextup:alvos', "
+            "JSON.stringify({[parque]: [id]}))",
+            [DEFAULT_PARK_ID, _id_de("Space Mountain")],
+        )
+        pagina.reload(wait_until="networkidle")
+        _localizar(pagina)
+
+        expect(pagina.locator("#lista-alvos .item", has_text="Space Mountain")).to_have_count(1)
+
+    def test_lista_vazia_pelo_perfil_diz_a_causa(self, navegador, servidor):
+        """A quarta causa de lista vazia: culpar o filtro ou as visitadas mentiria."""
+
+        def so_tranquilas(rota):
+            dados = _recomendacoes_como_a_api_devolve()
+            dados["recommendations"] = [
+                r for r in dados["recommendations"] if r["attraction"]["intensity"] == "CALM"
+            ]
+            rota.fulfill(json=dados)
+
+        pagina = abrir(navegador, servidor, api=so_tranquilas, perfil=_perfil(intensidade="emocao"))
+        pagina.click("#btn-localizar")
+        expect(pagina.locator("#aviso")).to_contain_text(
+            "Nenhuma atração combina com “Quero emoção”"
+        )
+        expect(pagina.locator("#lista .item")).to_have_count(0)
+
+    def test_o_panorama_sem_gps_tambem_respeita_o_perfil(self, navegador, servidor):
+        pagina = abrir(navegador, servidor, com_gps=False, perfil=_perfil(intensidade="emocao"))
+        pagina.wait_for_selector("[data-modo='panorama'] .item")
+
+        expect(pagina.locator("#perfil-aviso")).to_contain_text("tranquilas escondidas")
+        nomes = pagina.locator("#lista .nome").all_inner_texts()
+        assert nomes, "o panorama precisa mostrar alguma atração"
+        assert not any("Carrousel" in n for n in nomes), "uma tranquila escapou do perfil"

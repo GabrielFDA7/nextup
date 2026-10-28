@@ -74,7 +74,87 @@
         </button>
 
         <p id="posicao-atual" class="posicao" hidden></p>
+
+        <!-- O resumo do perfil fica sempre à vista, e não escondido num menu:
+             "95 cm · Tranquilas" muda a resposta do app, e quem muda a resposta
+             precisa estar na cara de quem lê a resposta. -->
+        <button id="btn-perfil" type="button" class="botao-perfil" aria-haspopup="dialog">
+          <span class="botao-perfil__rotulo">Seu grupo</span>
+          <span id="perfil-resumo">Sem restrições</span>
+        </button>
       </section>
+
+      <!-- As duas perguntas da Fase 9. `<dialog>` em vez de uma div: o Esc fecha, o
+           foco fica preso dentro e o leitor de tela anuncia "diálogo" — tudo de
+           graça, e tudo o que dá errado em silêncio quando é refeito à mão. -->
+      <dialog id="painel-perfil" class="painel" aria-labelledby="painel-perfil-titulo">
+        <div class="painel__cabecalho">
+          <h2 id="painel-perfil-titulo">Antes do primeiro passo</h2>
+          <button id="btn-pular-perfil" type="button" class="link">Pular</button>
+        </div>
+        <p class="painel__intro">
+          Duas perguntas, as duas opcionais. As respostas ficam só neste celular, sem
+          conta nem e-mail.
+        </p>
+
+        <fieldset class="pergunta">
+          <legend>Tem criança no grupo? Qual a altura da mais baixa?</legend>
+          <p class="pergunta__porque">
+            Para não te mandar para uma fila em que a criança não pode entrar.
+          </p>
+          <div class="segmentos">
+            <label class="segmento">
+              <input type="radio" name="criancas" value="nao" />
+              <span>Sem crianças</span>
+            </label>
+            <label class="segmento">
+              <input type="radio" name="criancas" value="sim" />
+              <span>Tem criança</span>
+            </label>
+          </div>
+
+          <div id="altura-campo" class="altura" hidden>
+            <div class="altura__controle">
+              <button id="btn-altura-menos" type="button" class="altura__passo"
+                      aria-label="Um centímetro a menos">−</button>
+              <output id="altura-valor" for="altura" class="altura__valor">100 cm</output>
+              <button id="btn-altura-mais" type="button" class="altura__passo"
+                      aria-label="Um centímetro a mais">+</button>
+            </div>
+            <input id="altura" type="range" min="60" max="160" step="1" value="100"
+                   aria-label="Altura da criança mais baixa, em centímetros" />
+            <!-- A consequência aparece enquanto o dedo ajusta: "com 95 cm, fica de
+                 fora a Big Thunder". Saber disso antes de confirmar é o que torna
+                 a pergunta útil, e não burocracia. -->
+            <p id="altura-dica" class="pergunta__porque" aria-live="polite"></p>
+          </div>
+        </fieldset>
+
+        <fieldset class="pergunta">
+          <legend>Que tipo de atração vocês curtem?</legend>
+          <p class="pergunta__porque">
+            Se algo ficar escondido por isso, a tela avisa quantas e deixa mostrar.
+          </p>
+          <div class="segmentos segmentos--tres">
+            <label class="segmento">
+              <input type="radio" name="intensidade" value="tranquilas" />
+              <span>Tranquilas</span>
+            </label>
+            <label class="segmento">
+              <input type="radio" name="intensidade" value="tudo" />
+              <span>De tudo um pouco</span>
+            </label>
+            <label class="segmento">
+              <input type="radio" name="intensidade" value="emocao" />
+              <span>Quero emoção</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <button id="btn-salvar-perfil" type="button" class="botao-principal">
+          Ver meu próximo passo
+        </button>
+      </dialog>
 
       <!-- `aria-live` faz o leitor de tela anunciar mudanças de estado sozinho,
            sem o usuário precisar procurar o que mudou na página. -->
@@ -216,6 +296,16 @@
           </button>
           <button id="btn-limpar-visitadas" type="button" class="link">
             Limpar
+          </button>
+        </div>
+
+        <!-- Mesmo contrato do aviso das visitadas: o perfil escondeu, o perfil diz
+             quantas e deixa ver. "Emoção" tira 27 das 35 atrações do Magic Kingdom;
+             sem esta linha, o app pareceria ter perdido três quartos do parque. -->
+        <div id="perfil-aviso" class="visitadas-aviso" hidden>
+          <span id="perfil-aviso-texto"></span>
+          <button id="btn-mostrar-escondidas" type="button" class="link" aria-pressed="false">
+            Mostrar
           </button>
         </div>
 

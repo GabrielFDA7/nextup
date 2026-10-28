@@ -46,8 +46,14 @@ const estado = {
   filtros: { filaMax: 125, caminhadaMax: 125 },
   /** Se as visitadas estão sendo exibidas em vez de escondidas. */
   mostrandoVisitadas: false,
+  /** Quem pergunta: altura da criança mais baixa e gosto do grupo (Fase 9). */
+  perfil: { respondido: false, alturaCm: null, intensidade: "tudo" },
+  /** Se as atrações escondidas pelo gosto do grupo estão à mostra. */
+  mostrandoEscondidas: false,
   /** Última resposta do ranking, para redesenhar sem ir à rede de novo. */
   ultimoRanking: null,
+  /** Último panorama (o parque sem posição), pelo mesmo motivo. */
+  ultimoPanorama: null,
 };
 
 const el = {
@@ -82,6 +88,21 @@ const el = {
   rotuloFila: document.getElementById("rotulo-fila"),
   rotuloCaminhada: document.getElementById("rotulo-caminhada"),
   btnLimparFiltros: document.getElementById("btn-limpar-filtros"),
+  btnPerfil: document.getElementById("btn-perfil"),
+  perfilResumo: document.getElementById("perfil-resumo"),
+  painelPerfil: document.getElementById("painel-perfil"),
+  painelPerfilTitulo: document.getElementById("painel-perfil-titulo"),
+  btnPularPerfil: document.getElementById("btn-pular-perfil"),
+  btnSalvarPerfil: document.getElementById("btn-salvar-perfil"),
+  alturaCampo: document.getElementById("altura-campo"),
+  altura: document.getElementById("altura"),
+  alturaValor: document.getElementById("altura-valor"),
+  alturaDica: document.getElementById("altura-dica"),
+  btnAlturaMenos: document.getElementById("btn-altura-menos"),
+  btnAlturaMais: document.getElementById("btn-altura-mais"),
+  perfilAviso: document.getElementById("perfil-aviso"),
+  perfilAvisoTexto: document.getElementById("perfil-aviso-texto"),
+  btnMostrarEscondidas: document.getElementById("btn-mostrar-escondidas"),
 };
 
 let mapa;
@@ -405,8 +426,11 @@ function trocarParque(novoId) {
   estado.alvos = new Set();
   estado.atracoesDoParque = [];
   estado.mostrandoVisitadas = false;
+  estado.mostrandoEscondidas = false;
   estado.ultimoRanking = null;
+  estado.ultimoPanorama = null;
   el.visitadasAviso.hidden = true;
+  el.perfilAviso.hidden = true;
   el.buscaAtracao.value = "";
   el.escolherAlvos.open = false;
 
@@ -445,6 +469,10 @@ async function carregarParque({ trocaDeParque = false } = {}) {
     );
     desenharCatalogo(el.buscaAtracao.value);
     desenharAlvos(estado.ultimoRanking ? estado.ultimoRanking.recommendations : []);
+
+    // Na primeira visita o painel do perfil abre antes de o catálogo chegar, e a
+    // dica da altura depende dele.
+    if (el.painelPerfil.open) definirAltura(Number(el.altura.value));
 
     // Duas chamadas assíncronas disputam o mapa: esta e a do ranking. Se o
     // visitante liberar o GPS enquanto esta ainda está no ar, a resposta chega
@@ -536,6 +564,7 @@ function mostrarEsqueleto() {
  * visitante está seria repetir justamente o erro que o NextUp existe para evitar.
  */
 function mostrarPanoramaDoParque(dados) {
+  estado.ultimoPanorama = dados;
   el.tituloLista.textContent = dados.park_name;
   // O modo fica no DOM, e não só na cabeça de quem leu o código: a lista tem dois
   // significados muito diferentes — "as menores filas" e "o que compensa mais" —
@@ -555,13 +584,21 @@ function mostrarPanoramaDoParque(dados) {
   `;
   el.resumo.hidden = false;
 
-  const comFila = dados.attractions
-    .filter((a) => a.queue_minutes !== null)
-    .sort((a, b) => a.queue_minutes - b.queue_minutes);
+  const medidas = dados.attractions.filter((a) => a.queue_minutes !== null);
+  atualizarAvisoDoPerfil(medidas);
+
+  if (medidas.length === 0) {
+    el.lista.innerHTML = "";
+    mostrarAviso("Nenhuma atração com fila agora. O parque pode estar fechado.", "info");
+    el.atualizado.hidden = true;
+    return;
+  }
+
+  const comFila = medidas.filter(passaNoPerfil).sort((a, b) => a.queue_minutes - b.queue_minutes);
 
   if (comFila.length === 0) {
     el.lista.innerHTML = "";
-    mostrarAviso("Nenhuma atração com fila agora. O parque pode estar fechado.", "info");
+    mostrarAviso(avisoDePerfilApertado(), "info");
     el.atualizado.hidden = true;
     return;
   }
@@ -586,6 +623,7 @@ function criarItemSimples(item) {
         <p class="conta">
           <span class="parcela">${ICONE.fila} só a fila — falta a caminhada</span>
         </p>
+        ${criarRestricao(item)}
       </div>
       <button type="button" class="ver-historico"
               data-atracao="${escapar(item.id)}"
@@ -620,22 +658,30 @@ function renderizar(dados) {
 
   const visiveis = escolherVisiveis(dados.recommendations);
   atualizarAvisoDeVisitadas(dados.recommendations);
+  atualizarAvisoDoPerfil(
+    dados.recommendations
+      .filter((r) => !estado.visitadas.has(r.attraction.id))
+      .map((r) => r.attraction)
+  );
 
   if (visiveis.length === 0) {
     el.lista.innerHTML = "";
 
-    // Três motivos diferentes para uma lista vazia, e dizer o errado é pior que
+    // Quatro motivos diferentes para uma lista vazia, e dizer o errado é pior que
     // não dizer nada: "você já passou por todas" para quem só apertou um filtro
     // esconde a causa e faz o app parecer quebrado.
-    const sobrouAlgo = dados.recommendations.some(
+    const livres = dados.recommendations.filter(
       (r) => !estado.visitadas.has(r.attraction.id) && !estado.alvos.has(r.attraction.id)
     );
 
-    if (sobrouAlgo && FILTROS.ativos(estado.filtros)) {
+    if (livres.length > 0 && !livres.some(passaNosFiltros)) {
       mostrarAviso(
         "Nenhuma atração cabe nos seus filtros agora. Afrouxe os limites para ver mais.",
         "info"
       );
+    } else if (livres.length > 0) {
+      // Passam nos filtros e mesmo assim não aparecem: só sobrou o perfil.
+      mostrarAviso(avisoDePerfilApertado(), "info");
     } else {
       // Esta frase agora é verdade. Antes ela aparecia com oito marcadas de vinte
       // e oito disponíveis, porque a lista pedida ao servidor já vinha cortada.
@@ -653,7 +699,14 @@ function renderizar(dados) {
   // lista. Com as visitadas à mostra, a primeira posição pode ser uma que o
   // visitante já fez — e aí ninguém receberia o destaque, justamente na tela em
   // que ele está decidindo para onde ir.
-  const melhorDisponivel = visiveis.find((r) => !estado.visitadas.has(r.attraction.id));
+  //
+  // Nem para uma só dos adultos: o destaque responde "para onde vamos agora?" e o
+  // grupo inclui a criança. A atração continua na lista, marcada — pelo Rider
+  // Switch os adultos ainda vão, revezando. Decisão do Gabriel, Fase 9.
+  const melhorDisponivel = visiveis.find(
+    (r) =>
+      !estado.visitadas.has(r.attraction.id) && !PERFIL.soAdultos(r.attraction, estado.perfil)
+  );
   const idDaMelhor = melhorDisponivel ? melhorDisponivel.attraction.id : null;
 
   el.lista.innerHTML = visiveis.map((item) => criarItem(item, idDaMelhor)).join("");
@@ -711,11 +764,25 @@ function passaNaPopularidade(recomendacao) {
   return estado.filtros.faixas.includes(recomendacao.popularity.tier);
 }
 
+/* O gosto do grupo, aplicado depois dos filtros e com o mesmo contrato: corta,
+ * não reordena, e quem corta avisa quantas (`atualizarAvisoDoPerfil`).
+ *
+ * Recebe a atração crua — a do ranking (`r.attraction`) ou a do panorama — porque
+ * as duas trazem `id` e `intensity` no mesmo formato. Os alvos escapam pelo
+ * mesmo motivo de escaparem dos filtros: "vim por esta" vence uma preferência
+ * geral.
+ */
+function passaNoPerfil(atracao) {
+  const a = atracao.attraction || atracao;
+  if (estado.alvos.has(a.id) || estado.mostrandoEscondidas) return true;
+  return !PERFIL.escondida(a, estado.perfil);
+}
+
 function escolherVisiveis(recomendacoes) {
   // Os alvos já têm seção própria acima. Repeti-los aqui gastaria as oito vagas
   // do ranking com coisas que o visitante acabou de ver.
   const semAlvos = recomendacoes.filter((r) => !estado.alvos.has(r.attraction.id));
-  const dentroDoLimite = semAlvos.filter(passaNosFiltros);
+  const dentroDoLimite = semAlvos.filter(passaNosFiltros).filter(passaNoPerfil);
   const disponiveis = dentroDoLimite.filter((r) => !estado.visitadas.has(r.attraction.id));
   const proximas = disponiveis.slice(0, LIMITE);
 
@@ -1009,7 +1076,203 @@ const ICONE = {
       <circle cx="12" cy="12" r="5" />
       <circle cx="12" cy="12" r="1.4" fill="currentColor" />
     </svg>`,
+  // Uma régua com a seta de altura: o assunto é "até onde a criança alcança".
+  altura: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M7 3v18" /><path d="m4 6 3-3 3 3" /><path d="m4 18 3 3 3-3" />
+      <path d="M14 4h6v16h-6" /><path d="M14 9h3" /><path d="M14 14h3" />
+    </svg>`,
 };
+
+/* A marca de altura, na linha abaixo da conta.
+ *
+ * **Marca, não esconde** (decisão do Gabriel): pelo Rider Switch da Disney, um
+ * adulto vai enquanto o outro espera com a criança, e depois trocam sem refazer a
+ * fila. Esconder tiraria dos adultos a informação de que dá para revezar.
+ *
+ * Com criança no grupo e atração sem curadoria, diz que não sabe — em vez de
+ * calar, que seria ler "não sabemos" como "pode ir".
+ */
+function criarRestricao(atracao) {
+  if (PERFIL.soAdultos(atracao, estado.perfil)) {
+    return `
+      <p class="restricao">
+        ${ICONE.altura}
+        <span>
+          <strong>A partir de ${atracao.min_height_cm} cm · só os adultos</strong>
+          <span class="restricao__dica">Rider Switch: um adulto vai, o outro espera com a
+          criança, e depois trocam sem refazer a fila.</span>
+        </span>
+      </p>
+    `;
+  }
+
+  if (estado.perfil.alturaCm !== null && PERFIL.semCuradoria(atracao)) {
+    return `
+      <p class="restricao restricao--desconhecida">
+        ${ICONE.altura} Altura mínima não conferida — confira na entrada
+      </p>
+    `;
+  }
+
+  return "";
+}
+
+/* O aviso do que o gosto do grupo escondeu.
+ *
+ * Recebe as atrações ainda em jogo (sem as visitadas), no formato cru da API.
+ * Conta só as que o perfil esconde de fato: alvos escapam, e atração sem
+ * intensidade nunca é escondida — contá-las seria anunciar um corte que não houve.
+ */
+const NOMES_DO_PERFIL = {
+  tranquilas: { rotulo: "Tranquilas", uma: "radical", varias: "radicais" },
+  emocao: { rotulo: "Quero emoção", uma: "tranquila", varias: "tranquilas" },
+};
+
+function atualizarAvisoDoPerfil(atracoes) {
+  const escondidas = atracoes.filter(
+    (a) => !estado.alvos.has(a.id) && PERFIL.escondida(a, estado.perfil)
+  );
+
+  if (escondidas.length === 0) {
+    el.perfilAviso.hidden = true;
+    return;
+  }
+
+  const nomes = NOMES_DO_PERFIL[estado.perfil.intensidade];
+  const n = escondidas.length;
+  const quais = n === 1 ? `1 ${nomes.uma}` : `${n} ${nomes.varias}`;
+
+  el.perfilAvisoTexto.textContent = estado.mostrandoEscondidas
+    ? `${quais} à mostra, apesar de “${nomes.rotulo}”.`
+    : `${quais} ${n === 1 ? "escondida" : "escondidas"} por “${nomes.rotulo}”.`;
+  el.btnMostrarEscondidas.textContent = estado.mostrandoEscondidas ? "Ocultar" : "Mostrar";
+  el.btnMostrarEscondidas.setAttribute("aria-pressed", String(estado.mostrandoEscondidas));
+  el.perfilAviso.hidden = false;
+}
+
+/** A frase da lista vazia quando a causa é o perfil — e como desfazer. */
+function avisoDePerfilApertado() {
+  const nomes = NOMES_DO_PERFIL[estado.perfil.intensidade];
+  return `Nenhuma atração combina com “${nomes.rotulo}” agora. Toque em Mostrar para ver as ${nomes.varias}.`;
+}
+
+/** Redesenha a tela que estiver à vista, sem ir à rede de novo. */
+function redesenhar() {
+  if (estado.ultimoRanking) {
+    renderizar(estado.ultimoRanking);
+  } else if (estado.ultimoPanorama) {
+    mostrarPanoramaDoParque(estado.ultimoPanorama);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Painel do perfil
+// ---------------------------------------------------------------------------
+
+const RESUMO_DA_INTENSIDADE = { tranquilas: "Tranquilas", tudo: "De tudo", emocao: "Emoção" };
+
+/** O botão "Seu grupo": o perfil à vista, porque ele muda a resposta do app. */
+function atualizarResumoDoPerfil() {
+  const { alturaCm, intensidade } = estado.perfil;
+
+  el.perfilResumo.textContent =
+    alturaCm === null && intensidade === "tudo"
+      ? "Sem restrições"
+      : `${alturaCm === null ? "Sem crianças" : `Criança de ${alturaCm} cm`} · ${
+          RESUMO_DA_INTENSIDADE[intensidade]
+        }`;
+}
+
+/* Abre o painel com as respostas guardadas.
+ *
+ * Duas caras, um painel só: na primeira visita ele convida ("Antes do primeiro
+ * passo", "Pular"); depois ele edita ("Seu grupo", "Cancelar"). Dois painéis
+ * fariam duas cópias das mesmas perguntas, e uma delas acabaria desatualizada.
+ */
+function abrirPerfil({ primeiraVez = false } = {}) {
+  const { respondido, alturaCm, intensidade } = estado.perfil;
+
+  el.painelPerfil.dataset.primeiraVez = String(primeiraVez);
+  el.painelPerfilTitulo.textContent = primeiraVez ? "Antes do primeiro passo" : "Seu grupo";
+  el.btnPularPerfil.textContent = primeiraVez ? "Pular" : "Cancelar";
+  el.btnSalvarPerfil.textContent = primeiraVez ? "Ver meu próximo passo" : "Salvar";
+
+  // Nenhuma das duas marcada na primeira vez: pré-marcar "Sem crianças" seria
+  // responder pelo visitante, e a pergunta deixaria de ser pergunta.
+  for (const opcao of el.painelPerfil.querySelectorAll("input[name='criancas']")) {
+    opcao.checked = respondido && opcao.value === (alturaCm === null ? "nao" : "sim");
+  }
+  for (const opcao of el.painelPerfil.querySelectorAll("input[name='intensidade']")) {
+    opcao.checked = opcao.value === intensidade;
+  }
+
+  definirAltura(alturaCm ?? PERFIL.ALTURA.padrao);
+  el.alturaCampo.hidden = alturaCm === null;
+
+  el.painelPerfil.showModal();
+}
+
+/** Ajusta a altura nos três lugares que a mostram e reescreve a consequência. */
+function definirAltura(cm) {
+  const altura = Math.min(PERFIL.ALTURA.max, Math.max(PERFIL.ALTURA.min, Math.round(cm)));
+  el.altura.value = altura;
+  el.alturaValor.textContent = `${altura} cm`;
+  el.alturaDica.textContent = consequenciaDaAltura(altura);
+}
+
+/* "Com 95 cm, fica de fora: TRON, Space Mountain..."
+ *
+ * Calculada sobre o catálogo do parque, que chega sem exigir posição — então
+ * funciona na primeira abertura, antes do GPS. As mais exigentes vêm primeiro,
+ * porque são as que o visitante mais provavelmente veio procurar.
+ */
+function consequenciaDaAltura(cm) {
+  // Catálogo ainda a caminho: calar é melhor que afirmar "não conferimos" por
+  // engano. `carregarParque` reescreve a dica quando ele chega.
+  if (estado.atracoesDoParque.length === 0) return "";
+
+  const conferidas = estado.atracoesDoParque.filter((a) => !PERFIL.semCuradoria(a));
+  if (conferidas.length === 0) {
+    return "Neste parque ainda não conferimos as alturas mínimas.";
+  }
+
+  const deFora = conferidas
+    .filter((a) => a.min_height_cm != null && a.min_height_cm > cm)
+    .sort((a, b) => b.min_height_cm - a.min_height_cm)
+    .map((a) => a.name);
+
+  if (deFora.length === 0) return `Com ${cm} cm, a criança pode ir em todas.`;
+  return `Com ${cm} cm, fica de fora: ${deFora.join(", ")}. Os adultos ainda podem ir, revezando.`;
+}
+
+function salvarPerfil() {
+  const criancas = el.painelPerfil.querySelector("input[name='criancas']:checked");
+  const intensidade = el.painelPerfil.querySelector("input[name='intensidade']:checked");
+
+  estado.perfil = PERFIL.salvar({
+    alturaCm: criancas && criancas.value === "sim" ? Number(el.altura.value) : null,
+    intensidade: intensidade ? intensidade.value : "tudo",
+  });
+  fecharPerfil();
+}
+
+/* Pular também é resposta: o painel não volta sozinho na próxima visita.
+ * Perguntar de novo a cada abertura seria insistir com quem já disse "agora não". */
+function pularPerfil() {
+  if (el.painelPerfil.dataset.primeiraVez === "true") {
+    estado.perfil = PERFIL.salvar({ alturaCm: null, intensidade: "tudo" });
+  }
+  fecharPerfil();
+}
+
+function fecharPerfil() {
+  el.painelPerfil.close();
+  // Perfil novo, contexto novo: o "Mostrar" valia para o corte anterior.
+  estado.mostrandoEscondidas = false;
+  atualizarResumoDoPerfil();
+  redesenhar();
+}
 
 /* A tendência, na linha da conta.
  *
@@ -1094,6 +1357,7 @@ function criarItem(item, idDaMelhor) {
   if (ehMelhor) classes.push("item--melhor");
   if (visitada) classes.push("item--visitada");
   if (ehAlvo) classes.push("item--alvo");
+  if (PERFIL.soAdultos(item.attraction, estado.perfil)) classes.push("item--adultos");
 
   return `
     <li class="${classes.join(" ")}" data-expandido="false">
@@ -1113,6 +1377,7 @@ function criarItem(item, idDaMelhor) {
         </p>
         ${criarTendencia(item.trend)}
         ${criarPopularidade(item.popularity)}
+        ${criarRestricao(item.attraction)}
         ${etiqueta}
       </div>
       <!-- Botões de verdade, e não <div> clicáveis: já vêm com foco pelo teclado,
@@ -1327,6 +1592,10 @@ function iniciar() {
   estado.filtros = FILTROS.ler();
   atualizarControlesDeFiltro();
 
+  // O perfil também vem antes de qualquer desenho, pelo mesmo motivo.
+  estado.perfil = PERFIL.ler();
+  atualizarResumoDoPerfil();
+
   // Carrega o parque padrão já na abertura: o app passa a mostrar algo útil
   // antes de qualquer permissão de GPS.
   carregarParque();
@@ -1455,12 +1724,42 @@ function iniciar() {
     }
   });
 
+  el.btnPerfil.addEventListener("click", () => abrirPerfil());
+  el.btnSalvarPerfil.addEventListener("click", salvarPerfil);
+  el.btnPularPerfil.addEventListener("click", pularPerfil);
+
+  // Esc fecha o `<dialog>` sozinho. Interceptar é o que faz o Esc da primeira
+  // visita valer como "Pular" — senão o painel voltaria na próxima abertura.
+  el.painelPerfil.addEventListener("cancel", (evento) => {
+    evento.preventDefault();
+    pularPerfil();
+  });
+
+  el.painelPerfil.addEventListener("change", (evento) => {
+    if (evento.target.name !== "criancas") return;
+    el.alturaCampo.hidden = evento.target.value !== "sim";
+    definirAltura(Number(el.altura.value));
+  });
+
+  el.altura.addEventListener("input", () => definirAltura(Number(el.altura.value)));
+  el.btnAlturaMenos.addEventListener("click", () => definirAltura(Number(el.altura.value) - 1));
+  el.btnAlturaMais.addEventListener("click", () => definirAltura(Number(el.altura.value) + 1));
+
+  el.btnMostrarEscondidas.addEventListener("click", () => {
+    estado.mostrandoEscondidas = !estado.mostrandoEscondidas;
+    redesenhar();
+  });
+
   el.btnAtualizar.hidden = false;
 
   mostrarAviso(
     "Toque em “Usar minha localização” ou marque sua posição no mapa para ver o que compensa mais.",
     "info"
   );
+
+  // A primeira visita abre com as duas perguntas, por cima do parque já carregado
+  // — e não numa página de cadastro antes dele (decisão "uma tela, dois estados").
+  if (!estado.perfil.respondido) abrirPerfil({ primeiraVez: true });
 }
 
 iniciar();

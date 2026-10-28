@@ -199,6 +199,90 @@ const FILTROS = (() => {
   return { ler, salvar, limpar, ativos, SEM_LIMITE, FAIXAS };
 })();
 
+/* Quem está perguntando: a altura da criança mais baixa e o gosto do grupo.
+ *
+ * Nasceu da crítica que abriu a Fase 9: o ranking sabe o que cada atração
+ * **custa**, e não o que ela **vale** para quem pergunta. As duas perguntas são
+ * decisões do Gabriel (seção 7 do docs/PROJETO.md, Fase 9):
+ *
+ *   - **Perguntar, não adivinhar.** Inferir pelo comportamento erra calado.
+ *   - **Altura marca, não esconde.** Pelo Rider Switch, os adultos ainda vão; a
+ *     atração só não pode ser o destaque, que é para o grupo todo.
+ *   - **Intensidade esconde, com aviso.** O mesmo contrato dos filtros da 7.3:
+ *     corta, nunca reordena, e diz quantas cortou.
+ *
+ * Global, como os filtros: "a criança tem 95 cm" é sobre o grupo, não sobre o
+ * Magic Kingdom.
+ */
+const PERFIL = (() => {
+  const CHAVE = "nextup:perfil";
+
+  const INTENSIDADES = ["tranquilas", "tudo", "emocao"];
+
+  //: Qual nível cada preferência esconde. "Tranquilas" tira só as radicais: as
+  //: moderadas (Peter Pan, Pirates, Barnstormer) têm quedas pequenas e ficam.
+  //: "Emoção" tira as tranquilas — 27 das 35 do Magic Kingdom, e é por isso que o
+  //: aviso com "Mostrar" não é opcional. Decisões do Gabriel em 28/10/2026.
+  const ESCONDE = { tranquilas: "THRILL", tudo: null, emocao: "CALM" };
+
+  //: Faixa do controle de altura, a mesma do protótipo do Claude Design. A menor
+  //: exigência do Magic Kingdom é 89 cm e a maior 122: a faixa cobre as duas com
+  //: folga dos dois lados.
+  const ALTURA = { min: 60, max: 160, padrao: 100 };
+
+  function ler() {
+    const dados = ARMAZENAMENTO.ler(CHAVE);
+    const altura = Number(dados.alturaCm);
+
+    return {
+      // Sem resposta, o painel abre sozinho na primeira visita. Pular também conta
+      // como resposta: perguntar de novo a cada visita seria insistência.
+      respondido: dados.respondido === true,
+      // `null` é "sem crianças" ou "preferiu não dizer" — os dois significam não
+      // marcar nada, que é o comportamento de antes da Fase 9.
+      alturaCm: altura >= ALTURA.min && altura <= ALTURA.max ? altura : null,
+      // Valor desconhecido vira "tudo": um valor órfão de uma versão antiga
+      // esconderia atrações para sempre, sem o visitante saber por quê.
+      intensidade: INTENSIDADES.includes(dados.intensidade) ? dados.intensidade : "tudo",
+    };
+  }
+
+  function salvar({ alturaCm, intensidade }) {
+    ARMAZENAMENTO.escrever(CHAVE, { respondido: true, alturaCm, intensidade });
+    return ler();
+  }
+
+  /* A criança não entra: a atração exige mais do que ela tem.
+   *
+   * `min_height_cm: null` tem dois sentidos na API — "qualquer altura" (conferida)
+   * e "não sabemos" (sem curadoria). Nos dois, não há o que marcar: afirmar uma
+   * restrição sem dado seria inventá-la. Quem distingue os dois é `semCuradoria`.
+   */
+  function soAdultos(atracao, perfil) {
+    return (
+      perfil.alturaCm !== null &&
+      atracao.min_height_cm != null &&
+      atracao.min_height_cm > perfil.alturaCm
+    );
+  }
+
+  /* Sem curadoria, a API não sabe a altura nem a intensidade (as duas vêm juntas
+   * da mesma linha conferida). Com criança no grupo, isso merece ser dito — é a
+   * regra do `UNKNOWN` da 7.4: ausência de dado não é dado. */
+  function semCuradoria(atracao) {
+    return atracao.intensity == null;
+  }
+
+  /* Escondida pelo gosto do grupo. Atração sem intensidade nunca é escondida:
+   * escondê-la seria tratar "não sabemos" como "é radical" (ou "é tranquila"). */
+  function escondida(atracao, perfil) {
+    const nivel = ESCONDE[perfil.intensidade];
+    return nivel !== null && atracao.intensity === nivel;
+  }
+
+  return { ler, salvar, soAdultos, semCuradoria, escondida, INTENSIDADES, ALTURA };
+})();
+
 /* As atrações que o visitante VEIO FAZER.
  *
  * **Sem carimbo de data**, ao contrário das visitadas. Um alvo é desejo, não
