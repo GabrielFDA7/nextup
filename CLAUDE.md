@@ -41,13 +41,15 @@ documentação de decisões **fazem parte da entrega** — não são extras opci
 > 🧭 **ONDE PARAMOS (28/10/2026) — leia primeiro.**
 >
 > **Frentes abertas:**
-> - **Fase 9.3 — redesenho.** O Gabriel está desenhando no **Claude Design** com o prompt
->   de [`docs/design/prompt-claude-design.md`](docs/design/prompt-claude-design.md). Não
->   gostou tanto da primeira rodada, mas vai aproveitar muita coisa. Quando ele trouxer
->   as telas: revisar cada elemento **contra o que a API realmente entrega**, e só então
->   implementar 9.2 (as duas perguntas do perfil) e 9.3. Estrutura decidida: **uma tela,
->   dois estados** (painel do perfil sobre o parque; depois próximo passo → roteiro →
->   mapa → lista de filas).
+> - **Fases 9.2 e 9.3 — implementação começando (28/10).** O design está fechado em
+>   [`docs/design/claude-design/`](docs/design/claude-design/) (o README diz como abrir):
+>   **3c no claro, 3b no escuro** (paleta algodão-doce), estrutura de **uma tela, dois
+>   estados** (painel do perfil sobre o parque; depois próximo passo → roteiro → mapa →
+>   lista de filas). O **mapa é real, sem tiles**: Leaflet pintando
+>   `web/mapas/magic-kingdom.geojson` com as variáveis CSS; o protótipo está em
+>   `mapa-real.html`, com `rota.js` (rota pelas trilhas, só desenho) e `rotulos.js`.
+>   Revisar cada elemento do design **contra o que a API realmente entrega** ao portar.
+>   ⚠️ O design usa dados de mentira (horários, minutos): nada dele vira constante.
 > - **Primeira versão focada no Magic Kingdom** (decisão do Gabriel). Em consideração:
 >   tirar o seletor de parques ou limitá-lo a parques igualmente famosos.
 >

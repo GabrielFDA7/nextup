@@ -1973,6 +1973,12 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **Event loop** | O "maestro" do código assíncrono: alterna entre as tarefas enquanto cada uma espera rede ou banco. Objetos como travas pertencem ao loop que os usou primeiro |
 | **ASGITransport** | Transporte do `httpx` que entrega a requisição direto ao app FastAPI, sem rede e no mesmo event loop de quem chama. Nos testes, substitui o `TestClient`, que roda o app num loop próprio |
 | **Arquivo de lock** | Lista com a versão exata de cada dependência. Sem ele, cada instalação pega a versão mais nova permitida — foi assim que o SQLAlchemy 2.1 chegou sem aviso |
+| **Tiles** | As imagens quadradas que um mapa web monta em mosaico. Já vêm pintadas pelo servidor, então o CSS não muda a cor delas |
+| **GeoJSON** | Formato padrão de dados geográficos em JSON: pontos, linhas e polígonos em (longitude, latitude) — a ordem inversa do Leaflet |
+| **Overpass API** | Serviço público de consulta aos dados do OpenStreetMap. Gratuito e mantido por voluntários: consulta uma vez, guarda em cache |
+| **Douglas-Peucker** | Simplificação de linha: mantém só os pontos que desviam da reta mais que uma tolerância. Aqui, 1 m |
+| **Contraste (WCAG)** | Razão de luminância entre texto e fundo, de 1:1 a 21:1. A norma de acessibilidade pede 4,5:1 para texto e 3:1 para gráficos |
+| **ODbL** | A licença dos dados do OpenStreetMap: pode usar e redistribuir, desde que dê o crédito ("© OpenStreetMap contributors") |
 
 ---
 
@@ -2177,6 +2183,15 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 28/10/2026 | Testes de API chamam o app pelo **`ASGITransport`**, não pelo `TestClient` | O SQLAlchemy 2.1 recusa uma conexão usada por dois event loops, e o `TestClient` roda o app num loop à parte enquanto o teste grava no banco pelo outro. Exceção: `test_collector`, que precisa do `lifespan` |
 | 28/10/2026 | Corrigir os testes em vez de travar `sqlalchemy<2.1` | A trava esconderia o defeito, que era do desenho dos testes, e teria de sair um dia. Em produção há um loop só (o do uvicorn), então o app não muda |
 | 28/10/2026 | Python 3.13 instalado pelo **`py install 3.13`**, ao lado do 3.14 | O gerenciador oficial do Windows instala versões lado a lado sem `winget` nem administrador; o `.venv` segue na versão mais alta do CI |
+| 28/10/2026 | Paleta **algodão-doce**: 3c no modo claro, 3b no escuro | Ideia do Gabriel (azul, rosa e amarelo pastel). A cor ganha significado: azul é caminhada, rosa é fila, amarelo é destaque — o mesmo que o pontilhado e a cápsula já diziam pela forma |
+| 28/10/2026 | Pastel **só em fundo**; texto usa o tom escuro da mesma cor | Rosa pastel sobre branco dá 1,44:1, e texto pede 4,5:1. Os 24 pares de cada tema foram medidos pela fórmula da WCAG |
+| 28/10/2026 | `--glow` dividido em `--glow-ink` (texto) e `--on-glow` (texto sobre ele) | A mesma cor era o número do cartão e o fundo do botão; num cartão claro, um papel contradiz o outro |
+| 28/10/2026 | Mapa **real, sem tiles**, em vez do mapa ilustrado do Claude Design | O desenho tem geografia inventada: quebraria o "tocar no mapa define a posição" e o ponto do GPS. Os tiles do OSM já vêm pintados e brigam com a paleta. O Leaflet fica, desenhando um GeoJSON do OSM com as variáveis CSS do tema |
+| 28/10/2026 | O GeoJSON é extraído **uma vez** e versionado em `web/mapas/` | A Overpass é pública e gratuita; o app nunca a consulta em tempo real. ~70 KB comprimidos |
+| 28/10/2026 | A simplificação **preserva os cruzamentos** das trilhas | 1054 cruzamentos ficavam no meio de uma trilha; apagá-los partiria a rede da rota. Medido: 624 de 624 preservados |
+| 28/10/2026 | Praça (`area=yes`) é desenhada como **área**; via larga e calçada têm traços diferentes | 63% do traçado é `footway` e 78 trilhas eram contornos de praça: com a mesma espessura, a Fantasyland virava uma malha |
+| 28/10/2026 | A rota no mapa segue as trilhas (Dijkstra), mas **só desenha** | O tempo de caminhada continua vindo da API (linha reta × 1,3). Trocá-lo pela distância das trilhas mudaria o ranking — pede medição antes. A mediana medida foi 1,31× a linha reta |
+| 28/10/2026 | Rótulos: número sempre, **nome só onde couber** | Com geografia real, vizinhas de verdade se sobrepõem. Cada nome tenta quatro lados na ordem do roteiro e some se não couber; o roteiro abaixo do mapa dá o nome de cada número |
 
 ---
 
