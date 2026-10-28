@@ -40,12 +40,22 @@ PROIBIDOS_NO_CORE = {
     "sqlalchemy",
     "alembic",
     "nextup.storage",
+    # A curadoria é lida de arquivo. O core recebe as etiquetas prontas e decide a
+    # intensidade; abrir o arquivo é trabalho de quem chama.
+    "nextup.data",
 }
 
 #: `models/` é o idioma comum — o que atravessa todas as camadas. Se ele souber de
 #: SQLAlchemy, o banco vaza para dentro de todo mundo que fala esse idioma, incluindo
 #: o `core/`, por tabela.
-PROIBIDOS_NOS_MODELS = {"httpx", "sqlalchemy", "alembic", "nextup.clients", "nextup.storage"}
+PROIBIDOS_NOS_MODELS = {
+    "httpx",
+    "sqlalchemy",
+    "alembic",
+    "nextup.clients",
+    "nextup.storage",
+    "nextup.data",
+}
 
 
 def imports_de(arquivo: Path) -> set[str]:

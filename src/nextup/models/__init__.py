@@ -5,6 +5,7 @@ precise saber em qual arquivo cada modelo mora.
 """
 
 from nextup.models.attraction import EntityType, Location, ParkCatalog, ParkEntity
+from nextup.models.curation import CuratedAttraction, ParkCuration
 from nextup.models.destination import Destination, DestinationList, Park
 from nextup.models.live import (
     ForecastPoint,
@@ -17,6 +18,7 @@ from nextup.models.live import (
 from nextup.models.snapshot import QueueForecast, QueueSnapshot
 
 __all__ = [
+    "CuratedAttraction",
     "Destination",
     "DestinationList",
     "EntityType",
@@ -27,6 +29,7 @@ __all__ = [
     "Location",
     "Park",
     "ParkCatalog",
+    "ParkCuration",
     "ParkEntity",
     "Queue",
     "QueueForecast",
