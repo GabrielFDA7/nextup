@@ -54,6 +54,8 @@ const estado = {
   ultimoRanking: null,
   /** Último panorama (o parque sem posição), pelo mesmo motivo. */
   ultimoPanorama: null,
+  /** A melhor escolha da vez — o destino da rota desenhada no mapa. */
+  destaque: null,
 };
 
 const el = {
@@ -108,6 +110,21 @@ const el = {
 let mapa;
 let marcadorVisitante;
 let camadaAtracoes;
+/** O fundo do mapa: o desenho do parque, ou tiles onde não há desenho. */
+let camadaFundo;
+/** A rota a pé até a melhor escolha, pelas trilhas. */
+let camadaRota;
+/** A rede de trilhas do parque atual, para traçar a rota. `null` sem desenho. */
+let redeDeTrilhas = null;
+/** Entre `movestart` e `moveend`: os nomes estão em trânsito. */
+let mapaEmMovimento = false;
+
+/* Os parques que têm desenho próprio, extraído do OpenStreetMap por
+ * `scripts/extrair_mapa_mk.py`. Só o Magic Kingdom por enquanto — é o foco da
+ * primeira versão, e o único com curadoria e histórico. Os outros seguem com
+ * tiles, que funcionam em qualquer lugar do mundo.
+ */
+const DESENHOS = { [PARQUE_PADRAO]: "mapas/magic-kingdom.geojson" };
 
 // ---------------------------------------------------------------------------
 // Avisos
@@ -127,22 +144,130 @@ function limparAviso() {
 // Mapa
 // ---------------------------------------------------------------------------
 
+const CREDITO_OSM = '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>';
+
 function iniciarMapa() {
+  // A vista vem ANTES de qualquer camada vetorial: sem centro e zoom, o Leaflet não
+  // sabe recortar as linhas e quebra ("reading 'min'"). Achado no protótipo.
   mapa = L.map("mapa").setView([28.4177, -81.5812], 15);
 
-  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
-  }).addTo(mapa);
-
+  camadaRota = L.layerGroup().addTo(mapa);
   camadaAtracoes = L.layerGroup().addTo(mapa);
+  trocarFundoDoMapa(estado.parqueId);
 
   // Tocar no mapa define a posição. Resolve dois problemas de uma vez: quem
   // negou o GPS ainda consegue usar o app, e quem está com GPS impreciso
   // (comum entre prédios) pode corrigir na mão — risco previsto na seção 8.
+  // O desenho do parque é `interactive: false` justamente para o toque chegar aqui.
   mapa.on("click", (evento) => {
     definirPosicao(evento.latlng.lat, evento.latlng.lng, "escolhida no mapa");
   });
+
+  // Zoom e arrasto mudam o espaço livre: os nomes se reorganizam. Durante a
+  // animação eles estão em trânsito, e o atributo sai para dizer isso — é o que
+  // os testes esperam, em vez de um tempo fixo que um dia não basta.
+  mapa.on("movestart zoomstart", () => {
+    mapaEmMovimento = true;
+    delete mapa.getContainer().dataset.rotulos;
+  });
+  mapa.on("zoomend moveend", () => {
+    mapaEmMovimento = false;
+    posicionarRotulos();
+  });
+}
+
+/* O fundo do mapa, conforme o parque.
+ *
+ * Com desenho próprio, o Leaflet pinta o GeoJSON com as variáveis CSS do tema —
+ * e o mapa troca de cor junto com o resto da tela, o que tile nenhum faz: ele já
+ * vem pintado do servidor. Sem desenho, tiles: funcionam em qualquer parque.
+ */
+async function trocarFundoDoMapa(parqueId) {
+  if (camadaFundo) mapa.removeLayer(camadaFundo);
+  camadaFundo = null;
+  redeDeTrilhas = null;
+  camadaRota.clearLayers();
+
+  const arquivo = DESENHOS[parqueId];
+  mapa.getContainer().classList.toggle("mapa--desenhado", Boolean(arquivo));
+
+  if (arquivo) {
+    try {
+      const resposta = await fetch(arquivo);
+      if (!resposta.ok) throw new Error("desenho indisponível");
+      const desenho = await resposta.json();
+
+      // O visitante pode ter trocado de parque enquanto o arquivo vinha.
+      if (estado.parqueId !== parqueId) return;
+
+      camadaFundo = L.geoJSON(desenho, {
+        style: (f) => ({ className: `m-${f.properties.c}${f.properties.t ? ` m-${f.properties.t}` : ""}` }),
+        interactive: false,
+        attribution: CREDITO_OSM,
+      }).addTo(mapa);
+      camadaFundo.bringToBack();
+      redeDeTrilhas = ROTA.montarRede(desenho);
+      desenharRota();
+      return;
+    } catch {
+      // Sem o desenho, o mapa ainda precisa existir: cai para os tiles.
+      mapa.getContainer().classList.remove("mapa--desenhado");
+    }
+  }
+
+  if (estado.parqueId !== parqueId) return;
+  camadaFundo = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: CREDITO_OSM,
+  }).addTo(mapa);
+}
+
+/* A rota a pé do visitante até a melhor escolha, pelas trilhas.
+ *
+ * Só desenha. O número que o app mostra continua vindo da API, e o traçado existe
+ * para o visitante ver POR ONDE ir — que a linha reta, atravessando prédios, não
+ * diz. Só onde há rede de trilhas; nos outros parques não há o que seguir.
+ */
+function desenharRota() {
+  camadaRota.clearLayers();
+  if (!redeDeTrilhas || !estado.posicao || !estado.destaque) return;
+
+  const { latitude, longitude } = estado.destaque.attraction;
+  const pernas = ROTA.rotaPelasTrilhas(redeDeTrilhas, [
+    [estado.posicao.lat, estado.posicao.lon],
+    [latitude, longitude],
+  ]);
+  const tracado = pernas.map((p) => p.pontos);
+
+  L.polyline(tracado, { className: "m-rota-halo", interactive: false }).addTo(camadaRota);
+  L.polyline(tracado, { className: "m-rota", interactive: false }).addTo(camadaRota);
+}
+
+/* Os nomes ao lado dos números, sem sobreposição (web/rotulos.js).
+ *
+ * Prioridade pela ordem do ranking: a primeira colocada é a que o visitante
+ * procura primeiro. Nada pode ser coberto por um nome: o "Você", os botões de
+ * zoom e o crédito do mapa.
+ */
+function posicionarRotulos() {
+  const paradas = [];
+  camadaAtracoes.eachLayer((marcador) => {
+    if (marcador.getElement()?.querySelector(".rotulo")) {
+      paradas.push({ marcador, raio: 15, ordem: marcador.options.ordem });
+    }
+  });
+  paradas.sort((a, b) => a.ordem - b.ordem);
+
+  const container = mapa.getContainer();
+  ROTULOS.posicionar(mapa, paradas, [
+    marcadorVisitante?.getElement(),
+    container.querySelector(".leaflet-control-zoom"),
+    container.querySelector(".leaflet-control-attribution"),
+  ]);
+
+  // O ranking pode chegar no meio de uma animação: a conta então vale para uma
+  // vista que ainda vai mudar, e o `moveend` refaz e anuncia.
+  if (!mapaEmMovimento) container.dataset.rotulos = "prontos";
 }
 
 /* Marcador numerado, na paleta do app.
@@ -151,12 +276,14 @@ function iniciarMapa() {
  * marcadores idênticos não permitem ligar o mapa à lista. Numerado, dá para
  * achar no mapa a atração que está em primeiro sem contar pontinhos.
  */
-function marcadorNumerado(posicao) {
+function marcadorNumerado(posicao, nome) {
   const melhor = posicao === 1;
 
+  // O nome vai junto, e quem decide se ele aparece (e de que lado) é
+  // `posicionarRotulos`: com geografia real, vizinhas de verdade se sobrepõem.
   return L.divIcon({
     className: "",
-    html: `<span class="pino${melhor ? " pino--melhor" : ""}">${posicao}</span>`,
+    html: `<span class="pino${melhor ? " pino--melhor" : ""}">${posicao}</span><span class="rotulo">${escapar(nome)}</span>`,
     iconSize: [30, 30],
     iconAnchor: [15, 15],
     popupAnchor: [0, -14],
@@ -170,16 +297,19 @@ function desenharMapa(recomendacoes) {
     const { latitude, longitude } = item.attraction;
 
     L.marker([latitude, longitude], {
-      icon: marcadorNumerado(indice + 1),
+      icon: marcadorNumerado(indice + 1, item.attraction.name),
       // Atrações vizinhas ficam a poucos metros, então os marcadores se
       // sobrepõem. Quanto melhor a colocação, mais na frente: a resposta do app
       // não pode ficar escondida atrás de uma opção pior.
       zIndexOffset: (recomendacoes.length - indice) * 10,
+      ordem: indice,
     })
       .bindPopup(`<strong>${indice + 1}. ${escapar(item.attraction.name)}</strong><br>
          ${Math.round(item.total_minutes)} min no total`)
       .addTo(camadaAtracoes);
   });
+
+  posicionarRotulos();
 }
 
 function marcarVisitante(lat, lon) {
@@ -429,8 +559,10 @@ function trocarParque(novoId) {
   estado.mostrandoEscondidas = false;
   estado.ultimoRanking = null;
   estado.ultimoPanorama = null;
+  estado.destaque = null;
   el.visitadasAviso.hidden = true;
   el.perfilAviso.hidden = true;
+  trocarFundoDoMapa(parqueId);
   el.buscaAtracao.value = "";
   el.escolherAlvos.open = false;
 
@@ -637,6 +769,10 @@ function criarItemSimples(item) {
 
 function renderizar(dados) {
   estado.ultimoRanking = dados;
+  // Sem destaque até prova em contrário: numa lista vazia, a rota apontaria para
+  // uma atração que já não é resposta de nada.
+  estado.destaque = null;
+  desenharRota();
 
   el.tituloLista.textContent = dados.park_name;
   el.lista.dataset.modo = "ranking";
@@ -708,9 +844,11 @@ function renderizar(dados) {
       !estado.visitadas.has(r.attraction.id) && !PERFIL.soAdultos(r.attraction, estado.perfil)
   );
   const idDaMelhor = melhorDisponivel ? melhorDisponivel.attraction.id : null;
+  estado.destaque = melhorDisponivel || null;
 
   el.lista.innerHTML = visiveis.map((item) => criarItem(item, idDaMelhor)).join("");
   desenharMapa(visiveis);
+  desenharRota();
 
   el.atualizado.textContent = `Dado da fonte às ${formatarHora(dados.data_updated_at)}.`;
   el.atualizado.hidden = false;
@@ -1586,6 +1724,10 @@ function escapar(texto) {
 function iniciar() {
   iniciarMapa();
   carregarParques();
+
+  // A largura de cada nome no mapa muda quando a fonte chega; medir com a fonte
+  // reserva deixaria as caixas erradas e os nomes se tocando.
+  document.fonts?.ready.then(posicionarRotulos);
 
   // Antes de qualquer desenho: os filtros são globais e sobrevivem entre visitas,
   // então a primeira lista já precisa sair respeitando o que ficou guardado.

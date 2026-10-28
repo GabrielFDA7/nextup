@@ -70,6 +70,15 @@
   --pino: #2b2250;
   --sobre-pino: #ffffff;
 
+  /* O desenho do parque (web/mapas/), pintado aqui em vez de vir pintado num tile:
+     é o que deixa o mapa trocar de tema junto com o resto da tela. */
+  --mapa-fundo: #f1ecf6;
+  --mapa-verde: #e8e0f0;
+  --mapa-predio: #dfd4ea;
+  --mapa-agua: #cfe4fb;
+  --mapa-trilha: #ffffff;
+  --mapa-contorno: #d4c8e0;
+
   --raio: 18px;
   --raio-p: 12px;
   --sombra: 0 1px 2px rgb(43 34 80 / 6%), 0 6px 18px rgb(43 34 80 / 8%);
@@ -112,6 +121,13 @@
 
     --pino: #eef5ff;
     --sobre-pino: #1d2a4a;
+
+    --mapa-fundo: #121b31;
+    --mapa-verde: #1a2540;
+    --mapa-predio: #212e4c;
+    --mapa-agua: #24406e;
+    --mapa-trilha: #2f3d60;
+    --mapa-contorno: #384869;
 
     --sombra: 0 1px 2px rgb(0 0 0 / 30%), 0 6px 18px rgb(0 0 0 / 25%);
     --sombra-forte: 0 2px 4px rgb(0 0 0 / 35%), 0 12px 28px rgb(0 0 0 / 35%);
@@ -1335,4 +1351,131 @@ a {
 
 .restricao--desconhecida {
   color: var(--tinta-suave);
+}
+
+/* ---------------------------------------------------------------------------
+   Mapa desenhado (Fase 9.3)
+   --------------------------------------------------------------------------- */
+
+/* O Leaflet pinta cada caminho por atributo; regra CSS vence atributo, e é por
+   aqui que o tema entra. A ordem das camadas vem do próprio GeoJSON. */
+.mapa--desenhado,
+.mapa--desenhado.leaflet-container {
+  background: var(--mapa-fundo);
+}
+
+.m-verde {
+  fill: var(--mapa-verde);
+  fill-opacity: 1;
+  stroke: none;
+}
+
+.m-agua {
+  fill: var(--mapa-agua);
+  fill-opacity: 1;
+  stroke: var(--mapa-agua);
+  stroke-width: 2;
+}
+
+.m-predio {
+  fill: var(--mapa-predio);
+  fill-opacity: 1;
+  stroke: var(--mapa-contorno);
+  stroke-width: 0.6;
+}
+
+/* Hierarquia medida na extração: praça é área, via larga é traço grosso,
+   calçada é traço fino. A borda da praça existe só para a rota. */
+.m-praca {
+  fill: var(--mapa-trilha);
+  fill-opacity: 0.9;
+  stroke: none;
+}
+
+.m-trilha {
+  fill: none;
+  stroke: var(--mapa-trilha);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.m-trilha.m-via {
+  stroke-width: 4;
+}
+
+.m-trilha.m-borda {
+  stroke: none;
+}
+
+/* A rota até a melhor escolha: pontilhada, porque caminhada é sempre pontilhado
+   — no mapa, no cartão e no gráfico. O halo largo e fraco faz ela ser achada
+   antes de ser lida. */
+.m-rota-halo {
+  fill: none;
+  stroke: var(--caminhada);
+  stroke-width: 12;
+  stroke-opacity: 0.16;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.m-rota {
+  fill: none;
+  stroke: var(--caminhada);
+  stroke-width: 4;
+  stroke-dasharray: 1 8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* O nome ao lado do número. As quatro posições são as que web/rotulos.js
+   escolhe; as distâncias batem com `retangulo()` de lá (raio 15 + 6 de folga, a
+   partir do ícone de 30 px). O contorno da cor do fundo o descola do desenho. */
+.rotulo {
+  position: absolute;
+  /* Largura limitada: "Prince Charming Regal Carrousel" inteiro não cabia em lado
+     nenhum, e a regra escondia justamente o nome da primeira colocada. Cortado, ele
+     cabe; o nome completo está na lista e no balão do marcador. */
+  max-width: 9.5em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+  color: var(--tinta);
+  text-shadow:
+    0 0 3px var(--mapa-fundo),
+    0 0 3px var(--mapa-fundo),
+    0 0 3px var(--mapa-fundo);
+  pointer-events: none;
+}
+
+.rotulo.dir {
+  left: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.rotulo.esq {
+  right: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.rotulo.cima {
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.rotulo.baixo {
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.rotulo.oculto {
+  display: none;
 }

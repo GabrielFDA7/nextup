@@ -89,6 +89,13 @@ def navegador():
         nav.close()
 
 
+#: Um PNG de 1x1 transparente: o menor tile que o Leaflet aceita como carregado.
+PNG_VAZIO = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4"
+    "890000000b49444154789c6360000200000500017a5eab3f0000000049454e44"
+    "ae426082"
+)
+
 #: O perfil de quem "já respondeu e pulou": nada marcado, nada escondido — o app de
 #: antes da Fase 9. É o padrão do `abrir`, porque na primeira visita o painel das
 #: duas perguntas abre por cima da tela, e todo teste que não fala de perfil
@@ -134,6 +141,13 @@ def abrir(
     # internet. Passou despercebido quando a rota nasceu porque a chamada
     # *funciona*: ela só fica lenta, instável e mal-educada com uma API pública.
     pagina.route("**/attractions*", _responder_atracoes)
+    # Os tiles também são internet. O Magic Kingdom não os usa desde a 9.3 (o mapa
+    # é desenhado), mas os outros parques sim — e até então cada teste baixava
+    # imagens de verdade do tile.openstreetmap.org sem ninguém perceber.
+    pagina.route(
+        "**/tile.openstreetmap.org/**",
+        lambda rota: rota.fulfill(status=200, content_type="image/png", body=PNG_VAZIO),
+    )
 
     pagina.goto(servidor, wait_until="networkidle")
     return pagina
@@ -372,10 +386,11 @@ class TestCarregamentoInicial:
 
     def test_mapa_carrega_de_verdade(self, navegador, servidor):
         """Se o Leaflet falhasse, o mapa ficaria um retângulo vazio — e nenhum
-        teste de API perceberia."""
+        teste de API perceberia. Desde a 9.3 o Magic Kingdom é desenhado a partir
+        do GeoJSON, e são as trilhas que provam que o mapa existe."""
         pagina = abrir(navegador, servidor)
 
-        expect(pagina.locator("#mapa img.leaflet-tile").first).to_be_visible()
+        expect(pagina.locator("#mapa path.m-trilha")).not_to_have_count(0)
 
     def test_seletor_lista_os_parques_da_api(self, navegador, servidor):
         pagina = abrir(navegador, servidor)
@@ -1897,3 +1912,113 @@ class TestPerfil:
         nomes = pagina.locator("#lista .nome").all_inner_texts()
         assert nomes, "o panorama precisa mostrar alguma atração"
         assert not any("Carrousel" in n for n in nomes), "uma tranquila escapou do perfil"
+
+
+def _mapa_parado(pagina) -> None:
+    """Espera os nomes do mapa assentarem.
+
+    O mapa aproxima o visitante com animação, e no meio dela os nomes estão em
+    trânsito — medidos ali, saíam até 45 px fora do mapa. O app anuncia quando
+    terminou de posicioná-los; esperar o anúncio é o que evita um tempo fixo que
+    um dia não basta.
+    """
+    pagina.evaluate("document.fonts.ready")
+    pagina.wait_for_selector("#mapa[data-rotulos='prontos']", state="attached")
+
+
+class TestMapaDesenhado:
+    """O mapa real sem tiles (Fase 9.3): o GeoJSON do OpenStreetMap, pintado pelo CSS.
+
+    O desenho do Claude Design foi descartado por ter a geografia inventada: quebraria
+    o "tocar no mapa define a posição". Esse comportamento continua coberto por
+    `TestGpsNegado.test_clique_no_mapa_resolve_sem_gps` — agora sobre o desenho.
+    """
+
+    def test_o_magic_kingdom_nao_baixa_tiles(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        expect(pagina.locator("#mapa path.m-trilha")).not_to_have_count(0)
+        expect(pagina.locator("#mapa img.leaflet-tile")).to_have_count(0)
+
+    def test_outro_parque_volta_aos_tiles(self, navegador, servidor):
+        """Sem desenho próprio, o mapa ainda precisa existir."""
+        pagina = abrir(navegador, servidor, com_gps=False)
+        expect(pagina.locator("#mapa path.m-trilha")).not_to_have_count(0)
+
+        pagina.select_option("#parque", PARQUE_DISTANTE)
+        expect(pagina.locator("#mapa img.leaflet-tile").first).to_be_attached()
+        expect(pagina.locator("#mapa path.m-trilha")).to_have_count(0)
+
+    def test_o_credito_do_openstreetmap_continua(self, navegador, servidor):
+        """Licença ODbL: o dado é do OSM mesmo sem tile nenhum."""
+        pagina = abrir(navegador, servidor)
+        expect(pagina.locator(".leaflet-control-attribution")).to_contain_text("OpenStreetMap")
+
+    def test_o_desenho_troca_de_cor_com_o_tema(self, navegador, servidor):
+        """O que tile nenhum faz: o mapa escurece junto com a tela."""
+        pagina = abrir(navegador, servidor)
+        predio = pagina.locator("#mapa path.m-predio").first
+        expect(predio).to_be_attached()
+
+        cor = "el => getComputedStyle(el).fill"
+        pagina.emulate_media(color_scheme="light")
+        claro = predio.evaluate(cor)
+        pagina.emulate_media(color_scheme="dark")
+        escuro = predio.evaluate(cor)
+
+        assert claro != escuro, f"o prédio ficou {claro} nos dois temas"
+
+    def test_a_rota_ate_a_melhor_escolha_segue_as_trilhas(self, navegador, servidor):
+        """Linha reta teria dois pontos; pelas trilhas, ela dobra esquinas."""
+        pagina = abrir(navegador, servidor)
+        _localizar(pagina)
+
+        rota = pagina.locator("#mapa path.m-rota")
+        expect(rota).to_have_count(1)
+        pontos = rota.get_attribute("d").count("L") + 1
+        assert pontos > 2, f"a rota tem {pontos} pontos: virou linha reta"
+
+    def test_sem_posicao_nao_ha_rota(self, navegador, servidor):
+        pagina = abrir(navegador, servidor, com_gps=False)
+        pagina.wait_for_selector("[data-modo='panorama'] .item")
+        expect(pagina.locator("#mapa path.m-rota")).to_have_count(0)
+
+    def test_os_nomes_nao_se_sobrepoem(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        _localizar(pagina)
+        _mapa_parado(pagina)
+
+        mapa = pagina.locator("#mapa").bounding_box()
+        caixas = [r.bounding_box() for r in pagina.locator("#mapa .rotulo:not(.oculto)").all()]
+        assert caixas, "nenhum nome apareceu no mapa"
+
+        def bate(a, b):
+            return (
+                a["x"] < b["x"] + b["width"]
+                and b["x"] < a["x"] + a["width"]
+                and a["y"] < b["y"] + b["height"]
+                and b["y"] < a["y"] + a["height"]
+            )
+
+        for i, a in enumerate(caixas):
+            assert a["x"] >= mapa["x"] and a["x"] + a["width"] <= mapa["x"] + mapa["width"], (
+                "um nome saiu pela lateral do mapa"
+            )
+            for b in caixas[i + 1 :]:
+                assert not bate(a, b), "dois nomes se sobrepõem"
+
+    def test_nenhum_nome_cobre_um_numero(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        _localizar(pagina)
+        _mapa_parado(pagina)
+
+        nomes = [r.bounding_box() for r in pagina.locator("#mapa .rotulo:not(.oculto)").all()]
+        pinos = [p.bounding_box() for p in pagina.locator("#mapa .pino").all()]
+        for n in nomes:
+            for p in pinos:
+                sobrepoe = (
+                    n["x"] < p["x"] + p["width"]
+                    and p["x"] < n["x"] + n["width"]
+                    and n["y"] < p["y"] + p["height"]
+                    and p["y"] < n["y"] + n["height"]
+                )
+                assert not sobrepoe, "um nome cobre um número do mapa"
