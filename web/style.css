@@ -101,6 +101,11 @@
      mesma técnica das ruas de qualquer mapa claro. */
   --mapa-casco: #a493bb;
 
+  /* A barra de "Todas as filas", fixa no pé da tela. Cor própria: com a cor de
+     ação (índigo no claro) ela sumia sobre o cartão, que é índigo também. */
+  --barra: #ffffff;
+  --sobre-barra: #2b2250;
+  --barra-borda: #cfc4e0;
   /* O entorno (estacionamento, bastidores) fica sob um véu: o parque vira uma
      ilha colorida, e o olho para nela. */
   --mapa-veu: #f6f3f9;
@@ -168,6 +173,10 @@
     --mapa-praca: #3d4d78;
     --mapa-casco: none;
 
+    /* Azul-claro: o rosa já é o "Já fui" e o azul-marinho é o cartão. */
+    --barra: #bfe0fd;
+    --sobre-barra: #1d2a4a;
+    --barra-borda: #bfe0fd;
     --mapa-veu: #0b1121;
     --mapa-limite: #4a5b88;
     --mapa-nome-area: #a3b3d6;
@@ -1634,32 +1643,43 @@ a {
   box-shadow: 0 0 0 3px var(--destaque);
 }
 
-/* O botão do painel, sobre o mapa: acima do crédito do OpenStreetMap, que a
-   licença ODbL pede visível. */
+/* O botão do painel: uma barra larga, fixa no pé da tela.
+   Sobre o mapa, com 44 px, ele se perdia no desenho. No pé, fica à vista em
+   qualquer ponto da rolagem e onde o polegar de quem segura o celular com uma mão
+   já está. `left`, `right` e `max-width` juntos o centralizam em telas largas. */
 .pilula {
-  position: absolute;
-  z-index: 1000;
-  right: 14px;
-  bottom: 30px;
-  display: inline-flex;
+  position: fixed;
+  z-index: 1100;
+  left: 16px;
+  right: 16px;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0 16px;
+  justify-content: center;
+  gap: 10px;
+  max-width: 688px;
+  min-height: 56px;
+  margin: 0 auto;
+  padding: 0 20px;
   font: inherit;
-  font-size: 0.95rem;
+  font-size: 1.08rem;
   font-weight: 700;
-  color: var(--sobre-quente);
-  background: var(--destaque);
-  border: 0;
-  border-radius: 22px;
-  box-shadow: var(--sombra-forte);
+  color: var(--sobre-barra);
+  background: var(--barra);
+  border: 1.5px solid var(--barra-borda);
+  border-radius: 18px;
+  box-shadow: 0 4px 10px rgb(20 12 40 / 18%), 0 14px 32px rgb(20 12 40 / 22%);
   cursor: pointer;
 }
 
 .pilula svg {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
+}
+
+/* Espaço no fim da página para a barra não cobrir o rodapé. */
+body {
+  padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
 }
 
 /* --- O cartão ----------------------------------------------------------- */

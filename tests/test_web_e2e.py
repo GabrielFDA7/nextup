@@ -2180,6 +2180,38 @@ class TestPainelDeFilas:
         _com_cartao(pagina)
         expect(pagina.locator("#btn-todas-filas")).to_contain_text("Todas as filas · 26")
 
+    def test_o_botao_fica_fora_do_mapa_e_a_vista(self, navegador, servidor):
+        """Sobre o mapa e pequeno, ele se perdia no desenho (Gabriel, 28/10/2026)."""
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+
+        botao = pagina.locator("#btn-todas-filas").bounding_box()
+        mapa = pagina.locator("#mapa").bounding_box()
+        assert not _caixas_batem(botao, mapa), "o botão está em cima do mapa"
+        assert botao["height"] >= 52, f"o botão tem {botao['height']} px de altura"
+        assert botao["y"] + botao["height"] <= CELULAR["height"], "o botão está fora da tela"
+
+    def test_o_botao_acompanha_a_rolagem(self, navegador, servidor):
+        """Fixo no pé da tela: à vista em qualquer ponto da página."""
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+        antes = pagina.locator("#btn-todas-filas").bounding_box()
+
+        pagina.mouse.wheel(0, 600)
+        pagina.wait_for_function("window.scrollY > 0")
+
+        assert pagina.locator("#btn-todas-filas").bounding_box() == antes
+
+    def test_o_botao_nao_cobre_o_rodape(self, navegador, servidor):
+        """Fixo, ele ficaria por cima do fim da página se ela não reservasse espaço."""
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+        pagina.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+
+        botao = pagina.locator("#btn-todas-filas").bounding_box()
+        rodape = pagina.locator(".rodape").bounding_box()
+        assert rodape["y"] + rodape["height"] <= botao["y"], "o botão cobre o rodapé"
+
     def test_abre_e_fecha(self, navegador, servidor):
         pagina = abrir(navegador, servidor)
         _com_cartao(pagina)

@@ -40,14 +40,17 @@
         <div class="palco__topo">
           <h1 class="selo-marca">nextup<span class="selo-marca__ponto" aria-hidden="true"></span></h1>
         </div>
-        <!-- A lista inteira mora num painel: a tela principal fica só com a resposta.
-             O número no botão diz quanto há lá dentro, para ninguém achar que sumiu. -->
-        <button id="btn-todas-filas" type="button" class="pilula" aria-haspopup="dialog">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"
-               stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
-          Todas as filas<span id="todas-filas-n"></span>
-        </button>
       </section>
+
+      <!-- A lista inteira mora num painel: a tela principal fica só com a resposta.
+           O número no botão diz quanto há lá dentro, para ninguém achar que sumiu.
+           Fora do mapa e fixo no pé da tela: sobre o mapa, pequeno, ele se perdia
+           no desenho (Gabriel, 28/10/2026); no pé, fica onde o polegar já está. -->
+      <button id="btn-todas-filas" type="button" class="pilula" aria-haspopup="dialog">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"
+             stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
+        Todas as filas<span id="todas-filas-n"></span>
+      </button>
 
       <!-- O cartão que responde a pergunta do app. Três estados: sem posição (pede
            a localização), carregando, e com a melhor escolha — que é a do grupo

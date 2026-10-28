@@ -350,9 +350,8 @@ function posicionarRotulos() {
     marcadorVisitante?.getElement(),
     container.querySelector(".leaflet-control-zoom"),
     container.querySelector(".leaflet-control-attribution"),
-    // A marca e o botão das filas flutuam sobre o mapa, fora do contêiner dele.
+    // A marca flutua sobre o mapa, fora do contêiner dele.
     document.querySelector(".selo-marca"),
-    el.btnTodasFilas.offsetParent ? el.btnTodasFilas : null,
   ];
   ROTULOS.posicionar(mapa, paradas, obstaculos);
   esconderAreasCobertas(container, obstaculos);
@@ -509,10 +508,10 @@ function enquadrarResposta(recomendacoes) {
       .slice(0, NOMES_NO_MAPA)
       .map((r) => [r.attraction.latitude, r.attraction.longitude]),
   ];
-  // Folga desigual: a marca ocupa o topo e o botão das filas, o pé do mapa.
+  // Folga maior no topo, onde a marca flutua sobre o mapa.
   mapa.fitBounds(pontos, {
     paddingTopLeft: [36, 76],
-    paddingBottomRight: [36, 88],
+    paddingBottomRight: [36, 44],
     maxZoom: 18,
   });
 }
