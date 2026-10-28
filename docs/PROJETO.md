@@ -16,9 +16,9 @@
 > caminhada (7.3) e popularidade (7.4). A última fecha o ciclo da Fase 6 — é a primeira
 > feature construída **sobre o histórico que nós mesmos coletamos**, e não sobre a API.
 >
-> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **818
+> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **834
 > testes**: 722 na suíte rápida (272 do roteiro, a maioria instâncias aleatórias
-> conferidas contra força bruta) e 96 de interface em navegador.
+> conferidas contra força bruta) e 112 de interface em navegador.
 >
 > **Fase 9 — Perfil do visitante: iniciada (27/10/2026).** Nasceu de uma crítica do
 > Gabriel: ver a fila não resolve nada que a fonte já não resolva. O app passa a saber
@@ -1766,8 +1766,38 @@ com commit e autor. O teste de arquitetura proíbe `core/` e `models/` de import
 
 | # | Entrega |
 |---|---|
-| 9.2 | As duas perguntas do perfil, no `localStorage`, como os filtros da 7.3 |
+| 9.2 | As duas perguntas do perfil, no `localStorage`, como os filtros da 7.3 ✅ |
 | 9.3 | O redesenho da tela em torno do perfil: perfil → próximo passo → roteiro → "ver todas as filas" 🎨 *design em andamento* |
+
+#### 9.2 — As duas perguntas ✅ *28/10/2026*
+
+O perfil mora no `localStorage` (`PERFIL`, em `web/preferencias.js`), **global** como os
+filtros: "a criança tem 95 cm" é sobre o grupo, não sobre o parque. As regras ficam ali
+como funções puras (`soAdultos`, `escondida`, `semCuradoria`), e a tela só pergunta.
+
+| Resposta | O que muda |
+|---|---|
+| Criança de N cm | Atração que pede mais que N ganha **"A partir de X cm · só os adultos"** e a dica do *Rider Switch*. Continua na lista; **não** ganha o destaque de "melhor escolha" |
+| Tranquilas | Esconde as **5 radicais**; as 3 moderadas ficam (decisão do Gabriel) |
+| Quero emoção | Esconde as **tranquilas** — 27 das 35 do Magic Kingdom (decisão do Gabriel) |
+
+O que esconde, avisa: *"5 radicais escondidas por "Tranquilas""*, com **Mostrar** — o
+contrato da 7.3, porque "Emoção" sem aviso pareceria um parque com três quartos a menos.
+A lista vazia ganhou a quarta causa ("nada combina com o seu perfil"). Atração sem
+intensidade nunca é escondida, e com criança no grupo a sem curadoria diz *"altura mínima
+não conferida"* — a regra do `UNKNOWN`. Os alvos escapam, como escapam dos filtros.
+
+**O painel** é um `<dialog>` que abre sozinho na primeira visita, por cima do parque já
+carregado, e depois pelo botão **"Seu grupo"**, sempre à vista. Ao ajustar a altura, a
+consequência aparece antes de confirmar, calculada no catálogo real (*"Com 95 cm, fica de
+fora: TRON, Space Mountain…"*). Nada vem pré-marcado; **pular também é resposta**, e o Esc
+da primeira visita vale como pular.
+
+**16 testes de interface.** Uma armadilha evitada: na fixture, as 8 primeiras do ranking
+são todas tranquilas e sem altura mínima, e "Tranquilas esconde as radicais" passaria sem
+esconder nada. Um helper promove uma radical a mais barata, com a conta fechando, e o
+par 95 cm / 97 cm prova que foi o perfil, e não o acaso, que tirou a Seven Dwarfs do
+destaque.
 
 #### 9.3 — O redesenho começou pelo design 🎨 *27–28/10/2026*
 
@@ -2192,6 +2222,11 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 28/10/2026 | Praça (`area=yes`) é desenhada como **área**; via larga e calçada têm traços diferentes | 63% do traçado é `footway` e 78 trilhas eram contornos de praça: com a mesma espessura, a Fantasyland virava uma malha |
 | 28/10/2026 | A rota no mapa segue as trilhas (Dijkstra), mas **só desenha** | O tempo de caminhada continua vindo da API (linha reta × 1,3). Trocá-lo pela distância das trilhas mudaria o ranking — pede medição antes. A mediana medida foi 1,31× a linha reta |
 | 28/10/2026 | Rótulos: número sempre, **nome só onde couber** | Com geografia real, vizinhas de verdade se sobrepõem. Cada nome tenta quatro lados na ordem do roteiro e some se não couber; o roteiro abaixo do mapa dá o nome de cada número |
+| 28/10/2026 | "Quero emoção" esconde as tranquilas; "Tranquilas" esconde só as radicais | Decisões do Gabriel. As moderadas (Peter Pan, Pirates, Barnstormer) têm quedas pequenas e ficam. Esconder 27 de 35 só é aceitável porque o aviso diz quantas e deixa mostrar |
+| 28/10/2026 | Perfil **global**, como os filtros, e não por parque | "A criança tem 95 cm" é sobre o grupo. Visitadas e alvos são por parque porque descrevem o parque |
+| 28/10/2026 | Sem curadoria + criança no grupo = "altura mínima não conferida" | Calar seria ler "não sabemos" como "pode ir". Mas a atração continua elegível ao destaque: fora do Magic Kingdom nada tem curadoria, e o destaque sumiria |
+| 28/10/2026 | Painel do perfil em `<dialog>`, escolhas em rádios | Esc, foco preso e anúncio ao leitor de tela vêm do navegador; rádio já é escolha exclusiva com setas do teclado |
+| 28/10/2026 | Pular o perfil conta como resposta | Perguntar de novo a cada visita seria insistir com quem disse "agora não". O botão "Seu grupo" continua à vista |
 
 ---
 

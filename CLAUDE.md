@@ -41,7 +41,7 @@ documentação de decisões **fazem parte da entrega** — não são extras opci
 > 🧭 **ONDE PARAMOS (28/10/2026) — leia primeiro.**
 >
 > **Frentes abertas:**
-> - **Fases 9.2 e 9.3 — implementação começando (28/10).** O design está fechado em
+> - **9.2 pronta (28/10); 9.3 — a tela nova — em implementação.** O design está fechado em
 >   [`docs/design/claude-design/`](docs/design/claude-design/) (o README diz como abrir):
 >   **3c no claro, 3b no escuro** (paleta algodão-doce), estrutura de **uma tela, dois
 >   estados** (painel do perfil sobre o parque; depois próximo passo → roteiro → mapa →
@@ -80,8 +80,8 @@ O **6.6 terminou com um resultado negativo medido**: prever a fila por extrapola
 mais que usar a fila atual, em todo horizonte. O ranking não mudou — mas agora há número
 para sustentar a escolha. Detalhes na seção 7 de `docs/PROJETO.md`.
 
-**818 testes passando**: 722 na suíte rápida (~9s; 272 são do roteiro, a maioria
-instâncias aleatórias conferidas contra força bruta) e 96 de interface em navegador (~130s).
+**834 testes passando**: 722 na suíte rápida (~4s; 272 são do roteiro, a maioria
+instâncias aleatórias conferidas contra força bruta) e 112 de interface em navegador (~160s).
 CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
 
 Já existe e funciona:
@@ -133,7 +133,7 @@ Já existe e funciona:
   `cli.py` porque orquestra `clients/` + `storage/`
 - `tests/test_arquitetura.py` — a regra de dependência é verificada automaticamente
 - `tests/test_migracoes.py` — aplica as migrações e compara com `tables.py`
-- `tests/test_web_e2e.py` — 82 testes em Chromium real (`pytest -m e2e`)
+- `tests/test_web_e2e.py` — 112 testes em Chromium real (`pytest -m e2e`)
 - Fixtures reais da API em `tests/fixtures/`; nenhum teste toca a internet
 - `.venv` local com **Python 3.13**, mesma versão mais alta testada no CI
 
@@ -241,9 +241,10 @@ ranking vira "o mais perto". O app sabe o que a atração **custa**, não o que 
 para quem pergunta. Decisões dele: o perfil é **perguntado, não inferido**; **só duas
 perguntas** (altura da criança mais baixa; tranquilas / de tudo / emoção), ambas
 puláveis; a altura **marca** ("só os adultos", pelo *Rider Switch*), não esconde, e a
-atração marcada não ganha o destaque de "melhor escolha". **9.1 (curadoria) pronta**;
-faltam 9.2 (as perguntas, no `localStorage`) e 9.3 (o redesenho da tela, que começou pelo
-design — ver o bloco "Onde paramos" no topo).
+atração marcada não ganha o destaque de "melhor escolha". **9.1 (curadoria) e 9.2 (as
+perguntas, `PERFIL` no `localStorage`) prontas**; falta a 9.3 (o redesenho da tela —
+ver o bloco "Onde paramos" no topo). "Tranquilas" esconde as radicais, "Emoção" esconde
+as tranquilas, sempre com aviso e "Mostrar".
 
 > ⚠️ **Nada no design pode imitar a marca Disney** (logotipo, personagens, orelhas,
 > castelo, tipografia). Projeto independente; portfólio público não pode parecer oficial.
@@ -475,7 +476,7 @@ pip install -e ".[dev]"
 Verificar que tudo está de pé:
 
 ```bash
-pytest -m "not e2e"    # esperado: 722 testes, ~9s
+pytest -m "not e2e"    # esperado: 722 testes, ~4s
 ruff check .
 ruff format --check .
 ```
@@ -495,7 +496,7 @@ uvicorn nextup.api.main:app --reload     # http://127.0.0.1:8000
 Testes de interface (exigem `pip install -e ".[dev,e2e]"` e `playwright install chromium`):
 
 ```bash
-pytest -m e2e          # esperado: 96 testes, ~130s
+pytest -m e2e          # esperado: 112 testes, ~160s
 ```
 
 ---
