@@ -268,14 +268,32 @@ async function trocarFundoDoMapa(parqueId) {
       // O visitante pode ter trocado de parque enquanto o arquivo vinha.
       if (estado.parqueId !== parqueId) return;
 
-      camadaFundo = L.geoJSON(desenho, {
+      // Quatro grupos, na ordem em que são pintados. A casca são as próprias
+      // trilhas, mais largas e mais escuras, pintadas antes delas: o contorno que
+      // faz um caminho branco aparecer sobre um chão claro. Sem ela, o tema claro
+      // perdia as vias de vista (Gabriel, 28/10/2026); o escuro não precisa, e o
+      // CSS a apaga lá.
+      const so = (...camadas) => ({
+        type: "FeatureCollection",
+        features: desenho.features.filter((f) => camadas.includes(f.properties.c)),
+      });
+      const opcoes = {
         style: (f) => ({ className: `m-${f.properties.c}${f.properties.t ? ` m-${f.properties.t}` : ""}` }),
         // Os únicos pontos do desenho são os nomes das áreas.
         pointToLayer: nomeDeArea,
         pane: "desenho",
         interactive: false,
-        attribution: CREDITO_OSM,
-      }).addTo(mapa);
+      };
+      const casca = {
+        ...opcoes,
+        style: (f) => ({ className: `m-casco m-casco-${f.properties.t}` }),
+      };
+      camadaFundo = L.featureGroup([
+        L.geoJSON(so("verde", "agua", "praca", "predio"), { ...opcoes, attribution: CREDITO_OSM }),
+        L.geoJSON(so("trilha"), casca),
+        L.geoJSON(so("trilha"), opcoes),
+        L.geoJSON(so("fora", "area"), opcoes),
+      ]).addTo(mapa);
       redeDeTrilhas = ROTA.montarRede(desenho);
       desenharRota();
       return;

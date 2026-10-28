@@ -90,12 +90,17 @@
      branco não aparecia, e prédio, gramado e chão eram a mesma mancha. Agora o
      chão escurece o bastante para o caminho saltar, o gramado é verde e a água é
      azul — as convenções que qualquer mapa de parque usa. */
-  --mapa-fundo: #e5dfed;
-  --mapa-verde: #d6e8d8;
-  --mapa-predio: #d5cbe1;
-  --mapa-agua: #b0d4f4;
+  --mapa-fundo: #dcd3e6;
+  --mapa-verde: #cde2d0;
+  --mapa-predio: #c9bcd9;
+  --mapa-agua: #a6cdf1;
   --mapa-trilha: #ffffff;
-  --mapa-praca: #fbf9fd;
+  --mapa-praca: #f7f4fa;
+  /* O contorno dos caminhos. No escuro o caminho já é o que tem mais luz e se
+     destaca sozinho; no claro, branco sobre chão claro some sem uma borda — a
+     mesma técnica das ruas de qualquer mapa claro. */
+  --mapa-casco: #a493bb;
+
   /* O entorno (estacionamento, bastidores) fica sob um véu: o parque vira uma
      ilha colorida, e o olho para nela. */
   --mapa-veu: #f6f3f9;
@@ -161,6 +166,8 @@
     --mapa-agua: #1e4b7d;
     --mapa-trilha: #56679a;
     --mapa-praca: #3d4d78;
+    --mapa-casco: none;
+
     --mapa-veu: #0b1121;
     --mapa-limite: #4a5b88;
     --mapa-nome-area: #a3b3d6;
@@ -1423,6 +1430,49 @@ a {
 
 [data-zoom="17"] .m-trilha.m-via {
   stroke-width: 8;
+}
+
+/* A casca: as trilhas outra vez, mais largas, por baixo delas. Sobra para cada
+   lado só a diferença de espessura, e é ela que desenha a borda. Na borda da
+   praça, a casca contorna a área inteira. */
+.m-casco {
+  fill: none;
+  stroke: var(--mapa-casco);
+  stroke-width: 4.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.m-casco.m-casco-via {
+  stroke-width: 8.4;
+}
+
+.m-casco.m-casco-borda {
+  stroke-width: 1.6;
+}
+
+[data-zoom="17"] .m-casco {
+  stroke-width: 5;
+}
+
+[data-zoom="17"] .m-casco.m-casco-via {
+  stroke-width: 10.4;
+}
+
+[data-zoom="18"] .m-casco,
+[data-zoom="19"] .m-casco {
+  stroke-width: 6.4;
+}
+
+[data-zoom="18"] .m-casco.m-casco-via,
+[data-zoom="19"] .m-casco.m-casco-via {
+  stroke-width: 13.6;
+}
+
+[data-zoom="17"] .m-casco.m-casco-borda,
+[data-zoom="18"] .m-casco.m-casco-borda,
+[data-zoom="19"] .m-casco.m-casco-borda {
+  stroke-width: 2;
 }
 
 /* O véu sobre o entorno: um retângulo com o parque recortado. A borda do recorte

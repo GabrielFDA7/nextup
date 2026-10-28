@@ -2306,6 +2306,29 @@ class TestMapaLegivel:
             for b in pinos:
                 assert not _caixas_batem(a, b), "o nome de uma área cobre um número"
 
+    def test_no_tema_claro_as_trilhas_tem_contorno(self, navegador, servidor):
+        """Caminho branco sobre chão claro sumia (Gabriel, 28/10/2026). No escuro o
+        caminho já é o que tem mais luz, e o contorno não existe."""
+        pagina = abrir(navegador, servidor)
+        casca = pagina.locator("#mapa path.m-casco").first
+        expect(casca).to_be_attached()
+        traco = "el => getComputedStyle(el).stroke"
+
+        pagina.emulate_media(color_scheme="light")
+        assert casca.evaluate(traco) != "none"
+        pagina.emulate_media(color_scheme="dark")
+        assert casca.evaluate(traco) == "none"
+
+    def test_o_contorno_fica_por_baixo_das_trilhas(self, navegador, servidor):
+        """Por cima, a casca escura cobriria o caminho em vez de contorná-lo."""
+        pagina = abrir(navegador, servidor)
+        expect(pagina.locator("#mapa path.m-casco").first).to_be_attached()
+        ordem = pagina.locator("#mapa path[class*='m-']").evaluate_all(
+            "ps => ps.map(p => p.getAttribute('class').split(' ')[0])"
+        )
+        ultima_casca = max(i for i, c in enumerate(ordem) if c == "m-casco")
+        assert ultima_casca < ordem.index("m-trilha")
+
     def test_o_visitante_e_um_ponto_visivel(self, navegador, servidor):
         pagina = abrir(navegador, servidor)
         _com_cartao(pagina)
