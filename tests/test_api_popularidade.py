@@ -17,7 +17,6 @@ from pathlib import Path
 import httpx
 import pytest
 import respx
-from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from nextup.api.dependencies import obter_cliente, obter_engine
@@ -97,13 +96,21 @@ def api_no_ar():
         yield
 
 
-def montar_app(conexao, motor):
+def montar_app(conexao, motor) -> httpx.AsyncClient:
+    """Cliente que chama o app no MESMO event loop do teste.
+
+    O `TestClient` sobe o app num loop próprio, numa thread à parte, enquanto o
+    teste grava no banco pelo loop do pytest — e o engine é um só. A conexão
+    guarda uma trava presa ao loop que a usou primeiro: o SQLAlchemy 2.0 tolerava
+    a mistura, o 2.1 recusa com "bound to a different event loop". O
+    `ASGITransport` entrega a requisição direto ao app, sem rede e sem segundo loop.
+    """
     app = criar_app()
     app.dependency_overrides[obter_cliente] = lambda: ThemeParksClient(
         http_client=conexao, sleep=_sem_espera
     )
     app.dependency_overrides[obter_engine] = lambda: motor
-    return TestClient(app)
+    return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://nextup")
 
 
 async def gravar_historico(motor, filas: dict[str, int], *, medicoes: int | None = None) -> None:
@@ -142,8 +149,8 @@ class TestComHistorico:
         # Uma campeã bem acima do resto: 100 contra 10.
         await gravar_historico(banco, {ids[0]: 100} | {aid: 10 for aid in ids[1:]})
 
-        async with httpx.AsyncClient() as conexao:
-            corpo = montar_app(conexao, banco).get(ROTA).json()
+        async with httpx.AsyncClient() as conexao, montar_app(conexao, banco) as cliente:
+            corpo = (await cliente.get(ROTA)).json()
 
         assert por_id(corpo)[ids[0]]["popularity"]["tier"] == "HEADLINER"
 
@@ -151,8 +158,8 @@ class TestComHistorico:
         ids = [aid for aid, _ in atracoes_com_fila()]
         await gravar_historico(banco, {aid: 30 for aid in ids})
 
-        async with httpx.AsyncClient() as conexao:
-            corpo = montar_app(conexao, banco).get(ROTA).json()
+        async with httpx.AsyncClient() as conexao, montar_app(conexao, banco) as cliente:
+            corpo = (await cliente.get(ROTA)).json()
 
         faixa = por_id(corpo)[ids[0]]["popularity"]
         assert faixa["average_minutes"] == 30.0
@@ -162,8 +169,8 @@ class TestComHistorico:
         ids = [aid for aid, _ in atracoes_com_fila()]
         await gravar_historico(banco, {aid: 30 for aid in ids}, medicoes=2)
 
-        async with httpx.AsyncClient() as conexao:
-            corpo = montar_app(conexao, banco).get(ROTA).json()
+        async with httpx.AsyncClient() as conexao, montar_app(conexao, banco) as cliente:
+            corpo = (await cliente.get(ROTA)).json()
 
         assert por_id(corpo)[ids[0]]["popularity"]["tier"] == "UNKNOWN"
 
@@ -175,18 +182,16 @@ class TestComHistorico:
         """
         ids = [aid for aid, _ in atracoes_com_fila()]
 
-        async with httpx.AsyncClient() as conexao:
+        async with httpx.AsyncClient() as conexao, montar_app(conexao, None) as cliente:
             sem = [
-                r["attraction"]["id"]
-                for r in montar_app(conexao, None).get(ROTA).json()["recommendations"]
+                r["attraction"]["id"] for r in (await cliente.get(ROTA)).json()["recommendations"]
             ]
 
         await gravar_historico(banco, {ids[0]: 100} | {aid: 10 for aid in ids[1:]})
 
-        async with httpx.AsyncClient() as conexao:
+        async with httpx.AsyncClient() as conexao, montar_app(conexao, banco) as cliente:
             com = [
-                r["attraction"]["id"]
-                for r in montar_app(conexao, banco).get(ROTA).json()["recommendations"]
+                r["attraction"]["id"] for r in (await cliente.get(ROTA)).json()["recommendations"]
             ]
 
         assert sem == com
@@ -206,8 +211,8 @@ class TestOportunidade:
             banco, {alvo: media} | {aid: 10 for aid, _ in com_fila if aid != alvo}
         )
 
-        async with httpx.AsyncClient() as conexao:
-            corpo = montar_app(conexao, banco).get(ROTA).json()
+        async with httpx.AsyncClient() as conexao, montar_app(conexao, banco) as cliente:
+            corpo = (await cliente.get(ROTA)).json()
 
         recomendacao = por_id(corpo)[alvo]
         assert recomendacao["popularity"]["opportunity"] is True
@@ -221,8 +226,8 @@ class TestOportunidade:
             banco, {alvo: fila_de_agora} | {aid: 1 for aid, _ in com_fila if aid != alvo}
         )
 
-        async with httpx.AsyncClient() as conexao:
-            corpo = montar_app(conexao, banco).get(ROTA).json()
+        async with httpx.AsyncClient() as conexao, montar_app(conexao, banco) as cliente:
+            corpo = (await cliente.get(ROTA)).json()
 
         assert por_id(corpo)[alvo]["popularity"]["opportunity"] is False
 
@@ -231,16 +236,16 @@ class TestDegradacaoGraciosa:
     """Sem banco, com banco vazio ou com banco fora do ar, o ranking sai igual."""
 
     async def test_sem_banco_o_ranking_sai_completo(self, api_no_ar):
-        async with httpx.AsyncClient() as conexao:
-            resposta = montar_app(conexao, None).get(ROTA)
+        async with httpx.AsyncClient() as conexao, montar_app(conexao, None) as cliente:
+            resposta = await cliente.get(ROTA)
 
         assert resposta.status_code == 200
         assert resposta.json()["recommendations"]
         assert all(r["popularity"] is None for r in resposta.json()["recommendations"])
 
     async def test_banco_vazio_nao_quebra(self, api_no_ar, banco):
-        async with httpx.AsyncClient() as conexao:
-            resposta = montar_app(conexao, banco).get(ROTA)
+        async with httpx.AsyncClient() as conexao, montar_app(conexao, banco) as cliente:
+            resposta = await cliente.get(ROTA)
 
         assert resposta.status_code == 200
         assert resposta.json()["recommendations"]
@@ -250,8 +255,8 @@ class TestDegradacaoGraciosa:
         para onde ir. Perder o enfeite é aceitável; perder a resposta não."""
         await banco.dispose()  # o motor morre, mas a rota continua sendo chamada
 
-        async with httpx.AsyncClient() as conexao:
-            resposta = montar_app(conexao, banco).get(ROTA)
+        async with httpx.AsyncClient() as conexao, montar_app(conexao, banco) as cliente:
+            resposta = await cliente.get(ROTA)
 
         assert resposta.status_code == 200
         assert resposta.json()["recommendations"]
@@ -264,11 +269,10 @@ class TestCache:
         ids = [aid for aid, _ in atracoes_com_fila()]
         await gravar_historico(banco, {ids[0]: 100} | {aid: 10 for aid in ids[1:]})
 
-        async with httpx.AsyncClient() as conexao:
-            cliente = montar_app(conexao, banco)
-            primeira = cliente.get(ROTA).json()
+        async with httpx.AsyncClient() as conexao, montar_app(conexao, banco) as cliente:
+            primeira = (await cliente.get(ROTA)).json()
             await banco.dispose()
-            segunda = cliente.get(ROTA).json()
+            segunda = (await cliente.get(ROTA)).json()
 
         assert por_id(primeira)[ids[0]]["popularity"]["tier"] == "HEADLINER"
         assert por_id(segunda)[ids[0]]["popularity"]["tier"] == "HEADLINER"
@@ -277,13 +281,12 @@ class TestCache:
         """Guardar o vazio prenderia o resultado por uma hora justamente enquanto
         o coletor começa a preencher — e o visitante não veria faixa nenhuma até
         o TTL vencer."""
-        async with httpx.AsyncClient() as conexao:
-            cliente = montar_app(conexao, banco)
-            cliente.get(ROTA)  # banco ainda vazio
+        async with httpx.AsyncClient() as conexao, montar_app(conexao, banco) as cliente:
+            await cliente.get(ROTA)  # banco ainda vazio
 
             ids = [aid for aid, _ in atracoes_com_fila()]
             await gravar_historico(banco, {ids[0]: 100} | {aid: 10 for aid in ids[1:]})
 
-            corpo = cliente.get(ROTA).json()
+            corpo = (await cliente.get(ROTA)).json()
 
         assert por_id(corpo)[ids[0]]["popularity"]["tier"] == "HEADLINER"

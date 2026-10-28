@@ -17,7 +17,6 @@ from pathlib import Path
 import httpx
 import pytest
 import respx
-from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from nextup.api.dependencies import obter_cliente, obter_engine
@@ -77,13 +76,22 @@ def catalogo_no_ar():
         yield
 
 
-def montar_app(conexao, motor):
+async def pedir(conexao, motor, url: str) -> httpx.Response:
+    """GET no app pelo MESMO event loop do teste.
+
+    O `TestClient` rodaria o app num loop próprio, e o engine do banco é
+    compartilhado com o teste: o SQLAlchemy 2.1 recusa a conexão usada por dois
+    loops ("bound to a different event loop"). O `ASGITransport` entrega a
+    requisição direto ao app, sem rede e sem segundo loop.
+    """
     app = criar_app()
     app.dependency_overrides[obter_cliente] = lambda: ThemeParksClient(
         http_client=conexao, sleep=_sem_espera
     )
     app.dependency_overrides[obter_engine] = lambda: motor
-    return TestClient(app)
+    transporte = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transporte, base_url="http://nextup") as cliente:
+        return await cliente.get(url)
 
 
 async def gravar(motor, medicoes: list[tuple[int | None, float]]) -> None:
@@ -109,7 +117,7 @@ class TestSerie:
     async def test_devolve_os_pontos_em_ordem(self, conexao, banco, catalogo_no_ar):
         await gravar(banco, [(30, 3), (20, 2), (40, 1)])
 
-        dados = montar_app(conexao, banco).get(rota()).json()
+        dados = (await pedir(conexao, banco, rota())).json()
 
         assert [p["minutes"] for p in dados["points"]] == [30, 20, 40]
 
@@ -117,7 +125,7 @@ class TestSerie:
         """O nome não vem do banco: seriam centenas de milhares de cópias da string."""
         await gravar(banco, [(30, 2), (20, 1)])
 
-        dados = montar_app(conexao, banco).get(rota()).json()
+        dados = (await pedir(conexao, banco, rota())).json()
 
         assert dados["attraction_id"] == ATRACAO_ID
         assert dados["attraction_name"] == ATRACAO_NOME
@@ -125,8 +133,8 @@ class TestSerie:
     async def test_respeita_a_janela_pedida(self, conexao, banco, catalogo_no_ar):
         await gravar(banco, [(60, 20), (30, 2), (20, 1)])
 
-        seis_horas = montar_app(conexao, banco).get(rota(hours=6)).json()
-        um_dia = montar_app(conexao, banco).get(rota(hours=24)).json()
+        seis_horas = (await pedir(conexao, banco, rota(hours=6))).json()
+        um_dia = (await pedir(conexao, banco, rota(hours=24))).json()
 
         assert [p["minutes"] for p in seis_horas["points"]] == [30, 20]
         assert [p["minutes"] for p in um_dia["points"]] == [60, 30, 20]
@@ -135,7 +143,7 @@ class TestSerie:
         """Incluí-las como zero desenharia uma queda que nunca aconteceu."""
         await gravar(banco, [(30, 3), (None, 2), (20, 1)])
 
-        dados = montar_app(conexao, banco).get(rota()).json()
+        dados = (await pedir(conexao, banco, rota())).json()
 
         assert [p["minutes"] for p in dados["points"]] == [30, 20]
 
@@ -143,7 +151,7 @@ class TestSerie:
         self, conexao, banco, catalogo_no_ar
     ):
         """Atração que ficou fechada, ou coleta que começou depois. Não é falha."""
-        resposta = montar_app(conexao, banco).get(rota())
+        resposta = await pedir(conexao, banco, rota())
 
         assert resposta.status_code == 200
         assert resposta.json()["points"] == []
@@ -154,7 +162,7 @@ class TestResumo:
     async def test_calcula_os_numeros_da_janela(self, conexao, banco, catalogo_no_ar):
         await gravar(banco, [(10, 4), (50, 3), (30, 2), (20, 1)])
 
-        resumo = montar_app(conexao, banco).get(rota()).json()["summary"]
+        resumo = (await pedir(conexao, banco, rota())).json()["summary"]
 
         assert resumo["measurements"] == 4
         assert resumo["min_minutes"] == 10
@@ -167,7 +175,7 @@ class TestResumo:
         """Contar fechado como zero faria a madrugada parecer o melhor horário."""
         await gravar(banco, [(30, 3), (None, 2), (30, 1)])
 
-        resumo = montar_app(conexao, banco).get(rota()).json()["summary"]
+        resumo = (await pedir(conexao, banco, rota())).json()["summary"]
 
         assert resumo["average_minutes"] == 30.0
         assert resumo["measurements"] == 2
@@ -178,7 +186,7 @@ class TestTendenciaNaJanela:
         """Quem pede 24h quer o movimento do dia, não o do último quarto de hora."""
         await gravar(banco, [(60, 5), (20, 1)])
 
-        dados = montar_app(conexao, banco).get(rota(hours=6)).json()
+        dados = (await pedir(conexao, banco, rota(hours=6))).json()
 
         assert dados["trend"]["direction"] == "FALLING"
         assert dados["trend"]["previous_minutes"] == 60
@@ -187,35 +195,35 @@ class TestTendenciaNaJanela:
     async def test_um_ponto_so_nao_gera_tendencia(self, conexao, banco, catalogo_no_ar):
         await gravar(banco, [(30, 1)])
 
-        assert montar_app(conexao, banco).get(rota()).json()["trend"] is None
+        assert (await pedir(conexao, banco, rota())).json()["trend"] is None
 
 
 class TestErros:
     async def test_atracao_inexistente_da_404(self, conexao, banco, catalogo_no_ar):
-        resposta = montar_app(conexao, banco).get(rota("nao-existe"))
+        resposta = await pedir(conexao, banco, rota("nao-existe"))
 
         assert resposta.status_code == 404
 
-    def test_sem_banco_da_503(self, conexao, catalogo_no_ar):
+    async def test_sem_banco_da_503(self, conexao, catalogo_no_ar):
         """Aqui o histórico **é** a resposta.
 
         Diferente da recomendação, onde a falha do banco é engolida de propósito.
         Devolver uma série vazia mentiria: diria que a fila ficou parada.
         """
-        resposta = montar_app(conexao, None).get(rota())
+        resposta = await pedir(conexao, None, rota())
 
         assert resposta.status_code == 503
 
-    def test_banco_fora_do_ar_da_503(self, conexao, catalogo_no_ar):
+    async def test_banco_fora_do_ar_da_503(self, conexao, catalogo_no_ar):
         quebrado = create_engine("sqlite+aiosqlite:///./pasta-que-nao-existe/nada.db")
 
-        resposta = montar_app(conexao, quebrado).get(rota())
+        resposta = await pedir(conexao, quebrado, rota())
 
         assert resposta.status_code == 503
 
     @pytest.mark.parametrize("horas", [0, -1, 99999])
     async def test_janela_invalida_da_422(self, conexao, banco, catalogo_no_ar, horas):
         """Sem o teto, `?hours=99999` pediria a tabela inteira."""
-        resposta = montar_app(conexao, banco).get(rota(hours=horas))
+        resposta = await pedir(conexao, banco, rota(hours=horas))
 
         assert resposta.status_code == 422

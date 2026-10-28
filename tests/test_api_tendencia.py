@@ -15,7 +15,6 @@ from pathlib import Path
 import httpx
 import pytest
 import respx
-from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from nextup.api.dependencies import obter_cliente, obter_engine
@@ -82,13 +81,22 @@ def api_no_ar():
         yield
 
 
-def montar_app(conexao, motor):
+async def pedir(conexao, motor, url: str) -> httpx.Response:
+    """GET no app pelo MESMO event loop do teste.
+
+    O `TestClient` rodaria o app num loop próprio, e o engine do banco é
+    compartilhado com o teste: o SQLAlchemy 2.1 recusa a conexão usada por dois
+    loops ("bound to a different event loop"). O `ASGITransport` entrega a
+    requisição direto ao app, sem rede e sem segundo loop.
+    """
     app = criar_app()
     app.dependency_overrides[obter_cliente] = lambda: ThemeParksClient(
         http_client=conexao, sleep=_sem_espera
     )
     app.dependency_overrides[obter_engine] = lambda: motor
-    return TestClient(app)
+    transporte = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transporte, base_url="http://nextup") as cliente:
+        return await cliente.get(url)
 
 
 async def gravar_queda(motor, attraction_id: str) -> None:
@@ -124,7 +132,7 @@ class TestTendenciaNaResposta:
         alvo = id_real_com_fila()
         await gravar_queda(banco, alvo)
 
-        dados = montar_app(conexao, banco).get(ROTA).json()
+        dados = (await pedir(conexao, banco, ROTA)).json()
         item = next(r for r in dados["recommendations"] if r["attraction"]["id"] == alvo)
 
         assert item["trend"] is not None
@@ -138,7 +146,7 @@ class TestTendenciaNaResposta:
         alvo = id_real_com_fila()
         await gravar_queda(banco, alvo)
 
-        dados = montar_app(conexao, banco).get(ROTA).json()
+        dados = (await pedir(conexao, banco, ROTA)).json()
         item = next(r for r in dados["recommendations"] if r["attraction"]["id"] == alvo)
 
         assert "Caiu de 45 para 20" in item["explanation"]
@@ -148,7 +156,7 @@ class TestTendenciaNaResposta:
         alvo = id_real_com_fila()
         await gravar_queda(banco, alvo)
 
-        dados = montar_app(conexao, banco).get(ROTA).json()
+        dados = (await pedir(conexao, banco, ROTA)).json()
         outras = [r for r in dados["recommendations"] if r["attraction"]["id"] != alvo]
 
         assert outras, "o ranking devolveu uma atração só"
@@ -158,14 +166,14 @@ class TestTendenciaNaResposta:
 class TestDegradacaoGraciosa:
     """O ranking não pode passar a depender do banco."""
 
-    def test_sem_banco_configurado_o_ranking_continua(self, conexao, api_no_ar):
-        resposta = montar_app(conexao, None).get(ROTA)
+    async def test_sem_banco_configurado_o_ranking_continua(self, conexao, api_no_ar):
+        resposta = await pedir(conexao, None, ROTA)
 
         assert resposta.status_code == 200
         assert resposta.json()["recommendations"]
         assert all(r["trend"] is None for r in resposta.json()["recommendations"])
 
-    def test_banco_fora_do_ar_nao_derruba_a_recomendacao(self, conexao, api_no_ar):
+    async def test_banco_fora_do_ar_nao_derruba_a_recomendacao(self, conexao, api_no_ar):
         """O caso que importa em produção: o Postgres cai e o app segue servindo.
 
         Aponta para um SQLite em arquivo inexistente, em pasta que não existe —
@@ -173,7 +181,7 @@ class TestDegradacaoGraciosa:
         """
         quebrado = create_engine("sqlite+aiosqlite:///./pasta-que-nao-existe/nada.db")
 
-        resposta = montar_app(conexao, quebrado).get(ROTA)
+        resposta = await pedir(conexao, quebrado, ROTA)
 
         assert resposta.status_code == 200
         assert resposta.json()["recommendations"]
@@ -182,7 +190,7 @@ class TestDegradacaoGraciosa:
         """Deploy novo, antes de a migração rodar."""
         vazio = create_engine("sqlite+aiosqlite:///:memory:")
 
-        resposta = montar_app(conexao, vazio).get(ROTA)
+        resposta = await pedir(conexao, vazio, ROTA)
 
         assert resposta.status_code == 200
         assert resposta.json()["recommendations"]
@@ -193,7 +201,7 @@ class TestDegradacaoGraciosa:
 class TestContratoPublico:
     async def test_a_tendencia_aparece_no_openapi(self, conexao, banco):
         """Campo novo no contrato é decisão consciente, e a documentação prova."""
-        esquemas = montar_app(conexao, banco).get("/openapi.json").json()["components"]["schemas"]
+        esquemas = (await pedir(conexao, banco, "/openapi.json")).json()["components"]["schemas"]
 
         assert "TrendOut" in esquemas
         assert set(esquemas["TrendOut"]["properties"]) == {
