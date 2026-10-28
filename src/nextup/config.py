@@ -82,6 +82,25 @@ WALKING_SPEED_MPS = float(os.getenv("NEXTUP_WALKING_SPEED", "1.1"))
 PATH_WINDING_FACTOR = float(os.getenv("NEXTUP_WINDING_FACTOR", "1.3"))
 
 # ---------------------------------------------------------------------------
+# Roteiro (Fase 8)
+# ---------------------------------------------------------------------------
+
+#: Quanto tempo o visitante passa *dentro* de cada atração, em minutos.
+#: A fonte não informa duração, e o roteiro precisa dela para saber a que horas
+#: chega na parada seguinte. É **estimativa**, e por isso foi testada a
+#: sensibilidade em 27/10/2026: com 5, 8 ou 15 min, o backtest manteve a mesma
+#: conclusão (planejar ganha do guloso, de 3% a 4%). O número muda o total, não a
+#: ordem das estratégias.
+RIDE_DURATION_MINUTES = float(os.getenv("NEXTUP_RIDE_DURATION", "8"))
+
+#: Quantas paradas à frente o roteiro planeja antes de replanejar.
+#: A busca testa todas as ordens, e elas crescem com o fatorial: 5 paradas entre 10
+#: alvos são ~30 mil sequências, e 10 entre 10 seriam 3,6 milhões. Planejar mais
+#: longe também não compensaria: a previsão de fila erra ~9 min em horizontes de
+#: horas, e o roteiro se refaz a cada parada concluída.
+ITINERARY_MAX_STOPS = int(os.getenv("NEXTUP_ITINERARY_MAX_STOPS", "5"))
+
+# ---------------------------------------------------------------------------
 # Recomendação
 # ---------------------------------------------------------------------------
 
