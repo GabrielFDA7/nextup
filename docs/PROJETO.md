@@ -16,9 +16,14 @@
 > caminhada (7.3) e popularidade (7.4). A última fecha o ciclo da Fase 6 — é a primeira
 > feature construída **sobre o histórico que nós mesmos coletamos**, e não sobre a API.
 >
-> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **781
-> testes**: 685 na suíte rápida (272 do roteiro, a maioria instâncias aleatórias
+> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **818
+> testes**: 722 na suíte rápida (272 do roteiro, a maioria instâncias aleatórias
 > conferidas contra força bruta) e 96 de interface em navegador.
+>
+> **Fase 9 — Perfil do visitante: iniciada (27/10/2026).** Nasceu de uma crítica do
+> Gabriel: ver a fila não resolve nada que a fonte já não resolva. O app passa a saber
+> **quem pode entrar** e **quão intensa** é cada atração, com uma curadoria conferida na
+> listagem oficial da Disney (9.1). Faltam as perguntas do perfil e o redesenho da tela.
 >
 > **Fase 8 — Roteiro do dia: em investigação (27/10/2026).** A auditoria da coleta (8.0)
 > descobriu o coletor parado ~90% do tempo por um mês — o cron do GitHub rodava a cada
@@ -1660,6 +1665,108 @@ do tempo**. As diferenças importam:
 A arquitetura segue a regra da casa: `core/itinerary.py`, função pura, com a previsão
 injetada como `trends` e `popularity` já são hoje. O otimizador não sabe o que é banco.
 
+### Fase 9 — Perfil do visitante 🔧 *iniciada em 27/10/2026*
+
+#### A crítica que originou a fase
+
+O Gabriel, ao pedir um redesenho do site, colocou o dedo na ferida:
+
+> *"Simplesmente ver o tempo de fila dos brinquedos não resolve o maior problema, isso é
+> facilmente resolvido pela api que usamos [...] qualquer um consegue calcular mentalmente
+> uma estimativa de qual o próximo brinquedo."*
+
+Os dados confirmaram na hora. Na noite de 27/10 (festa de Halloween, filas baixas), as 8
+primeiras do ranking a partir da entrada tinham **todas 5 min de fila**: com as filas
+niveladas, o ranking vira "o que está mais perto" — o que qualquer um vê no mapa. **O
+ranking sabe o que cada atração *custa*, e não o que ela *vale* para quem pergunta.**
+
+Quatro cenários, rodados com o código de produção sobre as filas reais:
+
+| Cenário | O que o app fazia | O que falta |
+|---|---|---|
+| Quem já tem os favoritos | Lista os alvos pelo custo de agora; segui-la é zigue-zague: **173 min**, 33 a pé | O roteiro (8.2) faz os mesmos 5 em **162 min**, 22 a pé |
+| Criança pequena | Saindo do Dumbo, sugeria a Space Mountain (112 cm) em 4º lugar | O app não sabe altura mínima |
+| Quando focar nas principais | — | Medido: todas as faixas são baratas às 9h e às 21h e caras entre 12h e 17h, mas a TRON oscila ~23 min e uma tranquila ~8. **Principais nas pontas do dia, tranquilas no pico** |
+| Quem quer (ou evita) emoção | Space Mountain e Magic Carpets lado a lado, como equivalentes | O app não sabe intensidade |
+
+> ⚠️ O padrão do horário tem um viés conhecido: setembro e outubro são temporada da festa
+> de Halloween, cujas noites têm público reduzido. Parte do "à noite é barato" pode ser
+> artefato. Conferir com os dados de novembro.
+
+**A consequência para o produto:** o `custo_total` continua sendo o critério, mas passa a
+responder outra pergunta — de *"qual a mais barata?"* para *"entre as que valem a pena
+**para mim**, qual a mais barata **agora**?"*. Quem define "valer a pena" é o perfil.
+
+#### Decisões de produto do Gabriel
+
+- **Perguntar, não adivinhar.** Inferir o perfil pelo comportamento erra, e um filtro
+  silencioso repete a lição da 7.3 (filtro esquecido é indistinguível de parque vazio). A
+  inferência pode vir depois, como **sugestão visível**.
+- **Só as perguntas essenciais**: a altura da criança mais baixa do grupo e o tipo de
+  atração preferido (tranquilas / de tudo / emoção). Ambas puláveis, com o comportamento de
+  hoje como padrão.
+- **Altura marca, não esconde.** A atração aparece com *"a partir de 122 cm — só os
+  adultos"*, pensando no *Rider Switch* da Disney. E não ganha o destaque de "melhor
+  escolha", que é para o grupo todo.
+
+#### 9.1 — A curadoria ✅ *27/10/2026*
+
+A fonte não informa altura mínima nem intensidade — foi por isso que a "radicalidade"
+caiu na 7.4. A solução é **dado nosso, conferido à mão**, para as 35 atrações do Magic
+Kingdom: `src/nextup/data/curadoria_magic_kingdom.json`.
+
+**Nada veio de memória nem de resumo de busca.** Os dois erraram, e a fonte oficial os
+desmentiu:
+
+| Atração | Memória / terceiros / busca | Listagem oficial |
+|---|---|---|
+| Big Thunder Mountain | 102 cm (memória e sites de terceiros) | **97 cm** |
+| The Magic Carpets of Aladdin | 102 cm (resumo de busca) | **Any Height** |
+
+Como o dado foi obtido está na seção 8 (aspectos legais e éticos): capturas de tela da
+listagem pública, feitas pelo Gabriel e transcritas. O site estava em português, e a
+tradução das etiquetas para os nomes da Disney em inglês **não foi suposta**: as cinco
+atrações lidas antes na versão americana aparecem nas capturas, e cada par confirmou uma
+tradução ("PERCURSO LENTO, GIROS" ↔ "Slow Rides, Spinning", e assim por diante).
+
+**A intensidade sai das etiquetas oficiais por uma regra escrita** (`core/intensity.py`),
+não por opinião: radical = "Thrill Rides" ou "Big Drops"; moderada = "Small Drops" ou
+"Scary"; o resto, tranquila. "Dark" e "Spinning" ficam de fora: escuro é dimensão
+sensorial, e a Disney marca como "Spinning" tanto o Buzz Lightyear quanto a Mad Tea Party.
+
+| Nível | Atrações |
+|---|---|
+| Radical (5) | TRON (122 cm), Space Mountain (112), Tiana's (102), Big Thunder (97), Seven Dwarfs (97) |
+| Moderada (3) | Barnstormer (89), Peter Pan, Pirates of the Caribbean |
+| Tranquila (27) | todas as outras |
+
+Três casos revistos com o Gabriel, e mantidos: **Peter Pan moderada** (a Disney marca
+"Small Drops"; refinar a regra para deixá-la tranquila arrastaria junto a Pirates, que tem
+uma queda de verdade no escuro); **Haunted Mansion tranquila** (nenhuma atração do Magic
+Kingdom é marcada "Scary"; sustos são outra dimensão, a tratar se fizer falta); **Seven
+Dwarfs radical** (a Disney a marca "Thrill Rides", e o selo de 97 cm já avisa a família).
+
+**Três garantias no código:**
+
+- **Só a linha conferida chega ao visitante.** Sem `conferido_em` e `conferido_por`, a
+  atração é desconhecida — uma altura errada manda uma criança para uma fila em que ela não
+  entra.
+- **Sem curadoria não há intensidade.** Chamar de tranquila uma atração não conferida
+  mandaria quem pediu "só tranquilas" para uma montanha-russa (a regra do `UNKNOWN` da 7.4).
+- **A API descreve, não decide.** `min_height_cm` e `intensity` saem nas rotas de atrações
+  e de recomendações; nada some e nada é reordenado. O perfil, na tela, decide.
+
+A curadoria mora em `data/`, um terceiro tipo de pasta: `clients/` busca dado de fora,
+`storage/` guarda dado acumulado, `data/` guarda dado **conferido** — que muda por revisão,
+com commit e autor. O teste de arquitetura proíbe `core/` e `models/` de importá-la.
+
+#### Próximos passos
+
+| # | Entrega |
+|---|---|
+| 9.2 | As duas perguntas do perfil, no `localStorage`, como os filtros da 7.3 |
+| 9.3 | O redesenho da tela em torno do perfil: perfil → próximo passo → roteiro → "ver todas as filas" |
+
 ---
 
 ## 8. Riscos e Limitações
@@ -1679,6 +1786,15 @@ injetada como `trends` e `popularity` já são hoje. O otimizador não sabe o qu
 - Projeto sem vínculo com a The Walt Disney Company. Aviso explícito no README.
 - Crédito à ThemeParks.wiki como fonte, no README e na interface.
 - Se o projeto for monetizado no futuro, revisar os termos de uso da fonte antes.
+- **A curadoria (Fase 9) não raspa o site da Disney.** Em 27/10/2026, com autorização do
+  Gabriel, houve **uma** tentativa de ler o endpoint JSON interno que a listagem oficial
+  usa. O site não respondeu a cliente automatizado — proteção contra robôs, colocada de
+  propósito —, e a tentativa parou aí: disfarçar a requisição de navegador seria burlar
+  um bloqueio, o que este projeto não faz. O dado veio de **capturas de tela feitas pelo
+  Gabriel** na listagem pública, transcritas e revisadas. As capturas não vão para o
+  repositório: são imagens do site da Disney.
+- A curadoria guarda **fatos** (altura mínima, etiquetas de experiência), não texto,
+  imagem ou descrição da Disney.
 
 ---
 
@@ -1820,6 +1936,11 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **Branch and bound** | Busca que monta soluções aos poucos e abandona um ramo quando o começo dele já perde do melhor conhecido |
 | **Oráculo** | Num backtest, a estratégia que conhece o futuro. Não existe na prática; serve para medir o teto possível |
 | **Injeção de dependência** | Passar a peça trocável (aqui, a previsão) como parâmetro, em vez de fixá-la dentro da função |
+| **Curadoria** | Dado conferido por gente numa fonte confiável, com registro de quem conferiu e quando |
+| **Rider Switch** | Regra da Disney: um adulto vai na atração enquanto o outro espera com a criança, e depois trocam sem refazer a fila |
+| **Alias (Pydantic)** | Nome alternativo de um campo. Aqui, o JSON em português (`altura_minima_cm`) vira o campo em inglês do código (`min_height_cm`) |
+| **Wheel** | O pacote Python pronto para instalar. Conferir o que vai dentro dele é o que garante que um arquivo de dados chega à produção |
+| **Proteção contra robôs** | Bloqueio que o site põe de propósito para clientes automatizados. Disfarçar-se de navegador para passar por ela é burlá-la |
 
 ---
 
@@ -2004,6 +2125,19 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 27/10/2026 | Scripts de medição só acessam o banco por `_comum.consultar`, que **recusa escrita** | Eles leem o banco de produção; a trava do `conftest.py` protege a suíte, não um script solto |
 | 27/10/2026 | O simulador chama o **`plan_itinerary` de produção** | O backtest precisa medir o código que vai para o ar. Reproduziu o ensaio exatamente (178 cenários, mesmos números) |
 | 27/10/2026 | `tzdata` como dependência de desenvolvimento | O Windows não traz a base de fusos, e a rodada de 03/11 atravessa o fim do horário de verão de Orlando |
+| 27/10/2026 | **Fase 9 — Perfil do visitante** | Com filas niveladas, o ranking vira "o mais perto", que qualquer um vê no mapa. O app sabe o que a atração custa, não o que ela vale para quem pergunta |
+| 27/10/2026 | O perfil é **perguntado, não inferido** | Inferência erra, e filtro silencioso repete a lição da 7.3. A inferência pode vir como sugestão visível |
+| 27/10/2026 | **Duas perguntas**, ambas puláveis | Altura da criança mais baixa e tipo de atração. Cada pergunta a mais é um visitante a menos que chega à resposta |
+| 27/10/2026 | Altura **marca** ("só os adultos"), não esconde | O grupo pode se dividir (*Rider Switch*). Mas a atração não ganha o destaque de "melhor escolha", que é para o grupo todo |
+| 27/10/2026 | Curadoria **conferida na listagem oficial**, nada de memória | A memória e os sites de terceiros diziam 102 cm para a Big Thunder; a busca, 102 para a Magic Carpets. A fonte oficial diz 97 e "Any Height" |
+| 27/10/2026 | **Sem raspagem** do site da Disney | O endpoint interno não responde a cliente automatizado; disfarçar a requisição seria burlar um bloqueio. O dado veio de capturas de tela da listagem pública |
+| 27/10/2026 | Intensidade **por regra escrita** sobre as etiquetas oficiais | Classificação verificável, não opinião. "Dark" e "Spinning" fora: escuro é sensorial, e a Disney marca Buzz e Mad Tea Party igualmente como "Spinning" |
+| 27/10/2026 | Guardar as **etiquetas**, não a classificação | A regra fica num lugar só; mudá-la não exige refazer a curadoria |
+| 27/10/2026 | Só a linha **conferida** conta | Exige data e autor. Uma altura errada manda uma criança para uma fila em que ela não entra |
+| 27/10/2026 | Atração sem curadoria **não tem intensidade** | A regra do `UNKNOWN` da 7.4: chamá-la de tranquila mandaria quem pediu "só tranquilas" para uma montanha-russa |
+| 27/10/2026 | Peter Pan **moderada**, Haunted Mansion **tranquila**, Seven Dwarfs **radical** | Revisto com o Gabriel. Deixar o Peter Pan tranquilo arrastaria junto a Pirates, que tem uma queda de verdade no escuro |
+| 27/10/2026 | Curadoria em **`data/`**, empacotada com o código | Dado conferido muda por revisão, com commit e autor, e passa pelos testes. Nem fonte externa (`clients/`) nem acumulado (`storage/`) |
+| 27/10/2026 | A API **descreve, não decide** | `min_height_cm` e `intensity` saem em toda atração; nada some nem é reordenado. Quem decide é o perfil, na tela, como os filtros da 7.3 |
 
 ---
 

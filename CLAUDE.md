@@ -45,7 +45,7 @@ O **6.6 terminou com um resultado negativo medido**: prever a fila por extrapola
 mais que usar a fila atual, em todo horizonte. O ranking não mudou — mas agora há número
 para sustentar a escolha. Detalhes na seção 7 de `docs/PROJETO.md`.
 
-**781 testes passando**: 685 na suíte rápida (~9s; 272 são do roteiro, a maioria
+**818 testes passando**: 722 na suíte rápida (~9s; 272 são do roteiro, a maioria
 instâncias aleatórias conferidas contra força bruta) e 96 de interface em navegador (~130s).
 CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
 
@@ -57,6 +57,12 @@ Já existe e funciona:
 - `core/itinerary.py` — **o otimizador do roteiro** (Fase 8.2, núcleo). `plan_itinerary`
   ordena os alvos por *branch and bound* exato, até 5 paradas, com a previsão de fila
   **injetada** (`persistence` é o padrão). Ainda sem rota na API nem tela
+- `core/intensity.py` — tranquila / moderada / radical a partir das **etiquetas oficiais
+  da Disney**, por regra escrita (Fase 9.1)
+- `data/` — **dado conferido à mão**, empacotado com o código: a curadoria de altura
+  mínima e etiquetas das 35 atrações do Magic Kingdom (`curadoria_magic_kingdom.json`).
+  `models/curation.py` traduz as chaves em português para os nomes do código. A API devolve
+  `min_height_cm` e `intensity` em toda atração
 - `models/` — `Destination`, `ParkCatalog` (com coordenadas GPS) e `LiveData`
 - `clients/cache.py` — cache com TTL, relógio injetável
 - `clients/themeparks.py` — cliente assíncrono, backoff exponencial, erros próprios
@@ -193,6 +199,29 @@ de caminhada) está pronto**, e o **núcleo do 8.2 também** (`core/itinerary.py
 > -2,7% (pior!); oráculo que conhece o futuro -7,6% (o teto). Por isso o padrão é a
 > persistência. **Foi ensaio sobre histórico fragmentado (85% dos cenários
 > descartados): repetir sobre a coleta contínua antes de construir a tela (8.4).**
+
+**Fase 9 — Perfil do visitante (iniciada em 27/10/2026).** Nasceu de uma crítica do
+Gabriel: *ver a fila não resolve nada que a fonte já não resolva*. Com filas niveladas, o
+ranking vira "o mais perto". O app sabe o que a atração **custa**, não o que ela **vale**
+para quem pergunta. Decisões dele: o perfil é **perguntado, não inferido**; **só duas
+perguntas** (altura da criança mais baixa; tranquilas / de tudo / emoção), ambas
+puláveis; a altura **marca** ("só os adultos", pelo *Rider Switch*), não esconde, e a
+atração marcada não ganha o destaque de "melhor escolha". **9.1 (curadoria) pronta**;
+faltam 9.2 (as perguntas, no `localStorage`) e 9.3 (o redesenho da tela).
+
+> ⚠️ **A curadoria nunca vem de memória nem de resumo de busca.** Os dois erraram: a
+> memória e os sites de terceiros dizem 102 cm para a Big Thunder, a busca disse 102
+> para a Magic Carpets. A listagem oficial diz 97 e "Any Height". Altura errada manda
+> criança para fila em que ela não entra.
+
+> ⚠️ **Não tente o endpoint interno da Disney** (`/finder/api/...`). Ele não responde a
+> cliente automatizado — proteção contra robôs —, e disfarçar a requisição seria burlar
+> um bloqueio. Para revisar a curadoria: capturas de tela da listagem pública. O site
+> abre em português; a tradução das etiquetas está no próprio JSON (`como_preencher`).
+
+> ⚠️ **Só linha conferida conta** (`conferido_em` + `conferido_por`), e **atração sem
+> curadoria não tem intensidade** — nunca vire `CALM` por falta de etiqueta.
+> `tests/test_curadoria.py` recusa linha com dado e sem conferência.
 
 **As medições estão versionadas em `scripts/medicoes/`** (README com a agenda): auditoria
 da coleta, avaliação do forecast, simulador do roteiro, sinuosidade contra o OSM e
@@ -404,7 +433,7 @@ pip install -e ".[dev]"
 Verificar que tudo está de pé:
 
 ```bash
-pytest -m "not e2e"    # esperado: 685 testes, ~9s
+pytest -m "not e2e"    # esperado: 722 testes, ~9s
 ruff check .
 ruff format --check .
 ```

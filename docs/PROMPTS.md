@@ -1596,6 +1596,163 @@ A skill `medir-antes-de-implementar` ganhou a regra: exploração de uma vez fic
 scratchpad; medição que será repetida vai para `scripts/medicoes/`. Também apareceu e foi
 corrigido um parágrafo do `CLAUDE.md` mal encaixado por uma edição anterior.
 
+Sobre a interface, duas perguntas de múltipla escolha. Respostas do Gabriel: **redesenho
+geral do site** e entender os cenários **rodando com filas reais**.
+
+---
+
+### Prompt #061
+**Data:** 27/10/2026
+**Contexto:** Pedidos os cenários específicos e a direção do redesenho, com três exemplos
+de cenário sugeridos.
+
+```
+1. 
+Acredito que os 3 cenários que você descreveu batem bem com as ideias que tenho.
+
+A primeira de uma pessoa que tem um roteiro em mente, ela tem os brinquedo favoritos e tudo mais. Como o nosso site vai reagir a ela?
+
+A segunda era a que mais me intrigava, tenho certeza que o magic kingdom funciona de forma completamente diferente com uma criança pequena. Talvez ela não consiga aproveitar todos os brinquedos, talvez ela prefira algo mais leve e tranquilo. Como vamos atacar esse perfil e principalmente, como vamos identificar esse perfil?
+
+A terceira volta a bater na tecla de tempo, quando focar nos principais emais populares e quando focar num brinquedo que não é tão chamativo assim?
+
+E ainda adiciono uma a mais: Se a pessoa escolher não tirar proveito de radicalidade ou então o contrário, como podemos captar isso e fazer ela ter o melhor proveito do parque?
+
+
+Simplesmente ver o tempo de fila dos brinquedos não resolve o maior problema, isso é facilmente resolvido pela api que usamos, ela já mostra o tempo de fila e qualquer um consegue calcular mentalmente uma estimativa de qual o próximo brinquedo.
+```
+
+**O que resultou: a crítica que originou a Fase 9, confirmada pelos dados na hora.**
+
+Os quatro cenários foram rodados com o código de produção sobre as filas reais (pela API
+de produção do NextUp, para não gerar tráfego extra na ThemeParks.wiki). Era noite de
+festa de Halloween, e as 8 primeiras do ranking tinham todas 5 min de fila: o ranking
+virava "o mais perto". O Gabriel estava certo — **o app sabe o que a atração custa, não
+o que ela vale para quem pergunta.**
+
+- **Favoritos:** seguir a lista de alvos de hoje dá 173 min (33 a pé); o roteiro, 162 (22).
+- **Criança pequena:** saindo do Dumbo, o app sugeria a Space Mountain (112 cm) em 4º.
+- **Quando focar nas principais:** medido no histórico, todas as faixas são baratas às 9h
+  e às 21h, mas a TRON oscila ~23 min e uma tranquila ~8 — principais nas pontas, tranquilas
+  no pico. Com o viés declarado da temporada de Halloween.
+- **Emoção:** a fonte não informa intensidade, como já tinha derrubado a radicalidade na 7.4.
+
+Proposta: perguntar o perfil em vez de inferir, e uma curadoria própria de altura e
+intensidade.
+
+---
+
+### Prompt #062
+**Data:** 27/10/2026
+**Contexto:** Três decisões pedidas: montar a curadoria, o que fazer com atração que a
+criança não pode, e quantas perguntas.
+
+```
+Eu estou com você.
+Vamos montar a nossa curadoria sobre a altura e intensidade.
+
+Acredito que deva ficar marcado como só para adultos.
+
+Quanto menos pergunta, melhor, então vamos só com as essenciais
+```
+
+**O que resultou: a curadoria começou pela fonte oficial — e ela corrigiu a memória logo
+na primeira leitura.** A listagem oficial só entregou 5 atrações em texto, e uma delas
+desmentiu um número dado de cabeça minutos antes: a Big Thunder exige **97 cm**, não 102. O
+resumo da busca também afirmou que a Magic Carpets exige 102 cm — o que, depois, as
+capturas mostraram ser "Any Height". A regra ficou: nada de memória nem de resumo.
+
+A primeira tentativa de ler o endpoint JSON da Disney foi **bloqueada pelo controle de
+permissões** do Claude Code, como forma de contornar o acesso ao site.
+
+---
+
+### Prompt #063
+**Data:** 27/10/2026
+**Contexto:** Duas opções apresentadas: curadoria manual ou liberar o endpoint interno.
+
+```
+Eu não me importo de liberar o uso da API interna e não documentada da Disney. Como fazemos isso?
+```
+
+**O que resultou: a tentativa autorizada — e o limite.** Com a autorização, a requisição
+passou pelo controle de permissões, mas o site não respondeu: primeiro a conexão caiu, e
+com TLS 1.2 o tempo esgotou. É o padrão de proteção contra robôs. O passo seguinte seria
+disfarçar a requisição de navegador, e isso é **burlar um bloqueio que o site colocou de
+propósito** — o que o projeto não faz, mesmo autorizado. Ficou registrado na seção de
+aspectos legais e éticos. Foi gerado um rascunho do arquivo para preenchimento manual.
+
+---
+
+### Prompt #064
+**Data:** 27/10/2026
+**Contexto:** Proposta de adiantar o código enquanto o Gabriel preenchia a curadoria.
+
+```
+Sim.
+```
+
+**O que resultou: o código da 9.1, e um arquivo JSON quebrado no meio do caminho.**
+`core/intensity.py` (a regra), `models/curation.py` (aliases do português para o inglês),
+`data/` (o terceiro tipo de dado do projeto: conferido, nem externo nem acumulado) e a API
+devolvendo `min_height_cm` e `intensity`. Só a linha conferida conta.
+
+Ao rodar os testes, 10 erros de JSON: o Gabriel estava preenchendo o arquivo, com aspas
+simples e etiquetas em português — o site tinha aberto traduzido. O arquivo não foi
+tocado enquanto ele editava; a orientação foi a sintaxe e o site em inglês.
+
+---
+
+### Prompt #065
+**Data:** 27/10/2026
+**Contexto:** No meio do preenchimento manual.
+
+```
+Claude, na moral, tá chato preencher esse arquivo e acho que com alguns prints você consegue pegar todas as informações e preencher. O que acha?
+```
+
+**O que resultou:** a troca de método, com o curador continuando a ser o Gabriel — as
+capturas são a evidência do que estava no site, e a transcrição é revisada por ele. Ficou
+combinado que as imagens não vão para o repositório.
+
+---
+
+### Prompt #066
+**Data:** 27/10/2026
+**Contexto:** Resposta ao pedido de capturas.
+
+```
+(10 capturas de tela da listagem oficial do Magic Kingdom, sem texto)
+```
+
+**O que resultou: as 35 atrações transcritas, com a tradução das etiquetas verificada, não
+suposta.** O site estava em português, mas as cinco atrações lidas antes na versão
+americana aparecem nas capturas — e cada par confirmou uma tradução ("PERCURSO LENTO,
+GIROS" ↔ "Slow Rides, Spinning"). As capturas também confirmaram a Magic Carpets como "Any
+Height".
+
+Dois erros meus apareceram e foram corrigidos: a regra e um teste diziam que "Peter Pan é
+escuro e das mais calmas", e a Disney o marca "Slow Rides, Small Drops", sem "Dark" — o
+exemplo certo é a Haunted Mansion. E uma fixture com escopo de classe gerou aviso do
+`pytest-asyncio`. Conferido também que o JSON entra no wheel que o Docker instala.
+
+Resultado: 5 radicais, 3 moderadas, 27 tranquilas. Três casos levados para revisão.
+
+---
+
+### Prompt #067
+**Data:** 27/10/2026
+**Contexto:** Revisão da classificação: Peter Pan moderada, Haunted Mansion tranquila,
+Seven Dwarfs radical.
+
+```
+SIm, mete bala
+```
+
+**O que resultou:** os três casos mantidos, commits da 9.1 (`feat(core)` e `feat(api)`) e
+o registro da Fase 9 no `PROJETO.md` — a crítica que a originou, os quatro cenários, as
+decisões de produto, a curadoria e o limite ético da coleta. 722 na suíte rápida.
+
 ---
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
