@@ -1371,7 +1371,9 @@ class TestFluxoFeliz:
         pagina.click("#btn-localizar")
         _ver_filas(pagina, "ranking")
 
-        expect(pagina.locator(".leaflet-marker-icon")).to_have_count(8)
+        # `.pino`, e não `.leaflet-marker-icon`: o "Você" e os nomes das áreas
+        # também são marcadores do Leaflet.
+        expect(pagina.locator("#mapa .pino")).to_have_count(8)
 
     def test_informa_a_idade_do_dado(self, navegador, servidor):
         pagina = abrir(navegador, servidor)
@@ -2235,3 +2237,110 @@ class TestSoMagicKingdom:
         pagina = abrir(navegador, servidor, seletor=True)
         expect(pagina.locator("#campo-parque")).to_be_visible()
         expect(pagina.locator("#parque option")).to_have_count(11)
+
+
+def _caixas_batem(a: dict, b: dict) -> bool:
+    return (
+        a["x"] < b["x"] + b["width"]
+        and b["x"] < a["x"] + a["width"]
+        and a["y"] < b["y"] + b["height"]
+        and b["y"] < a["y"] + a["height"]
+    )
+
+
+class TestMapaLegivel:
+    """O mapa que o Gabriel achou difícil de entender no celular (28/10/2026).
+
+    Cinco causas, uma por teste: a pilha de pintura invertida, a falta de
+    referência (áreas e "Você"), o enquadramento no parque inteiro e oito nomes
+    disputando o olhar.
+    """
+
+    def test_o_gramado_fica_embaixo_das_trilhas(self, navegador, servidor):
+        """Bug real: `bringToBack()` num grupo invertia a pilha inteira.
+
+        Cada caminho ia para o fundo um de cada vez, e o último a ir era o primeiro
+        a ser pintado: o gramado cobria as trilhas e o véu ficava por baixo de tudo.
+        """
+        pagina = abrir(navegador, servidor)
+        expect(pagina.locator("#mapa path.m-fora")).to_have_count(1)
+
+        ordem = pagina.locator("#mapa path[class*='m-']").evaluate_all(
+            "ps => ps.map(p => p.getAttribute('class').split(' ')[0])"
+        )
+        ultimo_verde = max(i for i, c in enumerate(ordem) if c == "m-verde")
+        primeira_trilha = ordem.index("m-trilha")
+        assert ultimo_verde < primeira_trilha, "o gramado é pintado por cima das trilhas"
+        assert ordem.index("m-fora") > max(i for i, c in enumerate(ordem) if c == "m-trilha"), (
+            "o véu do entorno não cobre o que está fora do parque"
+        )
+
+    def test_a_rota_fica_por_cima_do_desenho(self, navegador, servidor):
+        """O conserto não pode ter custado a rota: ela continua acima do parque."""
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+        _mapa_parado(pagina)
+
+        z = "el => Number(getComputedStyle(el.closest('.leaflet-pane')).zIndex)"
+        desenho = pagina.locator("#mapa path.m-trilha").first.evaluate(z)
+        rota = pagina.locator("#mapa path.m-rota").evaluate(z)
+        assert rota > desenho
+
+    def test_as_areas_do_parque_tem_nome(self, navegador, servidor):
+        """Sem referência, o visitante não sabe em que canto do parque está."""
+        pagina = abrir(navegador, servidor)
+        nomes = pagina.locator("#mapa .m-nome-area")
+        expect(nomes).to_have_count(6)
+        assert {"Fantasyland", "Tomorrowland", "Adventureland"} <= set(nomes.all_text_contents())
+
+    def test_nome_de_area_nunca_cobre_um_numero(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+        _mapa_parado(pagina)
+
+        areas = [n.bounding_box() for n in pagina.locator("#mapa .m-nome-area:not(.oculto)").all()]
+        pinos = [n.bounding_box() for n in pagina.locator("#mapa .pino").all()]
+        for a in areas:
+            for b in pinos:
+                assert not _caixas_batem(a, b), "o nome de uma área cobre um número"
+
+    def test_o_visitante_e_um_ponto_visivel(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+        expect(pagina.locator("#mapa .voce")).to_be_visible()
+
+    def test_so_as_tres_primeiras_ganham_nome(self, navegador, servidor):
+        """Oito nomes no celular eram uma sopa de letras; o resto fica só no número."""
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+
+        expect(pagina.locator("#mapa .pino")).to_have_count(8)
+        expect(pagina.locator("#mapa .rotulo")).to_have_count(3)
+        expect(pagina.locator("#mapa .pino--menor")).to_have_count(5)
+
+    def test_o_mapa_aproxima_da_resposta(self, navegador, servidor):
+        """Antes o mapa ficava no parque inteiro, e os números cabiam num punhado de
+        centímetros. Agora ele enquadra o visitante e as três primeiras."""
+        pagina = abrir(navegador, servidor, com_gps=True)
+        pagina.wait_for_selector("[data-modo='panorama'] .item", state="attached")
+        # O parque inteiro também chega com animação: lido no meio dela, o "antes"
+        # seria um zoom de passagem. E o zoom exato, não o `data-zoom` arredondado,
+        # que empataria dois quartos de nível vizinhos.
+        _mapa_parado(pagina)
+        antes = pagina.evaluate("mapa.getZoom()")
+
+        _com_cartao(pagina)
+        _mapa_parado(pagina)
+        depois = pagina.evaluate("mapa.getZoom()")
+
+        assert depois > antes, f"o zoom ficou em {depois} (era {antes})"
+        mapa = pagina.locator("#mapa").bounding_box()
+        for pino in pagina.locator("#mapa .pino:not(.pino--menor)").all():
+            caixa = pino.bounding_box()
+            assert (
+                mapa["x"] <= caixa["x"] and caixa["x"] + caixa["width"] <= mapa["x"] + mapa["width"]
+            )
+            assert (
+                mapa["y"] <= caixa["y"]
+                and caixa["y"] + caixa["height"] <= mapa["y"] + mapa["height"]
+            )

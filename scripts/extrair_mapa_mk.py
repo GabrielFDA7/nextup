@@ -12,11 +12,17 @@ a Overpass em tempo real: ela é pública e gratuita, mantida por voluntários.
 
 Dados © OpenStreetMap contributors, licença ODbL — o crédito aparece no mapa.
 
+Uma segunda consulta, pequena, traz o **contexto**: o contorno do parque e as áreas
+temáticas. Sem eles o desenho era correto e ilegível (Gabriel, no celular, 28/10): o
+estacionamento e os bastidores tinham o mesmo peso das trilhas, e nada dizia ao
+visitante em que canto do parque ele estava.
+
 Uso:
     python scripts/extrair_mapa_mk.py            # usa o cache se existir
     python scripts/extrair_mapa_mk.py --baixar   # força uma nova consulta
 """
 
+import itertools
 import json
 import math
 import sys
@@ -29,6 +35,7 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 CATALOGO = RAIZ / "tests" / "fixtures" / "children_magic_kingdom.json"
 CACHE = Path(__file__).resolve().parent / ".cache" / "osm" / "mapa_mk.json"
+CACHE_CONTEXTO = CACHE.with_name("mapa_mk_contexto.json")
 SAIDA = RAIZ / "web" / "mapas" / "magic-kingdom.geojson"
 
 MARGEM_GRAUS = 0.0025  # ~250 m além das atrações: o bastante para a água em volta
@@ -62,6 +69,22 @@ CAMADAS = {
 }
 
 
+#: O contorno e as áreas. `place=locality` é como o OSM registra as áreas do Magic Kingdom
+#: (conferido em 28/10/2026: Main Street, Adventureland, Frontierland, Liberty Square,
+#: Fantasyland, Tomorrowland, e mais quatro recantos pequenos).
+CONTEXTO = [
+    'way["tourism"="theme_park"]["name"="Magic Kingdom"]',
+    'way["place"="locality"]',
+]
+#: Abaixo disto, a "área" é um recanto e o nome só disputaria espaço com os das atrações.
+#: Medido em 28/10/2026: a menor das seis áreas é a Liberty Square (20 mil m²); o maior
+#: recanto, o Storybook Circus (14 mil m²), fica dentro da Fantasyland. O corte é o meio.
+AREA_MINIMA_M2 = 17_000
+#: Quanto o véu sobre o entorno se estende além da caixa: o bastante para o visitante
+#: afastar o zoom sem ver onde ele termina.
+FOLGA_DO_VEU_GRAUS = 0.05
+
+
 def caixa() -> tuple[float, float, float, float]:
     """Sul, oeste, norte, leste: o retângulo das atrações, com margem."""
     catalogo = json.loads(CATALOGO.read_text(encoding="utf-8"))
@@ -75,17 +98,27 @@ def caixa() -> tuple[float, float, float, float]:
     return min(lats) - m, min(lons) - m, max(lats) + m, max(lons) + m
 
 
-def baixar(bbox) -> None:
+def consulta_do_desenho(bbox) -> str:
+    s, w, n, e = bbox
+    filtros = "".join(f"{f}({s},{w},{n},{e});" for fs in CAMADAS.values() for f in fs)
+    return f"[out:json][timeout:90];({filtros});out geom({s},{w},{n},{e});"
+
+
+def consulta_do_contexto(bbox) -> str:
+    """Sem recorte na saída: o contorno do parque cortado pela caixa deixaria de fechar."""
+    s, w, n, e = bbox
+    filtros = "".join(f"{f}({s},{w},{n},{e});" for f in CONTEXTO)
+    return f"[out:json][timeout:60];({filtros});out geom;"
+
+
+def baixar(consulta: str, destino: Path) -> None:
     """Uma consulta só, com User-Agent identificado e backoff exponencial.
 
     Em 28/10/2026 o servidor principal respondeu 502 "at capacity" e pediu exatamente
     isto: esperar e dobrar a espera. O espelho oficial entra na vez seguinte de cada rodada.
     """
-    s, w, n, e = bbox
-    filtros = "".join(f"{f}({s},{w},{n},{e});" for fs in CAMADAS.values() for f in fs)
-    consulta = f"[out:json][timeout:90];({filtros});out geom({s},{w},{n},{e});"
     corpo = urllib.parse.urlencode({"data": consulta}).encode()
-    CACHE.parent.mkdir(parents=True, exist_ok=True)
+    destino.parent.mkdir(parents=True, exist_ok=True)
 
     espera = ESPERA_INICIAL_S
     for tentativa in range(1, TENTATIVAS + 1):
@@ -97,7 +130,7 @@ def baixar(bbox) -> None:
             )
             try:
                 with urllib.request.urlopen(req, timeout=180) as resposta:
-                    CACHE.write_bytes(resposta.read())
+                    destino.write_bytes(resposta.read())
                 print(f"ok: {servidor}")
                 return
             except (urllib.error.URLError, TimeoutError) as erro:
@@ -314,13 +347,102 @@ def feicoes(osm: dict) -> list[dict]:
     return sorted(saida, key=lambda f: ordem[f["properties"]["c"]])
 
 
+def area_m2(anel: list[tuple[float, float]]) -> float:
+    """Fórmula do laço (shoelace) numa projeção local em metros."""
+    lat0 = math.radians(anel[0][1])
+    xy = [(lon * 111_320.0 * math.cos(lat0), lat * 111_320.0) for lon, lat in anel]
+    return abs(sum(x1 * y2 - x2 * y1 for (x1, y1), (x2, y2) in itertools.pairwise(xy))) / 2
+
+
+def dentro(p: tuple[float, float], anel: list[tuple[float, float]]) -> bool:
+    """Ponto no polígono, pelo número de vezes que um raio cruza o contorno."""
+    x, y, cruza = p[0], p[1], False
+    for (x1, y1), (x2, y2) in itertools.pairwise(anel):
+        if (y1 > y) != (y2 > y) and x < x1 + (y - y1) * (x2 - x1) / (y2 - y1):
+            cruza = not cruza
+    return cruza
+
+
+def ponto_do_nome(anel: list[tuple[float, float]]) -> tuple[float, float]:
+    """Onde escrever o nome de uma área: o ponto de dentro mais longe da borda.
+
+    O centroide não serve. As áreas do parque abraçam o castelo, e o centroide de uma
+    forma em L ou em ferradura cai fora dela — o nome iria parar na área vizinha. Uma
+    grade de 40 por 40 basta para posicionar um nome.
+    """
+    lons, lats = zip(*anel, strict=True)
+    passo_lon, passo_lat = (max(lons) - min(lons)) / 40, (max(lats) - min(lats)) / 40
+
+    def folga(p):
+        return min(
+            math.dist(p, (a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])))
+            for a, b in itertools.pairwise(anel)
+            for t in (0, 0.25, 0.5, 0.75)
+        )
+
+    candidatos = [
+        (min(lons) + passo_lon * i, min(lats) + passo_lat * j)
+        for i in range(1, 40)
+        for j in range(1, 40)
+    ]
+    melhor = max((p for p in candidatos if dentro(p, anel)), key=folga)
+    return round(melhor[0], CASAS), round(melhor[1], CASAS)
+
+
+def contexto(osm: dict, bbox) -> list[dict]:
+    """O véu sobre o entorno e os nomes das áreas.
+
+    O véu é um retângulo com o parque recortado (um furo no polígono): pintado por
+    cima de tudo, esmaece o estacionamento e os bastidores, e a borda do furo é o
+    contorno do parque. Sem ele, o celular mostrava 250 m de entorno com o mesmo
+    peso das trilhas.
+    """
+    parque = next(
+        coords(e["geometry"]) for e in osm["elements"] if e["tags"].get("tourism") == "theme_park"
+    )
+    s, w, n, e = bbox
+    f = FOLGA_DO_VEU_GRAUS
+    moldura = [(w - f, s - f), (e + f, s - f), (e + f, n + f), (w - f, n + f), (w - f, s - f)]
+    saida = [
+        {
+            "type": "Feature",
+            "properties": {"c": "fora"},
+            "geometry": {"type": "Polygon", "coordinates": [moldura, parque]},
+        }
+    ]
+    for el in osm["elements"]:
+        if el["tags"].get("place") != "locality":
+            continue
+        anel = coords(el["geometry"])
+        area = area_m2(anel) if anel[0] == anel[-1] else 0
+        print(f"  {el['tags']['name']}: {area / 1000:.0f} mil m²")
+        if area < AREA_MINIMA_M2:
+            continue
+        lon, lat = ponto_do_nome(anel)
+        if not dentro((lon, lat), parque):
+            continue
+        saida.append(
+            {
+                "type": "Feature",
+                "properties": {"c": "area", "nome": el["tags"]["name"]},
+                "geometry": {"type": "Point", "coordinates": [lon, lat]},
+            }
+        )
+    return saida
+
+
 def main() -> None:
     bbox = caixa()
     if "--baixar" in sys.argv or not CACHE.exists():
         print("consultando a Overpass (uma vez)...")
-        baixar(bbox)
+        baixar(consulta_do_desenho(bbox), CACHE)
+    if "--baixar" in sys.argv or not CACHE_CONTEXTO.exists():
+        print("consultando o contexto (uma vez)...")
+        baixar(consulta_do_contexto(bbox), CACHE_CONTEXTO)
     osm = json.loads(CACHE.read_text(encoding="utf-8"))
-    fs = feicoes(osm)
+    ctx = json.loads(CACHE_CONTEXTO.read_text(encoding="utf-8"))
+    # O véu depois de tudo, para cobrir; os nomes por último. A ordem é a da pintura.
+    fs = feicoes(osm) + contexto(ctx, bbox)
 
     geojson = {
         "type": "FeatureCollection",
@@ -336,7 +458,8 @@ def main() -> None:
 
     bruto = sum(len(e.get("geometry", [])) for e in osm["elements"])
     final = sum(pontos(f["geometry"]["coordinates"]) for f in fs)
-    contagem = {c: sum(f["properties"]["c"] == c for f in fs) for c in [*CAMADAS, "praca"]}
+    camadas = [*CAMADAS, "praca", "fora", "area"]
+    contagem = {c: sum(f["properties"]["c"] == c for f in fs) for c in camadas}
     print(f"feições: {contagem}")
     print(f"pontos: {bruto} brutos -> {final} depois da simplificação ({TOLERANCIA_M} m)")
     print(f"arquivo: {SAIDA.relative_to(RAIZ)} ({SAIDA.stat().st_size / 1024:.0f} KB)")

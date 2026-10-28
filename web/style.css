@@ -83,13 +83,24 @@
   --sobre-cartao-botao: #2b2250;
 
   /* O desenho do parque (web/mapas/), pintado aqui em vez de vir pintado num tile:
-     é o que deixa o mapa trocar de tema junto com o resto da tela. */
-  --mapa-fundo: #f1ecf6;
-  --mapa-verde: #e8e0f0;
-  --mapa-predio: #dfd4ea;
-  --mapa-agua: #cfe4fb;
+     é o que deixa o mapa trocar de tema junto com o resto da tela.
+
+     Cada coisa com a sua cor, porque o primeiro desenho pintou tudo de lilás e
+     ficou ilegível no celular (28/10/2026): o caminho branco sobre um chão quase
+     branco não aparecia, e prédio, gramado e chão eram a mesma mancha. Agora o
+     chão escurece o bastante para o caminho saltar, o gramado é verde e a água é
+     azul — as convenções que qualquer mapa de parque usa. */
+  --mapa-fundo: #e5dfed;
+  --mapa-verde: #d6e8d8;
+  --mapa-predio: #d5cbe1;
+  --mapa-agua: #b0d4f4;
   --mapa-trilha: #ffffff;
-  --mapa-contorno: #d4c8e0;
+  --mapa-praca: #fbf9fd;
+  /* O entorno (estacionamento, bastidores) fica sob um véu: o parque vira uma
+     ilha colorida, e o olho para nela. */
+  --mapa-veu: #f6f3f9;
+  --mapa-limite: #b3a5c7;
+  --mapa-nome-area: #6e5f8c;
 
   --raio: 18px;
   --raio-p: 12px;
@@ -143,12 +154,16 @@
     --cartao-botao: #ffc2d9;
     --sobre-cartao-botao: #1d2a4a;
 
-    --mapa-fundo: #121b31;
-    --mapa-verde: #1a2540;
-    --mapa-predio: #212e4c;
-    --mapa-agua: #24406e;
-    --mapa-trilha: #2f3d60;
-    --mapa-contorno: #384869;
+    /* No escuro, o caminho é o que tem mais luz. */
+    --mapa-fundo: #18233d;
+    --mapa-verde: #173832;
+    --mapa-predio: #253252;
+    --mapa-agua: #1e4b7d;
+    --mapa-trilha: #56679a;
+    --mapa-praca: #3d4d78;
+    --mapa-veu: #0b1121;
+    --mapa-limite: #4a5b88;
+    --mapa-nome-area: #a3b3d6;
 
     --sombra: 0 1px 2px rgb(0 0 0 / 30%), 0 6px 18px rgb(0 0 0 / 25%);
     --sombra-forte: 0 2px 4px rgb(0 0 0 / 35%), 0 12px 28px rgb(0 0 0 / 35%);
@@ -361,6 +376,55 @@ select:focus-visible {
   border-radius: 50%;
   box-shadow: 0 2px 6px rgb(0 0 0 / 35%);
   font-variant-numeric: tabular-nums;
+}
+
+/* Da quarta colocada em diante: presente, mas sem disputar o olhar. */
+.pino--menor {
+  width: 24px;
+  height: 24px;
+  font-size: 0.72rem;
+  border-width: 2px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 30%);
+}
+
+/* O visitante: ponto azul com halo, a convenção de todo mapa de celular. O halo
+   pulsa devagar para ser achado de relance; parado para quem pede menos movimento. */
+.voce {
+  position: relative;
+  display: block;
+  width: 22px;
+  height: 22px;
+  background: #1a73e8;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 40%);
+}
+
+.voce::after {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  background: rgb(26 115 232 / 22%);
+  animation: halo-voce 2.4s ease-out infinite;
+  z-index: -1;
+}
+
+@keyframes halo-voce {
+  from {
+    transform: scale(0.5);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voce::after {
+    animation: none;
+  }
 }
 
 .pino--melhor {
@@ -1309,35 +1373,87 @@ a {
   stroke-width: 2;
 }
 
+/* Sem contorno: 323 prédios com borda viravam uma malha de riscos. Bloco sólido
+   lê como bloco. */
 .m-predio {
   fill: var(--mapa-predio);
   fill-opacity: 1;
-  stroke: var(--mapa-contorno);
-  stroke-width: 0.6;
+  stroke: none;
 }
 
 /* Hierarquia medida na extração: praça é área, via larga é traço grosso,
    calçada é traço fino. A borda da praça existe só para a rota. */
 .m-praca {
-  fill: var(--mapa-trilha);
-  fill-opacity: 0.9;
+  fill: var(--mapa-praca);
+  fill-opacity: 1;
   stroke: none;
 }
 
 .m-trilha {
   fill: none;
   stroke: var(--mapa-trilha);
-  stroke-width: 1.8;
+  stroke-width: 2.4;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .m-trilha.m-via {
-  stroke-width: 4;
+  stroke-width: 6;
 }
 
 .m-trilha.m-borda {
   stroke: none;
+}
+
+/* Perto, o traço fixo em pixels afina demais em relação aos prédios. O zoom vem
+   de `marcarZoom()` no app.js. */
+[data-zoom="18"] .m-trilha,
+[data-zoom="19"] .m-trilha {
+  stroke-width: 4;
+}
+
+[data-zoom="18"] .m-trilha.m-via,
+[data-zoom="19"] .m-trilha.m-via {
+  stroke-width: 11;
+}
+
+[data-zoom="17"] .m-trilha {
+  stroke-width: 3;
+}
+
+[data-zoom="17"] .m-trilha.m-via {
+  stroke-width: 8;
+}
+
+/* O véu sobre o entorno: um retângulo com o parque recortado. A borda do recorte
+   é o contorno do parque. */
+.m-fora {
+  fill: var(--mapa-veu);
+  fill-opacity: 0.78;
+  stroke: var(--mapa-limite);
+  stroke-width: 1.5;
+}
+
+/* O nome de uma área, escrito no chão: caixa alta espaçada e cor apagada, a
+   tipografia de cartografia para "região", que não compete com o nome de uma
+   atração. Centrado no ponto que o extrator escolheu. */
+.m-nome-area {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--mapa-nome-area);
+  text-shadow:
+    0 0 3px var(--mapa-fundo),
+    0 0 3px var(--mapa-fundo);
+  pointer-events: none;
+}
+
+.m-nome-area.oculto {
+  visibility: hidden;
 }
 
 /* A rota até a melhor escolha: pontilhada, porque caminhada é sempre pontilhado
@@ -1377,10 +1493,13 @@ a {
   line-height: 1.3;
   white-space: nowrap;
   color: var(--tinta);
+  /* Contorno grosso da cor do chão: sobre caminho branco e prédio lilás, o nome
+     precisa de um respiro que três sombras finas não davam. */
   text-shadow:
-    0 0 3px var(--mapa-fundo),
-    0 0 3px var(--mapa-fundo),
-    0 0 3px var(--mapa-fundo);
+    0 0 2px var(--mapa-fundo),
+    0 0 4px var(--mapa-fundo),
+    0 0 4px var(--mapa-fundo),
+    0 0 6px var(--mapa-fundo);
   pointer-events: none;
 }
 
@@ -1427,7 +1546,7 @@ a {
 
 .palco #mapa {
   /* Alto, mas sem engolir a resposta: o cartão ainda aparece na primeira tela. */
-  height: clamp(300px, 46vh, 430px);
+  height: clamp(320px, 52vh, 480px);
   border: 0;
   border-radius: 0;
   box-shadow: none;

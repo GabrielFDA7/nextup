@@ -149,6 +149,16 @@ let mapaEmMovimento = false;
  */
 const DESENHOS = { [PARQUE_PADRAO]: "mapas/magic-kingdom.geojson" };
 
+/* Quantas colocadas ganham nome e marcador grande no mapa. Com as oito nomeadas, o
+ * mapa do celular virava uma sopa de letras em que nada se destacava (Gabriel,
+ * 28/10/2026). As três primeiras são as que o visitante compara; a lista completa
+ * dá o nome de todos os números.
+ */
+const NOMES_NO_MAPA = 3;
+
+/** O enquadramento da resposta já feito: só se refaz quando a resposta muda. */
+let enquadramentoFeito = null;
+
 // ---------------------------------------------------------------------------
 // Avisos
 // ---------------------------------------------------------------------------
@@ -172,9 +182,21 @@ const CREDITO_OSM = '&copy; <a href="https://openstreetmap.org/copyright">OpenSt
 function iniciarMapa() {
   // A vista vem ANTES de qualquer camada vetorial: sem centro e zoom, o Leaflet não
   // sabe recortar as linhas e quebra ("reading 'min'"). Achado no protótipo.
-  mapa = L.map("mapa", { zoomControl: false }).setView([28.4177, -81.5812], 15);
+  // Zoom em quartos: com só inteiros, enquadrar a resposta caía um nível inteiro
+  // abaixo do que cabia, e o celular voltava a ver o parque todo, miúdo.
+  mapa = L.map("mapa", { zoomControl: false, zoomSnap: 0.25 }).setView([28.4177, -81.5812], 15);
   // O canto esquerdo é da marca, que flutua sobre o mapa.
   L.control.zoom({ position: "topright" }).addTo(mapa);
+
+  // O desenho do parque mora numa camada própria, abaixo da rota (400). Antes ele
+  // dividia a camada com a rota e era empurrado para o fundo com `bringToBack()` —
+  // que, num grupo, leva cada caminho ao fundo um de cada vez e INVERTE a pilha: o
+  // gramado era pintado por cima das trilhas, e o véu, por baixo de tudo.
+  mapa.createPane("desenho").style.zIndex = 350;
+  // Os nomes das áreas, entre a rota (400) e os marcadores (600): acima do véu
+  // sobre o entorno e abaixo de qualquer número.
+  mapa.createPane("areas").style.zIndex = 450;
+  marcarZoom();
 
   camadaRota = L.layerGroup().addTo(mapa);
   camadaAtracoes = L.layerGroup().addTo(mapa);
@@ -197,7 +219,28 @@ function iniciarMapa() {
   });
   mapa.on("zoomend moveend", () => {
     mapaEmMovimento = false;
+    marcarZoom();
     posicionarRotulos();
+  });
+}
+
+/* O traço do Leaflet tem espessura fixa em pixels, e a via que é larga no zoom do
+ * parque inteiro vira um fio quando o mapa aproxima. O CSS engrossa pelo zoom. */
+function marcarZoom() {
+  mapa.getContainer().dataset.zoom = String(Math.round(mapa.getZoom()));
+}
+
+/* O nome de uma área do parque, escrito no chão do mapa. */
+function nomeDeArea(feicao, posicao) {
+  return L.marker(posicao, {
+    pane: "areas",
+    interactive: false,
+    keyboard: false,
+    icon: L.divIcon({
+      className: "",
+      html: `<span class="m-nome-area">${escapar(feicao.properties.nome)}</span>`,
+      iconSize: [0, 0],
+    }),
   });
 }
 
@@ -227,10 +270,12 @@ async function trocarFundoDoMapa(parqueId) {
 
       camadaFundo = L.geoJSON(desenho, {
         style: (f) => ({ className: `m-${f.properties.c}${f.properties.t ? ` m-${f.properties.t}` : ""}` }),
+        // Os únicos pontos do desenho são os nomes das áreas.
+        pointToLayer: nomeDeArea,
+        pane: "desenho",
         interactive: false,
         attribution: CREDITO_OSM,
       }).addTo(mapa);
-      camadaFundo.bringToBack();
       redeDeTrilhas = ROTA.montarRede(desenho);
       desenharRota();
       return;
@@ -275,24 +320,52 @@ function desenharRota() {
  * zoom e o crédito do mapa.
  */
 function posicionarRotulos() {
+  // Todo marcador entra, com nome ou sem: os sem nome são obstáculo para os outros.
   const paradas = [];
   camadaAtracoes.eachLayer((marcador) => {
-    if (marcador.getElement()?.querySelector(".rotulo")) {
-      paradas.push({ marcador, raio: 15, ordem: marcador.options.ordem });
-    }
+    paradas.push({ marcador, raio: marcador.options.raio ?? 15, ordem: marcador.options.ordem ?? 0 });
   });
   paradas.sort((a, b) => a.ordem - b.ordem);
 
   const container = mapa.getContainer();
-  ROTULOS.posicionar(mapa, paradas, [
+  const obstaculos = [
     marcadorVisitante?.getElement(),
     container.querySelector(".leaflet-control-zoom"),
     container.querySelector(".leaflet-control-attribution"),
-  ]);
+    // A marca e o botão das filas flutuam sobre o mapa, fora do contêiner dele.
+    document.querySelector(".selo-marca"),
+    el.btnTodasFilas.offsetParent ? el.btnTodasFilas : null,
+  ];
+  ROTULOS.posicionar(mapa, paradas, obstaculos);
+  esconderAreasCobertas(container, obstaculos);
 
   // O ranking pode chegar no meio de uma animação: a conta então vale para uma
   // vista que ainda vai mudar, e o `moveend` refaz e anuncia.
   if (!mapaEmMovimento) container.dataset.rotulos = "prontos";
+}
+
+/* O nome de uma área cede a vez a qualquer coisa que o visitante precise ler.
+ *
+ * Ele orienta ("estou na Fantasyland"), mas não responde nada: se bate num número,
+ * num nome de atração ou no "Você", some. */
+function esconderAreasCobertas(container, obstaculos) {
+  const caixas = [
+    ...container.querySelectorAll(".pino, .rotulo:not(.oculto)"),
+    ...obstaculos.filter(Boolean),
+  ].map((e) => e.getBoundingClientRect());
+  const moldura = container.getBoundingClientRect();
+
+  for (const nome of container.querySelectorAll(".m-nome-area")) {
+    nome.classList.remove("oculto");
+    const r = nome.getBoundingClientRect();
+    // Cortado pela borda, "ADVENTURELAND" vira "TURELAND": pior que nome nenhum.
+    const cortado =
+      r.left < moldura.left || r.right > moldura.right || r.top < moldura.top || r.bottom > moldura.bottom;
+    const coberto = caixas.some(
+      (c) => r.left < c.right && c.left < r.right && r.top < c.bottom && c.top < r.bottom
+    );
+    nome.classList.toggle("oculto", cortado || coberto);
+  }
 }
 
 /* Marcador numerado, na paleta do app.
@@ -303,6 +376,18 @@ function posicionarRotulos() {
  */
 function marcadorNumerado(posicao, nome) {
   const melhor = posicao === 1;
+
+  // Da quarta em diante: menor e sem nome. Continua no mapa, porque o número liga
+  // a atração à lista; só não disputa o olhar com as três que importam agora.
+  if (posicao > NOMES_NO_MAPA) {
+    return L.divIcon({
+      className: "",
+      html: `<span class="pino pino--menor">${posicao}</span>`,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+      popupAnchor: [0, -11],
+    });
+  }
 
   // O nome vai junto, e quem decide se ele aparece (e de que lado) é
   // `posicionarRotulos`: com geografia real, vizinhas de verdade se sobrepõem.
@@ -328,6 +413,7 @@ function desenharMapa(recomendacoes) {
       // não pode ficar escondida atrás de uma opção pior.
       zIndexOffset: (recomendacoes.length - indice) * 10,
       ordem: indice,
+      raio: indice < NOMES_NO_MAPA ? 15 : 12,
     })
       .bindPopup(`<strong>${indice + 1}. ${escapar(item.attraction.name)}</strong><br>
          ${Math.round(item.total_minutes)} min no total`)
@@ -337,20 +423,59 @@ function desenharMapa(recomendacoes) {
   posicionarRotulos();
 }
 
+/* O ponto do visitante: o padrão dos mapas de celular (ponto azul com halo), que
+ * ninguém precisa aprender. Acima de todos os números — é a referência de tudo.
+ *
+ * Só move a vista se o ponto ficou fora dela. Quem enquadra é a resposta
+ * (`enquadrarResposta`): dois saltos seguidos, um para o visitante e outro para as
+ * atrações, desorientavam mais do que ajudavam.
+ */
 function marcarVisitante(lat, lon) {
   if (marcadorVisitante) {
     marcadorVisitante.setLatLng([lat, lon]);
   } else {
-    marcadorVisitante = L.circleMarker([lat, lon], {
-      radius: 9,
-      color: "#fff",
-      weight: 3,
-      fillColor: "#0b6bcb",
-      fillOpacity: 1,
+    marcadorVisitante = L.marker([lat, lon], {
+      icon: L.divIcon({
+        className: "",
+        html: '<span class="voce"></span>',
+        iconSize: [22, 22],
+        iconAnchor: [11, 11],
+        popupAnchor: [0, -10],
+      }),
+      zIndexOffset: 2000,
+      keyboard: false,
     }).addTo(mapa);
     marcadorVisitante.bindPopup("Você está aqui");
   }
-  mapa.setView([lat, lon], 16);
+  if (!mapa.getBounds().contains([lat, lon])) mapa.setView([lat, lon], 17);
+}
+
+/* Aproxima o mapa do que o visitante está decidindo: ele e as primeiras colocadas.
+ *
+ * Antes o mapa mostrava o parque inteiro, e no celular os oito números cabiam
+ * num punhado de centímetros sobre um desenho miúdo. Só se refaz quando a
+ * resposta muda (outra posição ou outra melhor escolha): reenquadrar a cada
+ * atualização puxaria o mapa das mãos de quem está arrastando.
+ */
+function enquadrarResposta(recomendacoes) {
+  if (!estado.posicao || recomendacoes.length === 0) return;
+
+  const chave = `${estado.posicao.lat},${estado.posicao.lon},${estado.destaque?.attraction.id}`;
+  if (chave === enquadramentoFeito) return;
+  enquadramentoFeito = chave;
+
+  const pontos = [
+    [estado.posicao.lat, estado.posicao.lon],
+    ...recomendacoes
+      .slice(0, NOMES_NO_MAPA)
+      .map((r) => [r.attraction.latitude, r.attraction.longitude]),
+  ];
+  // Folga desigual: a marca ocupa o topo e o botão das filas, o pé do mapa.
+  mapa.fitBounds(pontos, {
+    paddingTopLeft: [36, 76],
+    paddingBottomRight: [36, 88],
+    maxZoom: 18,
+  });
 }
 
 /* Enquadra o parque inteiro, em vez de centralizar num ponto.
@@ -893,6 +1018,7 @@ function renderizarLista(dados) {
   el.lista.innerHTML = visiveis.map((item) => criarItem(item, idDaMelhor)).join("");
   desenharMapa(visiveis);
   desenharRota();
+  enquadrarResposta(visiveis);
 
   el.atualizado.textContent = `Dado da fonte às ${formatarHora(dados.data_updated_at)}.`;
   el.atualizado.hidden = false;
