@@ -207,7 +207,7 @@ function iniciarMapa() {
   // (comum entre prédios) pode corrigir na mão — risco previsto na seção 8.
   // O desenho do parque é `interactive: false` justamente para o toque chegar aqui.
   mapa.on("click", (evento) => {
-    definirPosicao(evento.latlng.lat, evento.latlng.lng, "escolhida no mapa");
+    definirPosicao(evento.latlng.lat, evento.latlng.lng, "definido no mapa");
   });
 
   // Zoom e arrasto mudam o espaço livre: os nomes se reorganizam. Durante a
@@ -587,7 +587,10 @@ function desenharParque(atracoes) {
 function definirPosicao(lat, lon, origem) {
   estado.posicao = { lat, lon };
 
-  el.posicaoAtual.textContent = `Posição ${origem}: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+  // Frase, e não coordenada: "28.41707, -81.58104" não diz nada a quem está no
+  // parque. O número continua no `title`, para quem precisar conferir.
+  el.posicaoAtual.innerHTML = `<span aria-hidden="true">📍</span> Ponto de partida ${origem}`;
+  el.posicaoAtual.title = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
   el.posicaoAtual.hidden = false;
 
   marcarVisitante(lat, lon);
@@ -610,7 +613,7 @@ function localizar() {
     (posicao) => {
       restaurarBotaoLocalizar();
       limparAviso();
-      definirPosicao(posicao.coords.latitude, posicao.coords.longitude, "do GPS");
+      definirPosicao(posicao.coords.latitude, posicao.coords.longitude, "definido pelo GPS");
     },
     (erro) => {
       restaurarBotaoLocalizar();

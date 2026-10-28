@@ -1425,7 +1425,7 @@ class TestGpsNegado:
         pagina.mouse.click(caixa["x"] + caixa["width"] / 2, caixa["y"] + caixa["height"] / 2)
         _ver_filas(pagina, "ranking")
 
-        expect(pagina.locator("#posicao-atual")).to_contain_text("escolhida no mapa")
+        expect(pagina.locator("#posicao-atual")).to_contain_text("definido no mapa")
         expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(8)
 
 
@@ -2125,6 +2125,16 @@ class TestCartaoDoProximoPasso:
         )
         _com_cartao(pagina)
         expect(pagina.locator("#passo-destaque .passo__nome")).to_contain_text("Seven Dwarfs")
+
+    def test_a_posicao_aparece_em_frase_e_nao_em_coordenadas(self, navegador, servidor):
+        """ "28.42037, -81.58031" não diz nada a quem está no parque; o número fica no
+        `title`, para quem precisar conferir."""
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+
+        posicao = pagina.locator("#posicao-atual")
+        expect(posicao).to_have_text("📍 Ponto de partida definido pelo GPS")
+        expect(posicao).to_have_attribute("title", "28.42037, -81.58031")
 
     def test_ja_fui_no_cartao_passa_para_a_proxima(self, navegador, servidor):
         pagina = abrir(navegador, servidor)
