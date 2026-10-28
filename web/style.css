@@ -70,6 +70,18 @@
   --pino: #2b2250;
   --sobre-pino: #ffffff;
 
+  /* O cartão do próximo passo: escuro nos dois temas, com os pastéis acesos por
+     cima (3c no claro, 3b no escuro). Conferidos sobre o fundo do cartão — o mais
+     apertado ficou em 7,3:1. */
+  --cartao: #2b2250;
+  --sobre-cartao: #ffffff;
+  --sobre-cartao-suave: #d8cff0;
+  --cartao-numero: #ffb8d4;
+  --caminhada-no-cartao: #a9d3ff;
+  --fila-no-cartao: #ffb3d1;
+  --cartao-botao: #ffe27a;
+  --sobre-cartao-botao: #2b2250;
+
   /* O desenho do parque (web/mapas/), pintado aqui em vez de vir pintado num tile:
      é o que deixa o mapa trocar de tema junto com o resto da tela. */
   --mapa-fundo: #f1ecf6;
@@ -122,6 +134,15 @@
     --pino: #eef5ff;
     --sobre-pino: #1d2a4a;
 
+    --cartao: #1f3357;
+    --sobre-cartao: #ffffff;
+    --sobre-cartao-suave: #c8d8f3;
+    --cartao-numero: #bfe0fd;
+    --caminhada-no-cartao: #a9d3ff;
+    --fila-no-cartao: #ffb3d1;
+    --cartao-botao: #ffc2d9;
+    --sobre-cartao-botao: #1d2a4a;
+
     --mapa-fundo: #121b31;
     --mapa-verde: #1a2540;
     --mapa-predio: #212e4c;
@@ -166,39 +187,12 @@ body {
 }
 
 main,
-.topo,
 .rodape {
   max-width: 720px;
   margin: 0 auto;
 }
 
-/* --- Cabeçalho ---------------------------------------------------------- */
-
-.topo {
-  padding: 28px 0 10px;
-}
-
-.marca {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.marca__simbolo {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  color: var(--sobre-quente);
-  background: var(--destaque);
-  box-shadow: var(--sombra);
-}
-
-.marca__simbolo svg {
-  width: 21px;
-  height: 21px;
-}
+/* --- Marca --------------------------------------------------------------- */
 
 h1 {
   margin: 0;
@@ -207,29 +201,7 @@ h1 {
   letter-spacing: -0.03em;
 }
 
-.subtitulo {
-  margin: 6px 0 0;
-  color: var(--tinta-suave);
-  font-size: 0.95rem;
-}
-
-.subtitulo strong {
-  color: var(--tinta);
-  font-weight: 600;
-}
-
-/* --- Controles ---------------------------------------------------------- */
-
-.controles {
-  display: grid;
-  gap: 14px;
-  margin: 22px 0;
-  padding: 18px;
-  background: var(--superficie);
-  border: 1px solid var(--borda);
-  border-radius: var(--raio);
-  box-shadow: var(--sombra);
-}
+/* --- Campo do parque (fora da tela na primeira versão: só Magic Kingdom) - */
 
 .campo {
   display: grid;
@@ -363,10 +335,6 @@ select:focus-visible {
 
 /* --- Mapa --------------------------------------------------------------- */
 
-.mapa-area {
-  margin-bottom: 26px;
-}
-
 #mapa {
   height: 270px;
   border: 1px solid var(--borda);
@@ -375,13 +343,6 @@ select:focus-visible {
   /* Sem isso os cantos dos tiles escapam por cima da borda arredondada. */
   overflow: hidden;
   box-shadow: var(--sombra);
-}
-
-.dica {
-  margin: 10px 0 0;
-  font-size: 0.8rem;
-  color: var(--tinta-suave);
-  text-align: center;
 }
 
 /* Marcador numerado, para ligar o que está no mapa ao que está na lista.
@@ -1063,17 +1024,12 @@ a {
 /* --- Telas maiores ------------------------------------------------------ */
 
 @media (min-width: 640px) {
-  .controles {
-    grid-template-columns: 1fr auto;
-    align-items: end;
-  }
-
-  .posicao {
-    grid-column: 1 / -1;
-  }
-
-  #mapa {
-    height: 360px;
+  /* Com espaço dos lados, o mapa deixa de encostar nas bordas e vira um cartão. */
+  .palco {
+    margin: 16px 0 0;
+    border-radius: var(--raio);
+    overflow: hidden;
+    box-shadow: var(--sombra);
   }
 
   h1 {
@@ -1154,30 +1110,6 @@ a {
 /* ---------------------------------------------------------------------------
    Perfil do visitante (Fase 9.2)
    --------------------------------------------------------------------------- */
-
-/* O resumo do perfil, sempre à vista: ele muda a resposta do app. */
-.botao-perfil {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  min-height: 48px;
-  padding: 0 16px;
-  font: inherit;
-  font-weight: 700;
-  color: var(--tinta);
-  background: var(--superficie-alt);
-  border: 1px solid var(--borda);
-  border-radius: var(--raio-p);
-  cursor: pointer;
-}
-
-.botao-perfil__rotulo {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--tinta-suave);
-}
 
 /* O painel sobe da base da tela, como uma gaveta: no celular é onde o polegar
    alcança, e o parque continua visível em cima — "uma tela, dois estados". */
@@ -1478,4 +1410,356 @@ a {
 
 .rotulo.oculto {
   display: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Layout da Fase 9.3: mapa no topo, cartão do próximo passo, painel de filas
+   --------------------------------------------------------------------------- */
+
+/* O mapa encosta nas bordas do celular: cada pixel de margem é mapa a menos.
+   `isolation` prende as camadas do Leaflet (z-index 400 a 1000) aqui dentro, para
+   elas não passarem por cima do cartão e dos painéis. */
+.palco {
+  position: relative;
+  isolation: isolate;
+  margin: 0 -16px;
+}
+
+.palco #mapa {
+  /* Alto, mas sem engolir a resposta: o cartão ainda aparece na primeira tela. */
+  height: clamp(300px, 46vh, 430px);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.palco__topo {
+  position: absolute;
+  z-index: 1000;
+  top: 14px;
+  left: 14px;
+  pointer-events: none;
+}
+
+.selo-marca {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 44px;
+  margin: 0;
+  padding: 0 16px;
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--tinta);
+  background: var(--superficie);
+  border-radius: 22px;
+  box-shadow: var(--sombra-forte);
+}
+
+.selo-marca__ponto {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--ambar);
+  box-shadow: 0 0 0 3px var(--destaque);
+}
+
+/* O botão do painel, sobre o mapa: acima do crédito do OpenStreetMap, que a
+   licença ODbL pede visível. */
+.pilula {
+  position: absolute;
+  z-index: 1000;
+  right: 14px;
+  bottom: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--sobre-quente);
+  background: var(--destaque);
+  border: 0;
+  border-radius: 22px;
+  box-shadow: var(--sombra-forte);
+  cursor: pointer;
+}
+
+.pilula svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* --- O cartão ----------------------------------------------------------- */
+
+/* Escuro nos dois temas. Por isso redefine aqui dentro os tokens que foram
+   pensados para fundo claro: verde e laranja da tendência, tinta suave. Variável
+   CSS vale para o elemento e os filhos — o resto da página não muda. */
+.passo {
+  --verde-tendencia: #8fe3b6;
+  --vermelho-tendencia: #ffb48c;
+  --tinta-suave: var(--sobre-cartao-suave);
+
+  position: relative;
+  margin: 14px 0 18px;
+  padding: 18px 18px 20px;
+  color: var(--sobre-cartao);
+  background: var(--cartao);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra-forte);
+}
+
+.passo__cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.passo__olho {
+  margin: 0;
+  white-space: nowrap;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--cartao-numero);
+}
+
+.chip-perfil {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--sobre-cartao);
+  background: transparent;
+  border: 1.5px solid rgb(255 255 255 / 28%);
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.chip-perfil svg {
+  width: 14px;
+  height: 14px;
+}
+
+.passo__pergunta {
+  margin: 14px 0 4px;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.passo__explica {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  color: var(--sobre-cartao-suave);
+}
+
+.passo__explica:last-child {
+  margin: 10px 0 0;
+  text-align: center;
+}
+
+/* O botão principal é índigo, como o cartão no tema claro: aqui dentro ele
+   sumiria. Ganha a cor do botão do cartão. */
+.passo .botao-principal {
+  width: 100%;
+  color: var(--sobre-cartao-botao);
+  background: var(--cartao-botao);
+}
+
+.passo__linha {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.passo__nome {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+/* O maior número da tela: o total que o visitante não soma de cabeça. */
+.passo__total {
+  display: flex;
+  flex-shrink: 0;
+  align-items: baseline;
+  gap: 4px;
+  margin: 0;
+  color: var(--cartao-numero);
+}
+
+.passo__total strong {
+  font-size: 4.2rem;
+  font-weight: 800;
+  line-height: 0.85;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+}
+
+.passo__total span {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+/* A conta desenhada: pontilhado para quem anda, cápsula para quem espera — a
+   mesma linguagem da rota no mapa. A proporção vem do `flex-grow` de cada parte. */
+.passo__barra {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 16px 0 8px;
+}
+
+.passo__pe {
+  min-width: 20px;
+  height: 6px;
+  background: radial-gradient(circle at 3px 3px, var(--caminhada-no-cartao) 2.6px, transparent 3.1px)
+    0 0 / 10px 6px repeat-x;
+}
+
+.passo__fila {
+  min-width: 14px;
+  height: 14px;
+  border-radius: 7px;
+  background: var(--fila-no-cartao);
+}
+
+.passo__conta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--sobre-cartao-suave);
+}
+
+.passo__conta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.passo__conta svg {
+  width: 14px;
+  height: 14px;
+}
+
+.passo__chegada {
+  margin-left: auto;
+}
+
+.passo__porque {
+  margin: 12px 0 0;
+  font-size: 0.95rem;
+}
+
+.passo .tendencia,
+.passo .popularidade {
+  margin-top: 10px;
+  font-size: 0.88rem;
+}
+
+.passo__selo {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 4px 11px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: rgb(255 255 255 / 12%);
+  border-radius: 999px;
+}
+
+.botao-ja-fui {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 54px;
+  margin-top: 16px;
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--sobre-cartao-botao);
+  background: var(--cartao-botao);
+  border: 0;
+  border-radius: 16px;
+  cursor: pointer;
+}
+
+.botao-ja-fui svg {
+  width: 18px;
+  height: 18px;
+}
+
+.passo .posicao {
+  margin: 12px 0 0;
+  color: var(--sobre-cartao-suave);
+}
+
+.passo .campo {
+  margin-top: 14px;
+  color: var(--sobre-cartao-suave);
+}
+
+.esqueleto--passo {
+  height: 190px;
+  margin-top: 14px;
+  background: linear-gradient(90deg, rgb(255 255 255 / 6%), rgb(255 255 255 / 16%), rgb(255 255 255 / 6%));
+  background-size: 200% 100%;
+}
+
+.desfazer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: -6px 0 18px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  color: var(--tinta);
+  background: var(--superficie-alt);
+  border-radius: var(--raio-p);
+}
+
+.desfazer span {
+  margin-right: auto;
+}
+
+/* --- O painel de todas as filas ----------------------------------------- */
+
+.painel--filas {
+  width: min(100%, 720px);
+  max-height: 88vh;
+  background: var(--fundo);
+}
+
+.painel--filas .cabecalho-lista {
+  gap: 10px;
+}
+
+.painel__fechar {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--tinta);
+  background: var(--superficie-alt);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
 }

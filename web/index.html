@@ -31,25 +31,58 @@
   </head>
 
   <body>
-    <header class="topo">
-      <div class="marca">
-        <span class="marca__simbolo" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 21s7-5.2 7-11a7 7 0 1 0-14 0c0 5.8 7 11 7 11Z" />
-            <circle cx="12" cy="10" r="2.6" />
-          </svg>
-        </span>
-        <h1>NextUp</h1>
-      </div>
-      <p class="subtitulo">
-        Para onde ir agora — considerando <strong>fila e distância</strong>.
-      </p>
-    </header>
-
     <main>
-      <section class="controles" aria-label="Configuração">
-        <div class="campo">
+      <!-- O mapa vem primeiro, e alto: é onde o visitante se reconhece no parque.
+           A marca e a troca de parque flutuam por cima, em vez de empurrá-lo para
+           baixo — no celular, cada linha acima do mapa é mapa a menos. -->
+      <section class="palco" aria-label="Mapa do parque">
+        <div id="mapa"></div>
+        <div class="palco__topo">
+          <h1 class="selo-marca">nextup<span class="selo-marca__ponto" aria-hidden="true"></span></h1>
+        </div>
+        <!-- A lista inteira mora num painel: a tela principal fica só com a resposta.
+             O número no botão diz quanto há lá dentro, para ninguém achar que sumiu. -->
+        <button id="btn-todas-filas" type="button" class="pilula" aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"
+               stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
+          Todas as filas<span id="todas-filas-n"></span>
+        </button>
+      </section>
+
+      <!-- O cartão que responde a pergunta do app. Três estados: sem posição (pede
+           a localização), carregando, e com a melhor escolha — que é a do grupo
+           todo, respeitando o perfil (Fase 9). -->
+      <section id="proximo-passo" class="passo" aria-labelledby="passo-titulo" aria-live="polite">
+        <div class="passo__cabecalho">
+          <h2 id="passo-titulo" class="passo__olho">Seu próximo passo</h2>
+          <!-- O resumo do perfil fica colado na resposta, e não escondido num menu:
+               "95 cm · Tranquilas" muda a resposta, e quem muda a resposta precisa
+               estar na cara de quem a lê. -->
+          <button id="btn-perfil" type="button" class="chip-perfil" aria-haspopup="dialog"
+                  aria-label="Seu grupo — editar">
+            <span id="perfil-resumo">Sem restrições</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 20h4L19 9l-4-4L4 16v4Z" />
+            </svg>
+          </button>
+        </div>
+
+        <div id="passo-sem-posicao" class="passo__sem-posicao">
+          <p class="passo__pergunta">Onde você está?</p>
+          <p class="passo__explica">
+            Para somar a caminhada à fila. Sem isso, a menor fila pode ficar do outro lado
+            do parque.
+          </p>
+          <button id="btn-localizar" type="button" class="botao-principal">
+            Usar minha localização
+          </button>
+          <p class="passo__explica">ou toque no mapa onde você está.</p>
+        </div>
+
+        <div id="passo-destaque" class="passo__destaque" hidden></div>
+
+        <div id="campo-parque" class="campo" hidden>
           <label for="busca-parque">Parque</label>
           <!-- A busca vem antes do seletor porque é o caminho mais curto com
                198 parques na lista: digitar "magic" é mais rápido que rolar até
@@ -69,20 +102,19 @@
           </p>
         </div>
 
-        <button id="btn-localizar" type="button" class="botao-principal">
-          Usar minha localização
-        </button>
-
         <p id="posicao-atual" class="posicao" hidden></p>
-
-        <!-- O resumo do perfil fica sempre à vista, e não escondido num menu:
-             "95 cm · Tranquilas" muda a resposta do app, e quem muda a resposta
-             precisa estar na cara de quem lê a resposta. -->
-        <button id="btn-perfil" type="button" class="botao-perfil" aria-haspopup="dialog">
-          <span class="botao-perfil__rotulo">Seu grupo</span>
-          <span id="perfil-resumo">Sem restrições</span>
-        </button>
       </section>
+
+      <!-- `aria-live` faz o leitor de tela anunciar mudanças de estado sozinho,
+           sem o usuário precisar procurar o que mudou na página. -->
+      <div id="aviso" class="aviso" role="status" aria-live="polite" hidden></div>
+
+      <!-- O desfazer do "Já fui" do cartão: quem usa o celular com uma mão erra o
+           toque, e o cartão já trocou de atração quando ele percebe. -->
+      <div id="desfazer" class="desfazer" role="status" hidden>
+        <span id="desfazer-texto"></span>
+        <button id="btn-desfazer" type="button" class="link">Desfazer</button>
+      </div>
 
       <!-- As duas perguntas da Fase 9. `<dialog>` em vez de uma div: o Esc fecha, o
            foco fica preso dentro e o leitor de tela anuncia "diálogo" — tudo de
@@ -156,15 +188,6 @@
         </button>
       </dialog>
 
-      <!-- `aria-live` faz o leitor de tela anunciar mudanças de estado sozinho,
-           sem o usuário precisar procurar o que mudou na página. -->
-      <div id="aviso" class="aviso" role="status" aria-live="polite" hidden></div>
-
-      <section class="mapa-area" aria-label="Mapa">
-        <div id="mapa"></div>
-        <p class="dica">Toque no mapa para ajustar sua posição.</p>
-      </section>
-
       <!-- Os alvos ficam ACIMA do ranking e em seção própria.
            Não é destaque: são perguntas diferentes. O ranking responde "o que
            compensa mais agora"; esta lista responde "quando devo ir naquilo que
@@ -207,12 +230,16 @@
         <ol id="lista-alvos" class="lista" data-modo="alvos"></ol>
       </section>
 
-      <section aria-label="Recomendações">
+      <!-- O painel de todas as filas. `<dialog>` pelos mesmos motivos do painel do
+           perfil: Esc, foco preso e leitor de tela de graça. -->
+      <dialog id="painel-filas" class="painel painel--filas" aria-labelledby="titulo-lista">
         <div class="cabecalho-lista">
-          <h2 id="titulo-lista">Recomendações</h2>
+          <h2 id="titulo-lista">Todas as filas</h2>
           <button id="btn-atualizar" type="button" class="botao-secundario" hidden>
             Atualizar
           </button>
+          <button id="btn-fechar-filas" type="button" class="painel__fechar"
+                  aria-label="Fechar a lista">×</button>
         </div>
 
         <!-- Os filtros CORTAM, não reordenam. O ranking continua por custo total;
@@ -311,7 +338,7 @@
 
         <ol id="lista" class="lista"></ol>
         <p id="atualizado" class="atualizado" hidden></p>
-      </section>
+      </dialog>
     </main>
 
     <footer class="rodape">

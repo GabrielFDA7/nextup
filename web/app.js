@@ -23,6 +23,19 @@
 const PARQUE_PADRAO = "75ea578a-adc8-4116-a54d-dccb60765ef9"; // Magic Kingdom
 const LIMITE = 8;
 
+/* A primeira versão é focada no Magic Kingdom — decisão do Gabriel, 28/10/2026: só
+ * ele tem curadoria (altura, intensidade) e histórico, e nos outros parques o app
+ * seria a "lista de filas" que a Fase 9 critica.
+ *
+ * O código dos outros parques **fica**, e continua testado: a chave só tira da
+ * tela o caminho até eles. Os testes a ligam definindo `NEXTUP_SELETOR_DE_PARQUES`
+ * antes de a página carregar. Religar para todo mundo é trocar esta linha.
+ */
+const MOSTRAR_SELETOR_DE_PARQUES = window.NEXTUP_SELETOR_DE_PARQUES === true;
+
+//: Quanto tempo o "Desfazer" do "Já fui" do cartão fica à mão.
+const DESFAZER_MS = 5000;
+
 //: Janela do gráfico. Seis horas cobrem meio dia de parque e cabem em ~72 pontos
 //: com a coleta de 5 minutos — densidade boa para a largura de um celular.
 const HORAS_DE_HISTORICO = 6;
@@ -105,6 +118,16 @@ const el = {
   perfilAviso: document.getElementById("perfil-aviso"),
   perfilAvisoTexto: document.getElementById("perfil-aviso-texto"),
   btnMostrarEscondidas: document.getElementById("btn-mostrar-escondidas"),
+  campoParque: document.getElementById("campo-parque"),
+  btnTodasFilas: document.getElementById("btn-todas-filas"),
+  todasFilasN: document.getElementById("todas-filas-n"),
+  painelFilas: document.getElementById("painel-filas"),
+  btnFecharFilas: document.getElementById("btn-fechar-filas"),
+  passoSemPosicao: document.getElementById("passo-sem-posicao"),
+  passoDestaque: document.getElementById("passo-destaque"),
+  desfazer: document.getElementById("desfazer"),
+  desfazerTexto: document.getElementById("desfazer-texto"),
+  btnDesfazer: document.getElementById("btn-desfazer"),
 };
 
 let mapa;
@@ -149,7 +172,9 @@ const CREDITO_OSM = '&copy; <a href="https://openstreetmap.org/copyright">OpenSt
 function iniciarMapa() {
   // A vista vem ANTES de qualquer camada vetorial: sem centro e zoom, o Leaflet não
   // sabe recortar as linhas e quebra ("reading 'min'"). Achado no protótipo.
-  mapa = L.map("mapa").setView([28.4177, -81.5812], 15);
+  mapa = L.map("mapa", { zoomControl: false }).setView([28.4177, -81.5812], 15);
+  // O canto esquerdo é da marca, que flutua sobre o mapa.
+  L.control.zoom({ position: "topright" }).addTo(mapa);
 
   camadaRota = L.layerGroup().addTo(mapa);
   camadaAtracoes = L.layerGroup().addTo(mapa);
@@ -655,6 +680,8 @@ async function buscarRecomendacoes() {
       mostrarAviso(await explicarErroDaApi(resposta));
       el.lista.innerHTML = "";
       el.resumo.hidden = true;
+      estado.destaque = null;
+      desenharPasso();
       return;
     }
 
@@ -663,6 +690,8 @@ async function buscarRecomendacoes() {
   } catch {
     mostrarAviso("Não foi possível falar com o servidor. Verifique sua conexão.");
     el.lista.innerHTML = "";
+    estado.destaque = null;
+    desenharPasso();
   } finally {
     estado.carregando = false;
     el.btnAtualizar.hidden = false;
@@ -687,6 +716,10 @@ function mostrarEsqueleto() {
     { length: 4 },
     () => '<li class="esqueleto"></li>'
   ).join("");
+
+  el.passoSemPosicao.hidden = true;
+  el.passoDestaque.innerHTML = '<div class="esqueleto esqueleto--passo"></div>';
+  el.passoDestaque.hidden = false;
 }
 
 /* A tela antes de haver posição: filas do parque, sem ranking.
@@ -697,6 +730,8 @@ function mostrarEsqueleto() {
  */
 function mostrarPanoramaDoParque(dados) {
   estado.ultimoPanorama = dados;
+  desenharPasso();
+  atualizarContagemDeFilas(dados.available);
   el.tituloLista.textContent = dados.park_name;
   // O modo fica no DOM, e não só na cabeça de quem leu o código: a lista tem dois
   // significados muito diferentes — "as menores filas" e "o que compensa mais" —
@@ -767,7 +802,16 @@ function criarItemSimples(item) {
   `;
 }
 
+/* Uma resposta do ranking vira três coisas na tela: a lista (no painel), o
+ * cartão do próximo passo e o número no botão do painel. O cartão depende da
+ * lista — a melhor escolha é decidida lá —, e por isso vem depois. */
 function renderizar(dados) {
+  renderizarLista(dados);
+  desenharPasso();
+  atualizarContagemDeFilas(dados.available);
+}
+
+function renderizarLista(dados) {
   estado.ultimoRanking = dados;
   // Sem destaque até prova em contrário: numa lista vazia, a rota apontaria para
   // uma atração que já não é resposta de nada.
@@ -1317,7 +1361,9 @@ function atualizarResumoDoPerfil() {
   el.perfilResumo.textContent =
     alturaCm === null && intensidade === "tudo"
       ? "Sem restrições"
-      : `${alturaCm === null ? "Sem crianças" : `Criança de ${alturaCm} cm`} · ${
+      : // Curto, porque divide a linha com "Seu próximo passo" no cartão. O botão
+        // se anuncia como "Seu grupo" ao leitor de tela, e o contexto diz o resto.
+        `${alturaCm === null ? "Sem crianças" : `${alturaCm} cm`} · ${
           RESUMO_DA_INTENSIDADE[intensidade]
         }`;
 }
@@ -1410,6 +1456,125 @@ function fecharPerfil() {
   estado.mostrandoEscondidas = false;
   atualizarResumoDoPerfil();
   redesenhar();
+}
+
+// ---------------------------------------------------------------------------
+// Cartão do próximo passo (Fase 9.3)
+// ---------------------------------------------------------------------------
+
+const NOME_DA_INTENSIDADE = { CALM: "Tranquila", MODERATE: "Moderada", THRILL: "Radical" };
+
+/* O cartão que responde a pergunta do app — "para onde eu vou agora?".
+ *
+ * Sem posição, ele pede a localização: prometer um próximo passo sem saber onde o
+ * visitante está repetiria o erro que o projeto existe para evitar (a menor fila
+ * do outro lado do parque). Com posição, ele mostra a melhor escolha **do grupo**:
+ * a mesma de `renderizar`, que já pulou as visitadas e as só dos adultos.
+ *
+ * Sem melhor escolha (lista vazia), o cartão some e o aviso diz por quê — ele
+ * distingue as quatro causas, e o cartão repetiria só uma delas.
+ */
+function desenharPasso() {
+  const temPosicao = Boolean(estado.posicao);
+  el.passoSemPosicao.hidden = temPosicao;
+
+  if (!temPosicao || !estado.destaque) {
+    // Esvaziar, e não só esconder: o esqueleto do carregamento ficaria lá dentro,
+    // e numa falha da API o cartão "carregaria" para sempre se reaparecesse.
+    // Pego pelo teste que garante que o esqueleto some quando dá erro.
+    el.passoDestaque.innerHTML = "";
+    el.passoDestaque.hidden = true;
+    return;
+  }
+
+  el.passoDestaque.innerHTML = criarPasso(estado.destaque);
+  el.passoDestaque.hidden = false;
+}
+
+/* O conteúdo do cartão.
+ *
+ * O total é o maior número da tela, e logo abaixo ele se abre em caminhada e fila:
+ * é a soma que o visitante não faz de cabeça, e é a tese do projeto. A barra
+ * desenha a proporção — pontilhado para quem anda, cápsula para quem espera —, a
+ * mesma linguagem do mapa.
+ */
+function criarPasso(item) {
+  const a = item.attraction;
+  const pe = Math.round(item.walking_minutes);
+  const fila = item.queue_minutes;
+  const total = Math.round(item.total_minutes);
+
+  const perfilAtivo = estado.perfil.alturaCm !== null || estado.perfil.intensidade !== "tudo";
+  const porque =
+    criarTendencia(item.trend) + criarPopularidade(item.popularity) ||
+    `<p class="passo__porque">${
+      perfilAtivo
+        ? "A menor soma de caminhada e fila entre as que servem para o seu grupo."
+        : "A menor soma de caminhada e fila do parque agora."
+    }</p>`;
+
+  const intensidade = NOME_DA_INTENSIDADE[a.intensity];
+  const selo = intensidade ? `<span class="passo__selo">${intensidade}</span>` : "";
+
+  return `
+    <div class="passo__linha">
+      <p class="passo__nome">${escapar(a.name)}</p>
+      <p class="passo__total"><strong>${total}</strong><span>min</span></p>
+    </div>
+    <div class="passo__barra" role="img" aria-label="${pe} min a pé e ${fila} min de fila">
+      <span class="passo__pe" style="flex-grow: ${Math.max(pe, 1)}"></span>
+      <span class="passo__fila" style="flex-grow: ${Math.max(fila, 1)}"></span>
+    </div>
+    <p class="passo__conta">
+      <span>${ICONE.caminhada} ${pe} min a pé</span>
+      <span>${ICONE.fila} ${fila} min de fila</span>
+      <span class="passo__chegada">entra às ${horaDaqui(item.total_minutes)}</span>
+    </p>
+    ${porque}
+    ${selo}
+    <button type="button" class="botao-ja-fui" data-atracao="${escapar(a.id)}"
+            data-nome="${escapar(a.name)}">
+      ${ICONE.check} Já fui
+    </button>
+  `;
+}
+
+/** A hora em que o visitante entra na atração, no fuso do PARQUE. */
+function horaDaqui(minutos) {
+  try {
+    return new Date(Date.now() + minutos * 60000).toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: estado.fusoDoParque,
+    });
+  } catch {
+    return formatarHora(new Date(Date.now() + minutos * 60000).toISOString());
+  }
+}
+
+let temporizadorDesfazer;
+
+/* "Já fui" pelo cartão, com 5 s para desfazer.
+ *
+ * O cartão troca de atração na hora — é o que torna o botão útil —, e por isso
+ * mesmo um toque errado de quem usa o celular com uma mão só passaria sem volta:
+ * quando ele percebe, a atração já saiu da tela. */
+function jaFuiPeloCartao(attractionId, nome) {
+  alternarVisitada(attractionId);
+
+  el.desfazerTexto.textContent = `“${nome}” marcada como feita hoje.`;
+  el.btnDesfazer.dataset.atracao = attractionId;
+  el.desfazer.hidden = false;
+
+  clearTimeout(temporizadorDesfazer);
+  temporizadorDesfazer = setTimeout(() => {
+    el.desfazer.hidden = true;
+  }, DESFAZER_MS);
+}
+
+/** O número no botão do painel: quantas atrações há lá dentro. */
+function atualizarContagemDeFilas(disponiveis) {
+  el.todasFilasN.textContent = disponiveis > 0 ? ` · ${disponiveis}` : "";
 }
 
 /* A tendência, na linha da conta.
@@ -1723,7 +1888,13 @@ function escapar(texto) {
 
 function iniciar() {
   iniciarMapa();
-  carregarParques();
+
+  // A primeira versão é só o Magic Kingdom: sem a chave, a lista de destinos
+  // nem é pedida — o seletor não aparece, e buscá-la seria rede à toa.
+  if (MOSTRAR_SELETOR_DE_PARQUES) {
+    el.campoParque.hidden = false;
+    carregarParques();
+  }
 
   // A largura de cada nome no mapa muda quando a fonte chega; medir com a fonte
   // reserva deixaria as caixas erradas e os nomes se tocando.
@@ -1887,17 +2058,26 @@ function iniciar() {
   el.btnAlturaMenos.addEventListener("click", () => definirAltura(Number(el.altura.value) - 1));
   el.btnAlturaMais.addEventListener("click", () => definirAltura(Number(el.altura.value) + 1));
 
+  el.btnTodasFilas.addEventListener("click", () => el.painelFilas.showModal());
+  el.btnFecharFilas.addEventListener("click", () => el.painelFilas.close());
+
+  el.passoDestaque.addEventListener("click", (evento) => {
+    const botao = evento.target.closest(".botao-ja-fui");
+    if (botao) jaFuiPeloCartao(botao.dataset.atracao, botao.dataset.nome);
+  });
+
+  el.btnDesfazer.addEventListener("click", () => {
+    clearTimeout(temporizadorDesfazer);
+    el.desfazer.hidden = true;
+    alternarVisitada(el.btnDesfazer.dataset.atracao);
+  });
+
   el.btnMostrarEscondidas.addEventListener("click", () => {
     estado.mostrandoEscondidas = !estado.mostrandoEscondidas;
     redesenhar();
   });
 
   el.btnAtualizar.hidden = false;
-
-  mostrarAviso(
-    "Toque em “Usar minha localização” ou marque sua posição no mapa para ver o que compensa mais.",
-    "info"
-  );
 
   // A primeira visita abre com as duas perguntas, por cima do parque já carregado
   // — e não numa página de cadastro antes dele (decisão "uma tela, dois estados").

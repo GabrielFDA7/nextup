@@ -104,7 +104,13 @@ PERFIL_PULADO = {"respondido": True, "alturaCm": None, "intensidade": "tudo"}
 
 
 def abrir(
-    navegador, servidor, *, com_gps: bool = True, api=None, perfil: dict | None = PERFIL_PULADO
+    navegador,
+    servidor,
+    *,
+    com_gps: bool = True,
+    api=None,
+    perfil: dict | None = PERFIL_PULADO,
+    seletor: bool = False,
 ) -> Page:
     """Abre a página com a API interceptada dentro do navegador.
 
@@ -112,6 +118,10 @@ def abrir(
     devolve a fixture real do Magic Kingdom.
 
     `perfil=None` abre como numa primeira visita de verdade, sem nada guardado.
+
+    `seletor=True` liga a troca de parque. A primeira versão é só o Magic Kingdom
+    (decisão do Gabriel), mas o código dos outros parques ficou — e continua
+    testado por aqui, sem que o visitante tenha como chegar a ele.
     """
     contexto = navegador.new_context(
         viewport=CELULAR,
@@ -126,6 +136,8 @@ def abrir(
             "if (!localStorage.getItem('nextup:perfil')) "
             f"localStorage.setItem('nextup:perfil', {json.dumps(json.dumps(perfil))});"
         )
+    if seletor:
+        contexto.add_init_script("window.NEXTUP_SELETOR_DE_PARQUES = true;")
     pagina = contexto.new_page()
 
     pagina.route(
@@ -151,6 +163,24 @@ def abrir(
 
     pagina.goto(servidor, wait_until="networkidle")
     return pagina
+
+
+def _ver_filas(pagina, modo: str) -> None:
+    """Abre o painel de todas as filas (9.3) e espera a lista no modo pedido.
+
+    A lista mora num painel desde o redesenho: a tela principal fica com o cartão
+    do próximo passo. Fechado, o painel esconde a lista, e esperar por ela sem
+    abri-lo seria esperar para sempre.
+    """
+    if not pagina.locator("#painel-filas").evaluate("d => d.open"):
+        pagina.click("#btn-todas-filas")
+    pagina.wait_for_selector(f"[data-modo='{modo}'] .item")
+
+
+def _fechar_filas(pagina) -> None:
+    """Fecha o painel: aberto, ele deixa o resto da página inerte (é modal)."""
+    if pagina.locator("#painel-filas").evaluate("d => d.open"):
+        pagina.keyboard.press("Escape")
 
 
 def _destinos_como_a_api_devolve() -> dict:
@@ -393,7 +423,7 @@ class TestCarregamentoInicial:
         expect(pagina.locator("#mapa path.m-trilha")).not_to_have_count(0)
 
     def test_seletor_lista_os_parques_da_api(self, navegador, servidor):
-        pagina = abrir(navegador, servidor)
+        pagina = abrir(navegador, servidor, seletor=True)
 
         assert pagina.locator("#parque option").count() == 11  # 3 destinos da fixture
         assert pagina.is_enabled("#parque")
@@ -407,8 +437,9 @@ class TestCarregamentoInicial:
         """
         pagina = abrir(navegador, servidor)
 
-        expect(pagina.locator("#aviso")).to_contain_text("localização")
-        pagina.wait_for_selector("[data-modo='panorama'] .item")
+        expect(pagina.locator("#passo-sem-posicao")).to_contain_text("Onde você está?")
+        expect(pagina.locator("#btn-localizar")).to_be_visible()
+        _ver_filas(pagina, "panorama")
 
         # Sem posição não existe ranking, e o app não pode fingir que existe.
         assert pagina.locator("[data-modo='ranking']").count() == 0
@@ -417,7 +448,7 @@ class TestCarregamentoInicial:
     def test_mostra_as_filas_antes_de_saber_onde_voce_esta(self, navegador, servidor):
         """A pergunta "como está o parque?" não depende de saber onde o visitante está."""
         pagina = abrir(navegador, servidor)
-        pagina.wait_for_selector("[data-modo='panorama'] .item")
+        _ver_filas(pagina, "panorama")
 
         expect(pagina.locator("#resumo")).to_contain_text("fila medida")
         assert pagina.locator("[data-modo='panorama'] .item").count() > 0
@@ -430,7 +461,7 @@ class TestCarregamentoInicial:
         alguns parques são playgrounds com fila zero) seriam lidos como conselho.
         """
         pagina = abrir(navegador, servidor)
-        pagina.wait_for_selector("[data-modo='panorama'] .item")
+        _ver_filas(pagina, "panorama")
 
         expect(pagina.locator("#resumo")).to_contain_text("menor fila")
 
@@ -454,7 +485,7 @@ class TestTendenciaNaTela:
     def test_a_queda_aparece_na_lista(self, navegador, servidor):
         pagina = self.com_tendencia(navegador, servidor)
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
 
         expect(pagina.locator(".tendencia--caindo").first).to_contain_text("Caiu de 45 para 20")
 
@@ -465,7 +496,7 @@ class TestTendenciaNaTela:
         """
         pagina = self.com_tendencia(navegador, servidor)
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
 
         tendencia = pagina.locator(".tendencia").first
 
@@ -476,7 +507,7 @@ class TestTendenciaNaTela:
         """O padrão dos testes é sem histórico — e nada deve aparecer."""
         pagina = abrir(navegador, servidor)
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
 
         assert pagina.locator(".tendencia").count() == 0
 
@@ -492,7 +523,7 @@ class TestJaFuiHoje:
     def com_ranking(self, navegador, servidor):
         pagina = abrir(navegador, servidor)
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
         return pagina
 
     def test_marcar_tira_a_atracao_e_promove_outra(self, navegador, servidor):
@@ -578,20 +609,25 @@ class TestJaFuiHoje:
         pagina.locator(".marcar-visitada").first.click()
         pagina.reload(wait_until="networkidle")
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
 
         expect(pagina.locator("#visitadas-texto")).to_contain_text("1 atração já visitada")
         assert nome not in pagina.locator("#lista").inner_text()
 
     def test_o_estado_e_por_parque(self, navegador, servidor):
         """Ter feito o Space Mountain não diz nada sobre o EPCOT."""
-        pagina = self.com_ranking(navegador, servidor)
+        pagina = abrir(navegador, servidor, seletor=True)
+        _localizar(pagina)
         pagina.locator(".marcar-visitada").first.click()
         expect(pagina.locator("#visitadas-aviso")).to_be_visible()
 
+        _fechar_filas(pagina)
         pagina.select_option("#parque", PARQUE_DISTANTE)
         pagina.wait_for_timeout(1200)
 
+        # Reabrir o painel: fechado, o aviso estaria escondido de qualquer jeito,
+        # e o teste passaria sem provar nada.
+        _ver_filas(pagina, "ranking")
         expect(pagina.locator("#visitadas-aviso")).to_be_hidden()
 
     def test_marcar_as_oito_revela_as_proximas(self, navegador, servidor):
@@ -668,7 +704,7 @@ class TestBrinquedosAlvo:
     def com_ranking(self, navegador, servidor):
         pagina = abrir(navegador, servidor)
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
         return pagina
 
     def test_a_secao_convida_mesmo_vazia(self, navegador, servidor):
@@ -750,6 +786,7 @@ class TestBrinquedosAlvo:
     def test_desmarcar_devolve_ao_ranking(self, navegador, servidor):
         pagina = self.com_ranking(navegador, servidor)
         pagina.locator("[data-modo='ranking'] .marcar-alvo").first.click()
+        _fechar_filas(pagina)
 
         pagina.locator("[data-modo='alvos'] .marcar-alvo").first.click()
 
@@ -762,6 +799,7 @@ class TestBrinquedosAlvo:
             pagina.locator("[data-modo='ranking'] .marcar-alvo").first.click()
             pagina.wait_for_timeout(200)
 
+        _fechar_filas(pagina)
         pagina.click("#btn-limpar-alvos")
 
         expect(pagina.locator("[data-modo='alvos'] .item")).to_have_count(0)
@@ -775,7 +813,7 @@ class TestBrinquedosAlvo:
 
         pagina.reload(wait_until="networkidle")
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
 
         expect(pagina.locator("[data-modo='alvos'] .nome").first).to_have_text(nome)
 
@@ -783,6 +821,7 @@ class TestBrinquedosAlvo:
         """As duas marcações são independentes e convivem no mesmo item."""
         pagina = self.com_ranking(navegador, servidor)
         pagina.locator("[data-modo='ranking'] .marcar-alvo").first.click()
+        _fechar_filas(pagina)
 
         pagina.locator("[data-modo='alvos'] .marcar-visitada").first.click()
 
@@ -790,10 +829,12 @@ class TestBrinquedosAlvo:
         expect(pagina.locator("#alvos-resumo")).to_contain_text("1 de 1 já feitas")
 
     def test_o_estado_e_por_parque(self, navegador, servidor):
-        pagina = self.com_ranking(navegador, servidor)
+        pagina = abrir(navegador, servidor, seletor=True)
+        _localizar(pagina)
         pagina.locator("[data-modo='ranking'] .marcar-alvo").first.click()
         expect(pagina.locator("[data-modo='alvos'] .item")).to_have_count(1)
 
+        _fechar_filas(pagina)
         pagina.select_option("#parque", PARQUE_DISTANTE)
         pagina.wait_for_timeout(1200)
 
@@ -841,7 +882,8 @@ class TestCatalogoDeAlvos:
         """
         pagina = self.abrir_catalogo(navegador, servidor)
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
+        _fechar_filas(pagina)
 
         nome = pagina.locator(".catalogo__nome").first.inner_text()
         pagina.locator(".catalogo__item input").first.check()
@@ -948,7 +990,7 @@ class TestFiltros:
     def com_ranking(self, navegador, servidor):
         pagina = abrir(navegador, servidor)
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
         pagina.click("#filtros .escolher__gatilho")
         return pagina
 
@@ -1103,6 +1145,7 @@ class TestFiltros:
         pagina.wait_for_timeout(300)
 
         pagina.reload(wait_until="networkidle")
+        pagina.click("#btn-todas-filas")
         pagina.click("#filtros .escolher__gatilho")
 
         expect(pagina.locator("#rotulo-caminhada")).to_have_text("Até 15 min")
@@ -1124,7 +1167,7 @@ class TestGraficoDoHistorico:
 
     def expandir(self, pagina):
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
         pagina.locator(".ver-historico").first.click()
 
     def test_o_grafico_aparece_ao_pedir_o_historico(self, navegador, servidor):
@@ -1196,7 +1239,7 @@ class TestGraficoDoHistorico:
         """Ver o passado de uma atração não depende de saber onde o visitante está."""
         pagina = abrir(navegador, servidor, com_gps=False)
         pagina.route("**/history*", lambda rota: rota.fulfill(json=_historico(12)))
-        pagina.wait_for_selector("[data-modo='panorama'] .item")
+        _ver_filas(pagina, "panorama")
 
         pagina.locator(".ver-historico").first.click()
 
@@ -1211,8 +1254,9 @@ class TestTrocaDeParque:
         return pos[0], pos[1]
 
     def test_escolher_no_seletor_reenquadra_o_mapa(self, navegador, servidor):
-        pagina = abrir(navegador, servidor, com_gps=False)
-        pagina.wait_for_selector("[data-modo='panorama'] .item")
+        pagina = abrir(navegador, servidor, seletor=True, com_gps=False)
+        _ver_filas(pagina, "panorama")
+        _fechar_filas(pagina)
         _, longitude_antes = self.centro_do_mapa(pagina)
 
         pagina.select_option("#parque", PARQUE_DISTANTE)
@@ -1233,8 +1277,9 @@ class TestTrocaDeParque:
         digitasse o nome e desse Enter via o parque certo escrito no seletor
         enquanto o app continuava no anterior. A tela mentia.
         """
-        pagina = abrir(navegador, servidor, com_gps=False)
-        pagina.wait_for_selector("[data-modo='panorama'] .item")
+        pagina = abrir(navegador, servidor, seletor=True, com_gps=False)
+        _ver_filas(pagina, "panorama")
+        _fechar_filas(pagina)
         _, longitude_antes = self.centro_do_mapa(pagina)
 
         pagina.fill("#busca-parque", "SeaWorld Orlando")
@@ -1248,8 +1293,9 @@ class TestTrocaDeParque:
 
     def test_enter_sem_resultado_nao_faz_nada(self, navegador, servidor):
         """Não pode cair no parque padrão só porque a busca não achou nada."""
-        pagina = abrir(navegador, servidor, com_gps=False)
-        pagina.wait_for_selector("[data-modo='panorama'] .item")
+        pagina = abrir(navegador, servidor, seletor=True, com_gps=False)
+        _ver_filas(pagina, "panorama")
+        _fechar_filas(pagina)
         antes = self.centro_do_mapa(pagina)
 
         pagina.fill("#busca-parque", "zzzz-nao-existe")
@@ -1261,8 +1307,9 @@ class TestTrocaDeParque:
 
     def test_enter_nao_recarrega_a_pagina(self, navegador, servidor):
         """Recarregar perderia a posição que o visitante já tinha informado."""
-        pagina = abrir(navegador, servidor, com_gps=False)
-        pagina.wait_for_selector("[data-modo='panorama'] .item")
+        pagina = abrir(navegador, servidor, seletor=True, com_gps=False)
+        _ver_filas(pagina, "panorama")
+        _fechar_filas(pagina)
         pagina.evaluate("() => { window.__marcador = true; }")
 
         pagina.fill("#busca-parque", "SeaWorld Orlando")
@@ -1277,7 +1324,7 @@ class TestFluxoFeliz:
         pagina = abrir(navegador, servidor)
 
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
 
         expect(pagina.locator("#titulo-lista")).to_have_text("Magic Kingdom Park")
         expect(pagina.locator("#resumo")).to_contain_text("26 de 35")
@@ -1286,7 +1333,7 @@ class TestFluxoFeliz:
     def test_lista_sai_em_ordem_crescente_de_custo(self, navegador, servidor):
         pagina = abrir(navegador, servidor)
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
 
         minutos = [int(texto) for texto in pagina.locator(".custo strong").all_inner_texts()]
 
@@ -1297,7 +1344,7 @@ class TestFluxoFeliz:
         pagina.click("#btn-localizar")
         # Espera o **ranking**, e não qualquer item: o panorama já está na tela
         # desde a abertura, e um `.item` solto encontraria o item errado.
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
 
         assert pagina.locator(".etiqueta").count() == 1
         expect(pagina.locator(".item").first).to_have_class("item item--melhor")
@@ -1305,7 +1352,7 @@ class TestFluxoFeliz:
     def test_cada_item_mostra_a_conta_aberta(self, navegador, servidor):
         pagina = abrir(navegador, servidor)
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
 
         expect(pagina.locator(".item").first).to_contain_text("a pé")
         expect(pagina.locator(".item").first).to_contain_text("de fila")
@@ -1322,14 +1369,14 @@ class TestFluxoFeliz:
         """
         pagina = abrir(navegador, servidor)
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
 
         expect(pagina.locator(".leaflet-marker-icon")).to_have_count(8)
 
     def test_informa_a_idade_do_dado(self, navegador, servidor):
         pagina = abrir(navegador, servidor)
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
 
         expect(pagina.locator("#atualizado")).to_contain_text("Dado da fonte")
 
@@ -1372,7 +1419,7 @@ class TestGpsNegado:
         expect(pagina.locator("#aviso")).to_contain_text("negou")
         caixa = pagina.locator("#mapa").bounding_box()
         pagina.mouse.click(caixa["x"] + caixa["width"] / 2, caixa["y"] + caixa["height"] / 2)
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
 
         expect(pagina.locator("#posicao-atual")).to_contain_text("escolhida no mapa")
         expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(8)
@@ -1458,7 +1505,7 @@ class TestSeguranca:
         pagina = abrir(navegador, servidor, api=lambda rota: rota.fulfill(json=malicioso))
 
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
 
         assert pagina.evaluate("window.__invadido === undefined")
         expect(pagina.locator(".nome")).to_contain_text("<img")
@@ -1469,7 +1516,7 @@ class TestResponsivo:
         """Rolagem lateral em celular é o sintoma clássico de layout quebrado."""
         pagina = abrir(navegador, servidor)
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
 
         largura_conteudo = pagina.evaluate("document.documentElement.scrollWidth")
         largura_tela = pagina.evaluate("document.documentElement.clientWidth")
@@ -1503,7 +1550,7 @@ class TestPopularidade:
             ),
         )
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
         return pagina
 
     def nomes(self, pagina):
@@ -1537,7 +1584,7 @@ class TestPopularidade:
         """O padrão dos testes é sem popularidade, e nada deve aparecer."""
         pagina = abrir(navegador, servidor)
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
 
         assert pagina.locator(".popularidade").count() == 0
 
@@ -1569,7 +1616,7 @@ class TestFiltroDePopularidade:
             ),
         )
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
         pagina.click("#filtros .escolher__gatilho")
         return pagina
 
@@ -1663,6 +1710,7 @@ class TestFiltroDePopularidade:
         pagina.uncheck(".filtro-faixa[value='QUIET']")
         pagina.wait_for_timeout(300)
         pagina.reload(wait_until="networkidle")
+        pagina.click("#btn-todas-filas")
         pagina.click("#filtros .escolher__gatilho")
 
         expect(pagina.locator(".filtro-faixa[value='QUIET']")).not_to_be_checked()
@@ -1686,7 +1734,7 @@ class TestFiltroDePopularidade:
         funciona — e o visitante não teria como adivinhar o porquê."""
         pagina = abrir(navegador, servidor)  # o padrão vem SEM popularidade
         pagina.click("#btn-localizar")
-        pagina.wait_for_selector("[data-modo='ranking'] .item")
+        _ver_filas(pagina, "ranking")
         pagina.click("#filtros .escolher__gatilho")
 
         pagina.uncheck(".filtro-faixa[value='QUIET']")
@@ -1720,7 +1768,7 @@ def _api_com_na_frente(trecho_do_nome: str):
 def _localizar(pagina) -> None:
     """O ranking só existe depois de o visitante dizer onde está."""
     pagina.click("#btn-localizar")
-    pagina.wait_for_selector("[data-modo='ranking'] .item")
+    _ver_filas(pagina, "ranking")
 
 
 def _perfil(altura=None, intensidade="tudo") -> dict:
@@ -1802,10 +1850,10 @@ class TestPerfil:
         pagina.locator("label.segmento", has_text="Tem criança").click()
         pagina.click("#btn-altura-mais")
         pagina.click("#btn-salvar-perfil")
-        expect(pagina.locator("#perfil-resumo")).to_contain_text("Criança de 101 cm")
+        expect(pagina.locator("#perfil-resumo")).to_have_text("101 cm · De tudo")
 
         pagina.reload(wait_until="networkidle")
-        expect(pagina.locator("#perfil-resumo")).to_contain_text("Criança de 101 cm")
+        expect(pagina.locator("#perfil-resumo")).to_have_text("101 cm · De tudo")
 
     def test_so_adultos_marca_em_vez_de_esconder(self, navegador, servidor):
         pagina = abrir(
@@ -1906,7 +1954,7 @@ class TestPerfil:
 
     def test_o_panorama_sem_gps_tambem_respeita_o_perfil(self, navegador, servidor):
         pagina = abrir(navegador, servidor, com_gps=False, perfil=_perfil(intensidade="emocao"))
-        pagina.wait_for_selector("[data-modo='panorama'] .item")
+        _ver_filas(pagina, "panorama")
 
         expect(pagina.locator("#perfil-aviso")).to_contain_text("tranquilas escondidas")
         nomes = pagina.locator("#lista .nome").all_inner_texts()
@@ -1941,7 +1989,7 @@ class TestMapaDesenhado:
 
     def test_outro_parque_volta_aos_tiles(self, navegador, servidor):
         """Sem desenho próprio, o mapa ainda precisa existir."""
-        pagina = abrir(navegador, servidor, com_gps=False)
+        pagina = abrir(navegador, servidor, seletor=True, com_gps=False)
         expect(pagina.locator("#mapa path.m-trilha")).not_to_have_count(0)
 
         pagina.select_option("#parque", PARQUE_DISTANTE)
@@ -1979,7 +2027,7 @@ class TestMapaDesenhado:
 
     def test_sem_posicao_nao_ha_rota(self, navegador, servidor):
         pagina = abrir(navegador, servidor, com_gps=False)
-        pagina.wait_for_selector("[data-modo='panorama'] .item")
+        _ver_filas(pagina, "panorama")
         expect(pagina.locator("#mapa path.m-rota")).to_have_count(0)
 
     def test_os_nomes_nao_se_sobrepoem(self, navegador, servidor):
@@ -2022,3 +2070,168 @@ class TestMapaDesenhado:
                     and p["y"] < n["y"] + n["height"]
                 )
                 assert not sobrepoe, "um nome cobre um número do mapa"
+
+
+def _com_cartao(pagina) -> None:
+    """Pede a posição e espera o cartão do próximo passo — sem abrir o painel."""
+    pagina.click("#btn-localizar")
+    pagina.wait_for_selector("#passo-destaque .passo__nome")
+
+
+class TestCartaoDoProximoPasso:
+    """O cartão que responde "para onde eu vou agora?" (Fase 9.3).
+
+    Na fixture, a partir da posição de teste, a mais barata é o Prince Charming
+    Regal Carrousel: 2 min a pé + 5 de fila = 7. A seguinte é o PeopleMover (10).
+    """
+
+    def test_com_posicao_mostra_a_melhor_escolha(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+
+        cartao = pagina.locator("#passo-destaque")
+        expect(cartao.locator(".passo__nome")).to_have_text("Prince Charming Regal Carrousel")
+        expect(cartao.locator(".passo__total strong")).to_have_text("7")
+        expect(pagina.locator("#passo-sem-posicao")).to_be_hidden()
+
+    def test_o_total_se_abre_em_caminhada_e_fila(self, navegador, servidor):
+        """A soma que o visitante não faz de cabeça — a tese do projeto."""
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+
+        conta = pagina.locator("#passo-destaque .passo__conta")
+        expect(conta).to_contain_text("2 min a pé")
+        expect(conta).to_contain_text("5 min de fila")
+        expect(pagina.locator("#passo-destaque .passo__barra")).to_have_attribute(
+            "aria-label", "2 min a pé e 5 min de fila"
+        )
+
+    def test_o_cartao_respeita_a_altura(self, navegador, servidor):
+        """O destaque é para o grupo todo, e o cartão É o destaque."""
+        pagina = abrir(
+            navegador, servidor, api=_api_com_na_frente("Seven Dwarfs"), perfil=_perfil(altura=95)
+        )
+        _com_cartao(pagina)
+        expect(pagina.locator("#passo-destaque .passo__nome")).not_to_contain_text("Seven Dwarfs")
+
+    def test_com_altura_suficiente_o_cartao_e_dela(self, navegador, servidor):
+        """O par do teste anterior: prova que foi a altura, e não o acaso."""
+        pagina = abrir(
+            navegador, servidor, api=_api_com_na_frente("Seven Dwarfs"), perfil=_perfil(altura=97)
+        )
+        _com_cartao(pagina)
+        expect(pagina.locator("#passo-destaque .passo__nome")).to_contain_text("Seven Dwarfs")
+
+    def test_ja_fui_no_cartao_passa_para_a_proxima(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+
+        pagina.click("#passo-destaque .botao-ja-fui")
+
+        expect(pagina.locator("#passo-destaque .passo__nome")).to_contain_text("PeopleMover")
+        expect(pagina.locator("#desfazer")).to_contain_text("Prince Charming")
+
+    def test_desfazer_traz_a_atracao_de_volta(self, navegador, servidor):
+        """O toque errado de quem usa o celular com uma mão só tem volta."""
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+        pagina.click("#passo-destaque .botao-ja-fui")
+
+        pagina.click("#btn-desfazer")
+
+        expect(pagina.locator("#passo-destaque .passo__nome")).to_have_text(
+            "Prince Charming Regal Carrousel"
+        )
+        expect(pagina.locator("#desfazer")).to_be_hidden()
+
+    def test_o_desfazer_some_sozinho(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+        pagina.click("#passo-destaque .botao-ja-fui")
+        expect(pagina.locator("#desfazer")).to_be_visible()
+
+        expect(pagina.locator("#desfazer")).to_be_hidden(timeout=8000)
+
+    def test_lista_vazia_o_cartao_some_e_o_aviso_explica(self, navegador, servidor):
+        """O aviso distingue as quatro causas; o cartão repetiria só uma."""
+        pagina = abrir(
+            navegador,
+            servidor,
+            api=lambda rota: rota.fulfill(
+                json={**_recomendacoes_como_a_api_devolve(), "recommendations": []}
+            ),
+        )
+        pagina.click("#btn-localizar")
+
+        expect(pagina.locator("#aviso")).to_contain_text("parque pode estar fechado")
+        expect(pagina.locator("#passo-destaque")).to_be_hidden()
+
+
+class TestPainelDeFilas:
+    """A lista inteira num painel: a tela principal fica só com a resposta."""
+
+    def test_o_botao_diz_quantas_ha_la_dentro(self, navegador, servidor):
+        """Escondida num painel, a lista precisa anunciar que existe."""
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+        expect(pagina.locator("#btn-todas-filas")).to_contain_text("Todas as filas · 26")
+
+    def test_abre_e_fecha(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+
+        pagina.click("#btn-todas-filas")
+        expect(pagina.locator("#painel-filas")).to_be_visible()
+        expect(pagina.locator("#painel-filas [data-modo='ranking'] .item")).to_have_count(8)
+
+        pagina.click("#btn-fechar-filas")
+        expect(pagina.locator("#painel-filas")).to_be_hidden()
+
+    def test_esc_fecha_o_painel(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        pagina.click("#btn-todas-filas")
+        expect(pagina.locator("#painel-filas")).to_be_visible()
+
+        pagina.keyboard.press("Escape")
+        expect(pagina.locator("#painel-filas")).to_be_hidden()
+
+    def test_marcar_no_painel_atualiza_o_cartao(self, navegador, servidor):
+        """Os dois mostram o mesmo ranking: marcar num muda o outro."""
+        pagina = abrir(navegador, servidor)
+        _localizar(pagina)
+        pagina.locator(".item--melhor .marcar-visitada").click()
+
+        expect(pagina.locator("#passo-destaque .passo__nome")).to_contain_text("PeopleMover")
+
+
+class TestSoMagicKingdom:
+    """A primeira versão é só o Magic Kingdom (decisão do Gabriel, 28/10/2026).
+
+    O código dos outros parques fica e é testado (`abrir(..., seletor=True)`);
+    estes testes garantem que o visitante não tem como chegar a ele.
+    """
+
+    def test_o_seletor_de_parques_fica_fora_da_tela(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        expect(pagina.locator("#campo-parque")).to_be_hidden()
+        expect(pagina.locator("#parque")).to_be_hidden()
+
+    def test_a_lista_de_parques_nem_e_pedida(self, navegador, servidor):
+        """Sem seletor, buscar 198 parques seria rede à toa no 4G do parque."""
+        contexto = navegador.new_context(viewport=CELULAR)
+        contexto.add_init_script(
+            "localStorage.setItem('nextup:perfil', " + json.dumps(json.dumps(PERFIL_PULADO)) + ")"
+        )
+        pagina = contexto.new_page()
+        pedidos = []
+        pagina.on("request", lambda r: pedidos.append(r.url))
+        pagina.route("**/attractions*", _responder_atracoes)
+        pagina.route("**/tile.openstreetmap.org/**", lambda r: r.fulfill(body=PNG_VAZIO))
+        pagina.goto(servidor, wait_until="networkidle")
+
+        assert not any("/api/destinations" in url for url in pedidos)
+
+    def test_com_a_chave_ligada_o_seletor_volta(self, navegador, servidor):
+        pagina = abrir(navegador, servidor, seletor=True)
+        expect(pagina.locator("#campo-parque")).to_be_visible()
+        expect(pagina.locator("#parque option")).to_have_count(11)
