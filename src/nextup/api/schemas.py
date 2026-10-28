@@ -14,22 +14,51 @@ promete devolver. São coisas diferentes, e misturá-las causa dois problemas:
 Com a fronteira aqui, a API pode manter sua forma mesmo que tudo mude por dentro.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from pydantic import BaseModel, Field
 
 from nextup.core.geo import bounding_box
 from nextup.core.history import HistorySummary
+from nextup.core.intensity import classify_intensity
 from nextup.core.recommender import Recommendation
 from nextup.core.trends import Trend, TrendAnalysis
 from nextup.models import (
+    CuratedAttraction,
     Destination,
     LiveDataResponse,
     LiveStatus,
     ParkCatalog,
     QueueSnapshot,
 )
+
+#: Curadoria **conferida** do parque, por id de atração. Ver `ParkCuration.verified`.
+Curadoria = Mapping[str, CuratedAttraction]
+
+_DESCRICAO_ALTURA = (
+    "Altura mínima em cm, conferida no site oficial. Nulo quando não há exigência "
+    "ou quando a atração ainda não foi conferida — `intensity` nulo distingue os dois."
+)
+_DESCRICAO_INTENSIDADE = (
+    "CALM, MODERATE ou THRILL, a partir das etiquetas oficiais. Nulo quando a "
+    "atração não foi conferida: ausência de dado não é atração tranquila."
+)
+
+
+def _dados_curados(atracao_id: str, curadoria: Curadoria | None) -> dict:
+    """Altura e intensidade de uma atração, ou nulos se ela não foi conferida.
+
+    Atração sem curadoria **não some** da resposta: a tela decide o que fazer com o
+    nulo. É o mesmo princípio de `popularity: null` — sem dado, nada é escondido.
+    """
+    item = (curadoria or {}).get(atracao_id)
+    if item is None:
+        return {"min_height_cm": None, "intensity": None}
+    return {
+        "min_height_cm": item.min_height_cm,
+        "intensity": classify_intensity(item.disney_tags).value,
+    }
 
 
 class AttractionOut(BaseModel):
@@ -42,6 +71,9 @@ class AttractionOut(BaseModel):
     #: o mapa na tela quer `lat`/`lon` diretos.
     latitude: float
     longitude: float
+
+    min_height_cm: int | None = Field(default=None, description=_DESCRICAO_ALTURA)
+    intensity: str | None = Field(default=None, description=_DESCRICAO_INTENSIDADE)
 
 
 class TrendOut(BaseModel):
@@ -137,7 +169,9 @@ class RecommendationOut(BaseModel):
     )
 
     @classmethod
-    def from_domain(cls, recomendacao: Recommendation) -> "RecommendationOut":
+    def from_domain(
+        cls, recomendacao: Recommendation, curadoria: Curadoria | None = None
+    ) -> "RecommendationOut":
         atracao = recomendacao.attraction
         # `recommend()` só devolve atrações com coordenada, mas o tipo continua
         # opcional; a asserção documenta a garantia em vez de escondê-la.
@@ -149,6 +183,7 @@ class RecommendationOut(BaseModel):
                 name=atracao.name,
                 latitude=atracao.location.latitude,
                 longitude=atracao.location.longitude,
+                **_dados_curados(atracao.id, curadoria),
             ),
             # Arredondar aqui evita devolver 17.727272727272727 para o navegador.
             walking_minutes=round(recomendacao.walking_minutes, 1),
@@ -187,6 +222,7 @@ class RecommendationsOut(BaseModel):
         recomendacoes: list[Recommendation],
         limite: int,
         data_updated_at: datetime | None,
+        curadoria: Curadoria | None = None,
     ) -> "RecommendationsOut":
         """Monta a resposta.
 
@@ -201,7 +237,7 @@ class RecommendationsOut(BaseModel):
             total_attractions=len(catalogo.attractions()),
             available=len(recomendacoes),
             data_updated_at=data_updated_at,
-            recommendations=[RecommendationOut.from_domain(r) for r in mostradas],
+            recommendations=[RecommendationOut.from_domain(r, curadoria) for r in mostradas],
         )
 
 
@@ -239,6 +275,9 @@ class ParkAttractionOut(BaseModel):
         default=None, description="Fila comum em minutos, ou nulo se não houver medida."
     )
 
+    min_height_cm: int | None = Field(default=None, description=_DESCRICAO_ALTURA)
+    intensity: str | None = Field(default=None, description=_DESCRICAO_INTENSIDADE)
+
 
 class ParkAttractionsOut(BaseModel):
     """Resposta de `/parks/{id}/attractions`.
@@ -269,6 +308,7 @@ class ParkAttractionsOut(BaseModel):
         catalogo: ParkCatalog,
         ao_vivo: LiveDataResponse,
         data_updated_at: datetime | None,
+        curadoria: Curadoria | None = None,
     ) -> "ParkAttractionsOut":
         estado_por_id = ao_vivo.by_id()
         atracoes = catalogo.attractions()
@@ -294,6 +334,7 @@ class ParkAttractionsOut(BaseModel):
                     longitude=atracao.location.longitude,
                     status=str(estado.status) if estado else str(LiveStatus.UNKNOWN),
                     queue_minutes=estado.wait_time_minutes if estado else None,
+                    **_dados_curados(atracao.id, curadoria),
                 )
             )
 

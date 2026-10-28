@@ -43,7 +43,8 @@ from nextup.core.history import summarize
 from nextup.core.popularity import AttractionPopularity, classify
 from nextup.core.recommender import recommend
 from nextup.core.trends import TrendAnalysis, analyze, analyze_many
-from nextup.models import Location
+from nextup.data import load_curation
+from nextup.models import CuratedAttraction, Location
 from nextup.storage import average_waits, connection, history, park_history
 
 logger = logging.getLogger(__name__)
@@ -114,7 +115,9 @@ async def listar_atracoes(
 
     atualizado_em = max((item.last_updated for item in ao_vivo.live_data), default=None)
 
-    return ParkAttractionsOut.from_domain(catalogo, ao_vivo, atualizado_em)
+    return ParkAttractionsOut.from_domain(
+        catalogo, ao_vivo, atualizado_em, curadoria=_curadoria(park_id)
+    )
 
 
 @router.get(
@@ -239,7 +242,19 @@ async def recomendar(
         default=None,
     )
 
-    return RecommendationsOut.from_domain(catalogo, recomendacoes, limit, atualizado_em)
+    return RecommendationsOut.from_domain(
+        catalogo, recomendacoes, limit, atualizado_em, curadoria=_curadoria(park_id)
+    )
+
+
+def _curadoria(park_id: str) -> dict[str, CuratedAttraction] | None:
+    """Altura e intensidade conferidas do parque — só as linhas conferidas.
+
+    Não reordena nem esconde nada: a curadoria descreve **quem pode** e **quão
+    intensa**, e a decisão do que fazer com isso é do perfil do visitante, na tela.
+    """
+    curadoria = load_curation(park_id)
+    return curadoria.verified() if curadoria else None
 
 
 async def _tendencias(motor: AsyncEngine | None, park_id: str) -> dict[str, TrendAnalysis] | None:
