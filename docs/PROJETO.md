@@ -16,9 +16,9 @@
 > caminhada (7.3) e popularidade (7.4). A última fecha o ciclo da Fase 6 — é a primeira
 > feature construída **sobre o histórico que nós mesmos coletamos**, e não sobre a API.
 >
-> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **869
+> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **874
 > testes**: 722 na suíte rápida (272 do roteiro, a maioria instâncias aleatórias
-> conferidas contra força bruta) e 147 de interface em navegador.
+> conferidas contra força bruta) e 152 de interface em navegador.
 >
 > **Fase 9 — Perfil do visitante: iniciada (27/10/2026).** Nasceu de uma crítica do
 > Gabriel: ver a fila não resolve nada que a fonte já não resolva. O app passa a saber
@@ -1892,6 +1892,14 @@ esquerda com o cartão, os alvos e **a lista aberta** — o painel existia para 
 altura, e no computador altura sobra. É o mesmo `<dialog>`, mostrado sem o modo modal.
 Passar o ponteiro num item acende o número dele no mapa.
 
+**Segunda rodada, no celular do Gabriel:** o escuro ficou "ideal", mas no claro as vias
+ainda sumiam — caminho branco sobre praça e chão claros. O escuro funciona porque ali o
+caminho é o que tem mais luz; o claro precisa de borda. As trilhas passaram a ser pintadas
+duas vezes, a primeira mais larga e mais escura (a **casca**), como as ruas de qualquer
+mapa claro. No escuro a casca não existe. E o botão "Todas as filas" saiu de cima do mapa,
+onde se perdia, para uma **barra fixa no pé da tela**, de cor própria — com a cor de ação,
+índigo no claro, ela sumia sobre o cartão, que é índigo também.
+
 ---
 
 ## 8. Riscos e Limitações
@@ -2309,6 +2317,8 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 28/10/2026 | Áreas com 17 mil m² ou mais | Medido: a menor das seis áreas tem 20 mil m², o maior recanto (Storybook Circus, dentro da Fantasyland) 14 mil. O corte é o meio |
 | 28/10/2026 | Mapa enquadra o visitante e as três primeiras, com zoom em quartos | No parque inteiro os números cabiam em centímetros. Com zoom inteiro, o enquadramento caía um nível abaixo do que cabia |
 | 28/10/2026 | Nome só nas três primeiras; da quarta em diante, número menor | Oito nomes no celular eram uma sopa de letras. As três são as que o visitante compara; a lista dá o nome de todas |
+| 28/10/2026 | Casca nas trilhas, só no tema claro | Branco sobre claro some sem borda; no escuro o caminho já é o que tem mais luz, e o Gabriel o achou ideal como estava |
+| 28/10/2026 | "Todas as filas" como barra fixa no pé da tela do celular, com cor própria | Sobre o mapa e pequeno, se perdia no desenho. No pé, fica à vista em qualquer ponto da rolagem e sob o polegar. Com a cor de ação, sumia sobre o cartão índigo |
 | 28/10/2026 | Computador: mapa fixo à direita, coluna de 460 px com a lista aberta | O layout de celular esticado deixava dois terços da tela vazios. O painel poupava altura, que no computador sobra. Mesmo `<dialog>`, sem o modo modal: um só HTML |
 
 ---
