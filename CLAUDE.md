@@ -38,6 +38,35 @@ documentação de decisões **fazem parte da entrega** — não são extras opci
 
 ## Estado atual
 
+> 🧭 **ONDE PARAMOS (28/10/2026) — leia primeiro.**
+>
+> **Frentes abertas:**
+> - **Fase 9.3 — redesenho.** O Gabriel está desenhando no **Claude Design** com o prompt
+>   de [`docs/design/prompt-claude-design.md`](docs/design/prompt-claude-design.md). Não
+>   gostou tanto da primeira rodada, mas vai aproveitar muita coisa. Quando ele trouxer
+>   as telas: revisar cada elemento **contra o que a API realmente entrega**, e só então
+>   implementar 9.2 (as duas perguntas do perfil) e 9.3. Estrutura decidida: **uma tela,
+>   dois estados** (painel do perfil sobre o parque; depois próximo passo → roteiro →
+>   mapa → lista de filas).
+> - **Primeira versão focada no Magic Kingdom** (decisão do Gabriel). Em consideração:
+>   tirar o seletor de parques ou limitá-lo a parques igualmente famosos.
+>
+> **Agenda:**
+> - **30/10 (sex)** — preliminar: `python scripts/medicoes/simular_roteiro.py --desde
+>   2026-10-28 --gap 20`. Antes, `auditoria_coleta.py` para conferir a coleta.
+> - **03/11 (ter)** — decisiva, com o fim de semana: o simulador e `avaliar_forecast.py
+>   --desde 2026-10-28`. Ela libera (ou mata) a tela do roteiro (8.4). O horário de verão
+>   acaba em 01/11 — os scripts já usam o fuso do catálogo.
+> - **Início de novembro** — conferir se "à noite as filas são baratas" sobrevive ao fim
+>   da temporada de Halloween (era de noites de festa, com público reduzido).
+>
+> **Máquina nova? O que NÃO vem pelo Git:**
+> - O **`.env`**, com a `NEXTUP_DATABASE_URL` do Neon (copiar do painel do Neon, sem
+>   editar — o `config.py` normaliza). Sem ele, os scripts de medição leem um SQLite vazio.
+> - `pip install -e ".[dev,e2e]"` (traz o `tzdata`) e `playwright install chromium`.
+> - A memória do Claude Code (`~/.claude/projects/...`) é local; **este arquivo é a
+>   memória que viaja**. O cron-job.org é conta do Gabriel e segue funcionando sozinho.
+
 **Todas as 6 fases do roadmap original estão concluídas** (20/09/2026). O histórico é
 coletado, persistido, analisado, exposto pela API e desenhado na tela.
 
@@ -207,7 +236,11 @@ para quem pergunta. Decisões dele: o perfil é **perguntado, não inferido**; *
 perguntas** (altura da criança mais baixa; tranquilas / de tudo / emoção), ambas
 puláveis; a altura **marca** ("só os adultos", pelo *Rider Switch*), não esconde, e a
 atração marcada não ganha o destaque de "melhor escolha". **9.1 (curadoria) pronta**;
-faltam 9.2 (as perguntas, no `localStorage`) e 9.3 (o redesenho da tela).
+faltam 9.2 (as perguntas, no `localStorage`) e 9.3 (o redesenho da tela, que começou pelo
+design — ver o bloco "Onde paramos" no topo).
+
+> ⚠️ **Nada no design pode imitar a marca Disney** (logotipo, personagens, orelhas,
+> castelo, tipografia). Projeto independente; portfólio público não pode parecer oficial.
 
 > ⚠️ **A curadoria nunca vem de memória nem de resumo de busca.** Os dois erraram: a
 > memória e os sites de terceiros dizem 102 cm para a Big Thunder, a busca disse 102

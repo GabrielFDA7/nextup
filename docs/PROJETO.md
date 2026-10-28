@@ -23,7 +23,9 @@
 > **Fase 9 — Perfil do visitante: iniciada (27/10/2026).** Nasceu de uma crítica do
 > Gabriel: ver a fila não resolve nada que a fonte já não resolva. O app passa a saber
 > **quem pode entrar** e **quão intensa** é cada atração, com uma curadoria conferida na
-> listagem oficial da Disney (9.1). Faltam as perguntas do perfil e o redesenho da tela.
+> listagem oficial da Disney (9.1). Faltam as perguntas do perfil e o redesenho da tela,
+> que começou pelo design (prompt em `docs/design/`). A primeira versão será focada no
+> Magic Kingdom.
 >
 > **Fase 8 — Roteiro do dia: em investigação (27/10/2026).** A auditoria da coleta (8.0)
 > descobriu o coletor parado ~90% do tempo por um mês — o cron do GitHub rodava a cada
@@ -1765,7 +1767,34 @@ com commit e autor. O teste de arquitetura proíbe `core/` e `models/` de import
 | # | Entrega |
 |---|---|
 | 9.2 | As duas perguntas do perfil, no `localStorage`, como os filtros da 7.3 |
-| 9.3 | O redesenho da tela em torno do perfil: perfil → próximo passo → roteiro → "ver todas as filas" |
+| 9.3 | O redesenho da tela em torno do perfil: perfil → próximo passo → roteiro → "ver todas as filas" 🎨 *design em andamento* |
+
+#### 9.3 — O redesenho começou pelo design 🎨 *27–28/10/2026*
+
+O Gabriel decidiu desenhar antes de codificar, usando o **Claude Design**. O prompt está
+versionado em [`docs/design/prompt-claude-design.md`](design/prompt-claude-design.md) e
+carrega a tese do produto, os dados reais da API e as regras de comportamento que o código
+já garante (filtro visível, `UNKNOWN` que não é tranquila, as três causas de lista vazia,
+dado velho sinalizado). Assim o design já nasce respeitando o que a implementação exige.
+
+**Estrutura: uma tela, dois estados** — e não duas páginas. A primeira abertura mostra o
+parque com um painel leve por cima (as duas perguntas, puláveis); a tela principal em uso
+tem, nesta ordem, o **próximo passo** (uma atração, com o porquê), o **roteiro** (os alvos
+em linha do tempo), o **mapa** e, rebaixada, a **lista de todas as filas**. Uma página de
+cadastro separada faria o visitante, no meio do parque, preencher formulário antes de ver
+qualquer resposta — e o app abre mostrando o parque desde a Fase 5.
+
+**Restrição de marca**: nada de logotipo, personagem, orelhas, castelo ou tipografia que
+imite a Disney. O projeto é independente, e um portfólio público não pode parecer produto
+oficial.
+
+**Primeira rodada (28/10):** o Gabriel não gostou tanto do resultado, mas vai aproveitar
+muita coisa. Próximo passo: revisar o que voltar contra o que a API realmente entrega.
+
+**Primeira versão focada no Magic Kingdom** — decisão do Gabriel, porque só ele tem
+curadoria e histórico; nos outros parques o app seria a "lista de filas" que a Fase 9
+critica. Em consideração: tirar o seletor de parques, ou limitá-lo a outros igualmente
+famosos.
 
 ---
 
@@ -2138,7 +2167,11 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 27/10/2026 | Peter Pan **moderada**, Haunted Mansion **tranquila**, Seven Dwarfs **radical** | Revisto com o Gabriel. Deixar o Peter Pan tranquilo arrastaria junto a Pirates, que tem uma queda de verdade no escuro |
 | 27/10/2026 | Curadoria em **`data/`**, empacotada com o código | Dado conferido muda por revisão, com commit e autor, e passa pelos testes. Nem fonte externa (`clients/`) nem acumulado (`storage/`) |
 | 27/10/2026 | A API **descreve, não decide** | `min_height_cm` e `intensity` saem em toda atração; nada some nem é reordenado. Quem decide é o perfil, na tela, como os filtros da 7.3 |
+| 27/10/2026 | Primeira versão **focada no Magic Kingdom** | Decisão do Gabriel: só o MK tem curadoria e histórico. Nos outros parques o app seria a "lista de filas" que a Fase 9 critica. Tirar o seletor, ou limitá-lo a parques igualmente famosos, está em consideração |
+| 27/10/2026 | Redesenho: **uma tela, dois estados**, não duas páginas | O app abre mostrando o parque (Fase 5). Cadastro em página separada poria um formulário entre o visitante e a primeira resposta |
+| 27/10/2026 | **Desenhar antes de codificar** (Claude Design), com o prompt versionado | O prompt carrega as regras que o código já garante, para o design não propor o que a implementação teria de desfazer. Versionado porque o trabalho continua em outra máquina |
+| 27/10/2026 | Nada que imite a **marca Disney** no design | Projeto independente; portfólio público não pode parecer produto oficial |
 
 ---
 
-*Mantido por Gabriel de Angelis, com Claude Code. Última atualização: 27/10/2026.*
+*Mantido por Gabriel de Angelis, com Claude Code. Última atualização: 28/10/2026.*

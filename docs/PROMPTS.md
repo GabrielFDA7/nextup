@@ -1754,6 +1754,60 @@ o registro da Fase 9 no `PROJETO.md` — a crítica que a originou, os quatro ce
 decisões de produto, a curadoria e o limite ético da coleta. 722 na suíte rápida.
 
 ---
+
+### Prompt #068
+**Data:** 27/10/2026
+**Contexto:** A 9.1 publicada; o próximo passo sugerido era implementar as perguntas do
+perfil e só depois o redesenho.
+
+```
+muito bem.
+Vamos continuar que o tempo urge.
+Sei que talvez esse não seja o próximo passo, mas gostaria de tentar usar o claude design para criar as duas telas do site (serão duas mesmo ou uma tela transitória?)
+
+Você consegue me dar um prompt para que o design capte a essência do nosso projeto e consiga criar as telas com maior criatividade possível? Lembrando que essa primeira versão do site será focada no Magic Kingdom. Isso é uma decisão que tomei visto que ainda temos muito a aprimorar, estou pensando seriamente em nem possibilitar a escolha entre outros parques. Talvez só entre outros igualmente famosos.
+```
+
+**O que resultou: o prompt do Claude Design, e a resposta sobre a estrutura.**
+
+Uma tela com dois estados, e não duas páginas: o app abre mostrando o parque desde a
+Fase 5, e um cadastro em página separada poria um formulário entre o visitante e a
+primeira resposta. O prompt foi escrito para o design já nascer respeitando o que o código
+garante — a tese (custo total, valor para quem pergunta, ordem), quem usa (em pé, uma mão,
+sol forte), os dados reais da API com os números daquela noite, as regras de comportamento
+vindas das lições do projeto (filtro visível, `UNKNOWN` que não é tranquila, três causas
+de lista vazia, dado velho sinalizado, altura que marca sem ganhar destaque) e a restrição
+de não imitar a marca Disney.
+
+A decisão de focar no Magic Kingdom foi registrada: só ele tem curadoria e histórico.
+
+---
+
+### Prompt #069
+**Data:** 28/10/2026
+**Contexto:** Fim da sessão. O trabalho continua em outro computador.
+
+```
+Vamos ter que continuar o projeto de outro computador.
+
+Atualiza os documentos com o que estamos fazendo, faz o push e vamos finalizara a sessão.
+
+Estou preparando o design, mas não gostei tanto assim dos resultados. De qualquer forma, vamos aproveitar muita coisa
+```
+
+**O que resultou: o fechamento pensado para a troca de máquina.** O prompt do design, que
+só existia na conversa, foi versionado em `docs/design/`. O `CLAUDE.md` ganhou um bloco
+"Onde paramos" no topo, com as frentes abertas, a agenda (30/10, 03/11 e o teste do viés
+de Halloween em novembro) e o que **não** vem pelo Git numa máquina nova: o `.env` do
+Neon, as dependências e a memória do Claude Code, que é local.
+
+**Balanço da sessão 010 (27–28/10):** a coleta, que estava parada ~90% do tempo havia um
+mês, foi consertada; o forecast da fonte foi avaliado e descartado para o ranking; a
+matriz de caminhada (8.1) e o núcleo do otimizador (8.2) foram construídos depois de
+medidos; as medições foram versionadas; e a Fase 9 nasceu de uma crítica do Gabriel, com
+a curadoria de altura e intensidade conferida na fonte oficial. De 499 para 818 testes.
+
+---
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 
