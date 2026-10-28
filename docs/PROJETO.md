@@ -16,9 +16,9 @@
 > caminhada (7.3) e popularidade (7.4). A última fecha o ciclo da Fase 6 — é a primeira
 > feature construída **sobre o histórico que nós mesmos coletamos**, e não sobre a API.
 >
-> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **874
+> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **876
 > testes**: 722 na suíte rápida (272 do roteiro, a maioria instâncias aleatórias
-> conferidas contra força bruta) e 152 de interface em navegador.
+> conferidas contra força bruta) e 154 de interface em navegador.
 >
 > **Fase 9 — Perfil do visitante: iniciada (27/10/2026).** Nasceu de uma crítica do
 > Gabriel: ver a fila não resolve nada que a fonte já não resolva. O app passa a saber
@@ -1900,6 +1900,17 @@ mapa claro. No escuro a casca não existe. E o botão "Todas as filas" saiu de c
 onde se perdia, para uma **barra fixa no pé da tela**, de cor própria — com a cor de ação,
 índigo no claro, ela sumia sobre o cartão, que é índigo também.
 
+**Terceira rodada — o tema claro inteiro.** O claro seguia "muito abaixo" do escuro. Três
+paletas só de mapa (tinta rosa, rosa e céu) e a 3b clara foram testadas em capturas, e a
+causa apareceu: o claro da 3c misturava temperaturas — página lilás-fria, cartão índigo
+escuro, mapa lilás —, e o cartão escuro, um "buraco negro" na tela clara, puxava o olho
+para longe de todo o resto. O Gabriel trouxe uma especificação completa, "Algodão Doce":
+página baunilha, cartão pastel luminoso (degradê rosa → azul), Já fui amarelo, pinos
+brancos com aro azul-noite, mapa de chão branco-quente, gramado menta e prédios
+rosa-lavanda. Implementada por tokens: tudo que pressupunha cartão escuro virou token,
+com o valor antigo no escuro — que continua igual. Quatro tons da especificação não
+passavam na WCAG e foram escurecidos o mínimo; a tabela da seção 10 tem os números.
+
 ---
 
 ## 8. Riscos e Limitações
@@ -2317,6 +2328,9 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 28/10/2026 | Áreas com 17 mil m² ou mais | Medido: a menor das seis áreas tem 20 mil m², o maior recanto (Storybook Circus, dentro da Fantasyland) 14 mil. O corte é o meio |
 | 28/10/2026 | Mapa enquadra o visitante e as três primeiras, com zoom em quartos | No parque inteiro os números cabiam em centímetros. Com zoom inteiro, o enquadramento caía um nível abaixo do que cabia |
 | 28/10/2026 | Nome só nas três primeiras; da quarta em diante, número menor | Oito nomes no celular eram uma sopa de letras. As três são as que o visitante compara; a lista dá o nome de todas |
+| 28/10/2026 | Tema claro refeito pela especificação "Algodão Doce": página baunilha, cartão pastel (rosa → azul), pinos brancos com aro azul-noite | O claro da 3c seguia "muito abaixo" do escuro, mesmo depois da casca e de três paletas de mapa testadas. O cartão índigo era um "buraco negro" na tela clara e puxava o olho para longe do mapa. O escuro (3b) não muda: os tokens novos herdam nele os valores de antes |
+| 28/10/2026 | Quatro tons da especificação escurecidos o mínimo para passar na WCAG | Rosa do número (2,7 → 3,7:1, texto grande), azul de link (3,1 → 4,6:1), pontilhado do cartão (2,8 → 3,5:1) e rota (2,9 → 3,0:1). O "+" ficou azul: branco sobre o rosa forte dá 2,9:1 |
+| 28/10/2026 | Posição no cartão em frase ("Ponto de partida definido pelo GPS"), coordenadas no `title` | Coordenada não diz nada a quem está no parque; quem precisar conferir ainda acha o número |
 | 28/10/2026 | Casca nas trilhas, só no tema claro | Branco sobre claro some sem borda; no escuro o caminho já é o que tem mais luz, e o Gabriel o achou ideal como estava |
 | 28/10/2026 | "Todas as filas" como barra fixa no pé da tela do celular, com cor própria | Sobre o mapa e pequeno, se perdia no desenho. No pé, fica à vista em qualquer ponto da rolagem e sob o polegar. Com a cor de ação, sumia sobre o cartão índigo |
 | 28/10/2026 | Computador: mapa fixo à direita, coluna de 460 px com a lista aberta | O layout de celular esticado deixava dois terços da tela vazios. O painel poupava altura, que no computador sobra. Mesmo `<dialog>`, sem o modo modal: um só HTML |

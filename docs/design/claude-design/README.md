@@ -37,7 +37,9 @@ E então, no navegador:
 
 ## O que foi decidido
 
-- **Paleta:** 3c no modo claro (cartão escuro com os pastéis acesos), 3b no escuro (azul-noite).
+- **Paleta:** 3b no escuro (azul-noite). O claro começou na 3c e foi refeito em 28/10/2026
+  pela especificação "Algodão Doce" (cartão pastel, página baunilha) — ver a seção 10 de
+  `docs/PROJETO.md`.
   Azul é caminhada, rosa é fila, amarelo é destaque. Pastel só em fundo: todo texto usa o tom
   escuro da mesma cor, e os 24 pares de cada tema passam no contraste da WCAG.
 - **Mapa:** real, não ilustrado. O desenho do Claude Design quebraria o "tocar no mapa define a

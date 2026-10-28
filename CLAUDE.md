@@ -44,14 +44,18 @@ documentação de decisões **fazem parte da entrega** — não são extras opci
 > - **9.2 e 9.3 prontas e no ar (28/10)**, menos o roteiro. A tela: mapa real no topo
 >   (sem tiles, `web/mapas/magic-kingdom.geojson` pintado pelo CSS, rota pelas trilhas,
 >   nomes sem sobreposição), o cartão **"Seu próximo passo"** e a lista num painel
->   ("Todas as filas · N"). Paleta algodão-doce: **3c no claro, 3b no escuro**. O design
+>   ("Todas as filas · N"). Paleta algodão-doce: **claro pela especificação "Algodão Doce" (28/10), 3b no
+>   escuro**. O design
 >   de referência está em [`docs/design/claude-design/`](docs/design/claude-design/).
 > - **Revisão do mesmo dia (28/10)**, depois de o Gabriel testar no celular: mapa legível
 >   (pilha de pintura estava **invertida** — bug real; cores por convenção; contorno do
 >   parque e nomes das áreas; enquadra o visitante e as 3 primeiras) e **layout de
 >   computador** (mapa fixo à direita, coluna com a lista aberta). Segunda rodada: o
 >   **escuro é "ideal"** (Gabriel) — não mexer; o claro ganhou **casca** nas trilhas, e
->   "Todas as filas" virou **barra fixa no pé da tela**. Esperando o veredito do claro.
+>   "Todas as filas" virou **barra fixa no pé da tela**. Terceira rodada: o **claro foi
+>   refeito inteiro** pela especificação "Algodão Doce" do Gabriel (cartão pastel, página
+>   baunilha, pinos brancos); quatro tons escurecidos para passar na WCAG. Esperando o
+>   veredito dele no celular.
 > - **Próximo na interface:** o **roteiro** entra no lugar de "Você veio por estas" — só
 >   se a medição de 03/11 o liberar. Pendência menor: com o visitante no meio delas, os
 >   nomes da 1ª e da 2ª colocadas às vezes não cabem no mapa (a regra esconde).
@@ -86,8 +90,8 @@ O **6.6 terminou com um resultado negativo medido**: prever a fila por extrapola
 mais que usar a fila atual, em todo horizonte. O ranking não mudou — mas agora há número
 para sustentar a escolha. Detalhes na seção 7 de `docs/PROJETO.md`.
 
-**874 testes passando**: 722 na suíte rápida (~4s; 272 são do roteiro, a maioria
-instâncias aleatórias conferidas contra força bruta) e 152 de interface em navegador (~230s).
+**876 testes passando**: 722 na suíte rápida (~4s; 272 são do roteiro, a maioria
+instâncias aleatórias conferidas contra força bruta) e 154 de interface em navegador (~235s).
 CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
 
 Já existe e funciona:
@@ -141,7 +145,7 @@ Já existe e funciona:
   `cli.py` porque orquestra `clients/` + `storage/`
 - `tests/test_arquitetura.py` — a regra de dependência é verificada automaticamente
 - `tests/test_migracoes.py` — aplica as migrações e compara com `tables.py`
-- `tests/test_web_e2e.py` — 152 testes em Chromium real (`pytest -m e2e`). A lista mora
+- `tests/test_web_e2e.py` — 154 testes em Chromium real (`pytest -m e2e`). A lista mora
   num painel: `_ver_filas` o abre, `_fechar_filas` o fecha antes de tocar no resto
 - Fixtures reais da API em `tests/fixtures/`; nenhum teste toca a internet
 - `.venv` local com **Python 3.13**, mesma versão mais alta testada no CI
@@ -505,7 +509,7 @@ uvicorn nextup.api.main:app --reload     # http://127.0.0.1:8000
 Testes de interface (exigem `pip install -e ".[dev,e2e]"` e `playwright install chromium`):
 
 ```bash
-pytest -m e2e          # esperado: 152 testes, ~230s
+pytest -m e2e          # esperado: 154 testes, ~235s
 ```
 
 ---
