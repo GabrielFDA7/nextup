@@ -1970,6 +1970,9 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | **Alias (Pydantic)** | Nome alternativo de um campo. Aqui, o JSON em português (`altura_minima_cm`) vira o campo em inglês do código (`min_height_cm`) |
 | **Wheel** | O pacote Python pronto para instalar. Conferir o que vai dentro dele é o que garante que um arquivo de dados chega à produção |
 | **Proteção contra robôs** | Bloqueio que o site põe de propósito para clientes automatizados. Disfarçar-se de navegador para passar por ela é burlá-la |
+| **Event loop** | O "maestro" do código assíncrono: alterna entre as tarefas enquanto cada uma espera rede ou banco. Objetos como travas pertencem ao loop que os usou primeiro |
+| **ASGITransport** | Transporte do `httpx` que entrega a requisição direto ao app FastAPI, sem rede e no mesmo event loop de quem chama. Nos testes, substitui o `TestClient`, que roda o app num loop próprio |
+| **Arquivo de lock** | Lista com a versão exata de cada dependência. Sem ele, cada instalação pega a versão mais nova permitida — foi assim que o SQLAlchemy 2.1 chegou sem aviso |
 
 ---
 
@@ -2171,6 +2174,9 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 27/10/2026 | Redesenho: **uma tela, dois estados**, não duas páginas | O app abre mostrando o parque (Fase 5). Cadastro em página separada poria um formulário entre o visitante e a primeira resposta |
 | 27/10/2026 | **Desenhar antes de codificar** (Claude Design), com o prompt versionado | O prompt carrega as regras que o código já garante, para o design não propor o que a implementação teria de desfazer. Versionado porque o trabalho continua em outra máquina |
 | 27/10/2026 | Nada que imite a **marca Disney** no design | Projeto independente; portfólio público não pode parecer produto oficial |
+| 28/10/2026 | Testes de API chamam o app pelo **`ASGITransport`**, não pelo `TestClient` | O SQLAlchemy 2.1 recusa uma conexão usada por dois event loops, e o `TestClient` roda o app num loop à parte enquanto o teste grava no banco pelo outro. Exceção: `test_collector`, que precisa do `lifespan` |
+| 28/10/2026 | Corrigir os testes em vez de travar `sqlalchemy<2.1` | A trava esconderia o defeito, que era do desenho dos testes, e teria de sair um dia. Em produção há um loop só (o do uvicorn), então o app não muda |
+| 28/10/2026 | Python 3.13 instalado pelo **`py install 3.13`**, ao lado do 3.14 | O gerenciador oficial do Windows instala versões lado a lado sem `winget` nem administrador; o `.venv` segue na versão mais alta do CI |
 
 ---
 

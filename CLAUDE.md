@@ -63,7 +63,11 @@ documentação de decisões **fazem parte da entrega** — não são extras opci
 > **Máquina nova? O que NÃO vem pelo Git:**
 > - O **`.env`**, com a `NEXTUP_DATABASE_URL` do Neon (copiar do painel do Neon, sem
 >   editar — o `config.py` normaliza). Sem ele, os scripts de medição leem um SQLite vazio.
+> - O **Python 3.13**, se a máquina só tiver o 3.14: `py install 3.13`, e então
+>   `py -V:3.13 -m venv .venv`.
 > - `pip install -e ".[dev,e2e]"` (traz o `tzdata`) e `playwright install chromium`.
+> - Para ativar a venv no PowerShell (`.venv\Scripts\Activate.ps1`), o Windows bloqueia
+>   scripts por padrão: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, uma vez.
 > - A memória do Claude Code (`~/.claude/projects/...`) é local; **este arquivo é a
 >   memória que viaja**. O cron-job.org é conta do Gabriel e segue funcionando sozinho.
 
@@ -439,6 +443,9 @@ A dependência é **unidirecional**:
   repetir, os dois erram juntos e o teste não detecta nada. Veja `tests/test_geo.py`:
   usa Paris–Londres, um grau de latitude e coordenadas reais do Magic Kingdom.
 - Respostas reais da API ficam em `tests/fixtures/` e alimentam os mocks do `respx`.
+- Teste que usa o banco chama o app pelo **`httpx.ASGITransport`**, nunca pelo
+  `TestClient`: este roda o app em outro event loop, e o SQLAlchemy 2.1 recusa a conexão
+  usada pelos dois. Só o `test_collector` usa `TestClient`, porque precisa do `lifespan`.
 
 **Commits**
 - Conventional Commits com descrição em português: `feat:`, `fix:`, `docs:`, `chore:`,
