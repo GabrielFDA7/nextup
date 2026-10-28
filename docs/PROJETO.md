@@ -16,9 +16,9 @@
 > caminhada (7.3) e popularidade (7.4). A última fecha o ciclo da Fase 6 — é a primeira
 > feature construída **sobre o histórico que nós mesmos coletamos**, e não sobre a API.
 >
-> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **857
+> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **869
 > testes**: 722 na suíte rápida (272 do roteiro, a maioria instâncias aleatórias
-> conferidas contra força bruta) e 135 de interface em navegador.
+> conferidas contra força bruta) e 147 de interface em navegador.
 >
 > **Fase 9 — Perfil do visitante: iniciada (27/10/2026).** Nasceu de uma crítica do
 > Gabriel: ver a fila não resolve nada que a fonte já não resolva. O app passa a saber
@@ -1861,6 +1861,37 @@ cartão) espera a medição de 03/11; os nomes da 1ª e da 2ª colocadas às vez
 mapa quando o visitante está no meio delas — a regra esconde em vez de sobrepor, e o
 cartão já diz o nome da primeira.
 
+#### 9.3 — Revisão: mapa legível e layout de computador ✅ *28/10/2026*
+
+No mesmo dia, testando no celular, o Gabriel achou o mapa **difícil de entender** e o
+computador **com o layout do celular esticado**. As causas do mapa, achadas uma a uma em
+capturas de tela:
+
+1. **A pilha de pintura estava invertida — bug real.** O desenho era empurrado para baixo
+   da rota com `bringToBack()`, que num grupo leva cada caminho ao fundo um de cada vez:
+   o último a ir fica embaixo de todos, e a pilha inteira vira de cabeça para baixo. O
+   gramado era pintado **por cima** das trilhas. Conserto: uma camada (*pane*) só do
+   desenho, abaixo da rota, sem reordenar nada. Os 135 testes passavam com o bug — nenhum
+   olhava a ordem; agora um olha (e falha se o `bringToBack()` voltar: conferido).
+2. **Tudo era lilás.** Caminho branco sobre chão quase branco, prédio, gramado e chão na
+   mesma mancha. Agora cada coisa tem sua convenção: chão mais escuro para o caminho
+   saltar, gramado verde, água azul, prédio sem contorno.
+3. **Nada orientava.** Uma segunda consulta (pequena, em cache) à Overpass traz o
+   **contorno do parque** — o entorno fica sob um véu — e as **seis áreas**, escritas no
+   chão em caixa alta. O nome vai no ponto de dentro mais longe da borda, não no centroide:
+   área que abraça o castelo tem forma de L, e o centroide cairia na vizinha. Corte de
+   tamanho medido: a menor área tem 20 mil m², o maior recanto 14 mil.
+4. **O parque inteiro, miúdo.** O mapa agora enquadra o visitante e as três primeiras
+   (zoom em quartos de nível: com inteiros, caía um nível inteiro abaixo do que cabia), e
+   só refaz isso quando a resposta muda.
+5. **Oito nomes disputando o olhar.** Só as três primeiras têm nome; da quarta em diante,
+   número menor. O visitante virou o ponto azul com halo que todo mapa de celular usa.
+
+**No computador**, mapa fixo à direita na altura inteira e uma coluna de 460 px à
+esquerda com o cartão, os alvos e **a lista aberta** — o painel existia para poupar
+altura, e no computador altura sobra. É o mesmo `<dialog>`, mostrado sem o modo modal.
+Passar o ponteiro num item acende o número dele no mapa.
+
 ---
 
 ## 8. Riscos e Limitações
@@ -2273,6 +2304,12 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 28/10/2026 | O cartão do próximo passo some quando não há melhor escolha | O aviso distingue as quatro causas de lista vazia; o cartão repetiria só uma |
 | 28/10/2026 | "Já fui" do cartão com 5 s para desfazer | O cartão troca de atração na hora, e o toque errado de quem usa uma mão só ficaria sem volta |
 | 28/10/2026 | "entra às HH:MM", e não "lá às" (como no design) | Diz sem ambiguidade o que a hora é: agora + caminhada + fila. No fuso do parque |
+| 28/10/2026 | Desenho do mapa numa camada (*pane*) própria, sem `bringToBack()` | O `bringToBack()` num grupo invertia a pilha: gramado sobre as trilhas, véu embaixo de tudo. Bug real, achado numa captura depois de o Gabriel estranhar o mapa |
+| 28/10/2026 | Contorno do parque e áreas temáticas do OSM, numa segunda consulta em cache | Sem referência, o visitante não sabe em que canto está. Os nomes das áreas são fato geográfico, escritos na fonte do app — nada imita a marca |
+| 28/10/2026 | Áreas com 17 mil m² ou mais | Medido: a menor das seis áreas tem 20 mil m², o maior recanto (Storybook Circus, dentro da Fantasyland) 14 mil. O corte é o meio |
+| 28/10/2026 | Mapa enquadra o visitante e as três primeiras, com zoom em quartos | No parque inteiro os números cabiam em centímetros. Com zoom inteiro, o enquadramento caía um nível abaixo do que cabia |
+| 28/10/2026 | Nome só nas três primeiras; da quarta em diante, número menor | Oito nomes no celular eram uma sopa de letras. As três são as que o visitante compara; a lista dá o nome de todas |
+| 28/10/2026 | Computador: mapa fixo à direita, coluna de 460 px com a lista aberta | O layout de celular esticado deixava dois terços da tela vazios. O painel poupava altura, que no computador sobra. Mesmo `<dialog>`, sem o modo modal: um só HTML |
 
 ---
 
