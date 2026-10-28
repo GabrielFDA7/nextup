@@ -185,18 +185,20 @@ replanejadas a cada conclusão**, porque previsão de horas erra ~9–10 min por
 semana de coleta contínua e então **repetir a avaliação forecast × perfil horário** para
 escolher qual previsão o roteiro usa — preliminar na sexta 30/10, decisiva em 03/11, com o
 fim de semana. ⚠️ O horário de verão americano acaba em 01/11: a próxima avaliação precisa
-de fuso de verdade, não de UTC−4 fixo. O **8.1 (matriz de caminhada) está pronto**, e o
-**núcleo do 8.2 também** (`core/itinerary.py`).
+de fuso de verdade, não de UTC−4 fixo (`_comum.fuso_mk()` já resolve). O **8.1 (matriz
+de caminhada) está pronto**, e o **núcleo do 8.2 também** (`core/itinerary.py`).
 
 > ⚠️ **O roteiro ganha do guloso pela GEOGRAFIA, não pela previsão.** Backtest de
 > 27/10/2026, 5 alvos: plano supondo filas paradas -4,1%; plano com perfil horário
 > -2,7% (pior!); oráculo que conhece o futuro -7,6% (o teto). Por isso o padrão é a
 > persistência. **Foi ensaio sobre histórico fragmentado (85% dos cenários
-> descartados): repetir sobre a coleta contínua antes de construir a tela (8.4).** O
-> simulador não fica no repositório; o método está na seção 7, Fase 8, item 8.2.
->
-> Próximo código, se o ganho se confirmar: a rota da API do roteiro. Os scripts de medição não ficam no repositório — o
-método está descrito na seção 7.
+> descartados): repetir sobre a coleta contínua antes de construir a tela (8.4).**
+
+**As medições estão versionadas em `scripts/medicoes/`** (README com a agenda): auditoria
+da coleta, avaliação do forecast, simulador do roteiro, sinuosidade contra o OSM e
+desempenho do otimizador. Leem o banco de produção só por `_comum.consultar`, que recusa
+qualquer comando que não seja leitura. O simulador chama o `plan_itinerary` de produção.
+**Rodadas marcadas:** 30/10 (preliminar) e 03/11 (decisiva), com os comandos no README.
 
 **A personalização mora no `localStorage`** (`web/preferencias.js`), sem conta de usuário: o
 app é usado no celular dentro do parque por algumas horas, e exigir cadastro antes de

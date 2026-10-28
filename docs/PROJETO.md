@@ -2000,6 +2000,10 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 27/10/2026 | Previsão **injetada** (`WaitPredictor`) | Trocar de previsor não pode exigir tocar no otimizador — e só deve acontecer depois de um backtest |
 | 27/10/2026 | Tempo em **minutos a partir de agora** no `core/itinerary.py` | O `core/` continua sem saber de fuso; quem chama converte |
 | 27/10/2026 | Duração de atração **fixa em 8 min** (`RIDE_DURATION_MINUTES`) | A fonte não informa duração. Estimativa, com sensibilidade testada: 5, 8 e 15 min dão a mesma conclusão |
+| 27/10/2026 | Medições que serão **repetidas** ficam versionadas em `scripts/medicoes/` | O backtest e a avaliação do forecast têm rodadas marcadas; reescrever de memória mediria algo ligeiramente diferente, e a comparação entre rodadas perderia o valor. Exploração de uma vez só continua no scratchpad |
+| 27/10/2026 | Scripts de medição só acessam o banco por `_comum.consultar`, que **recusa escrita** | Eles leem o banco de produção; a trava do `conftest.py` protege a suíte, não um script solto |
+| 27/10/2026 | O simulador chama o **`plan_itinerary` de produção** | O backtest precisa medir o código que vai para o ar. Reproduziu o ensaio exatamente (178 cenários, mesmos números) |
+| 27/10/2026 | `tzdata` como dependência de desenvolvimento | O Windows não traz a base de fusos, e a rodada de 03/11 atravessa o fim do horário de verão de Orlando |
 
 ---
 

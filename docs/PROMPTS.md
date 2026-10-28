@@ -1564,6 +1564,39 @@ Testes resolvidos à mão: o zigue-zague (guloso 8 min, roteiro 7) e "deixe a TR
 depois" (55 contra 35 min, com uma previsão que muda no tempo). 685 na suíte rápida.
 
 ---
+
+### Prompt #060
+**Data:** 27/10/2026
+**Contexto:** Os scripts de medição viviam no scratchpad da sessão, como mandava a skill
+— mas o simulador e a avaliação do forecast têm rodadas marcadas para 30/10 e 03/11, e o
+scratchpad não sobrevive à sessão. Duas opções foram apresentadas.
+
+```
+Vamos versionar em 'medicoes'.
+Pode fazer o push também.
+
+Temos um próximo passo? Gostaria de mudar a interface do site e entender como vai funcionar em alguns cenários específicos.
+```
+
+**O que resultou: `scripts/medicoes/`, com cinco scripts e um README com a agenda.**
+
+Não foi uma cópia: cada script ganhou cabeçalho com origem, onde está o resultado e
+quando repetir; o acesso ao banco passou por `_comum.consultar`, que **recusa qualquer
+comando que não seja leitura** antes de abrir a conexão; o fuso passou a ser o do parque
+(`tzdata` entrou como dependência de desenvolvimento, porque o Windows não a traz e 03/11
+atravessa o fim do horário de verão); e o simulador passou a chamar o `plan_itinerary` de
+produção em vez de uma cópia.
+
+Cada script foi rodado de novo como verificação de que a mudança não alterou o método: o
+simulador reproduziu o ensaio **exatamente** (178 cenários, -7,7 / -5,0 / -14,2 min), e a
+avaliação do forecast, os mesmos 605 casos — o perfil variou na segunda casa decimal,
+porque as medições desta noite já entraram na média dos outros dias.
+
+A skill `medir-antes-de-implementar` ganhou a regra: exploração de uma vez fica no
+scratchpad; medição que será repetida vai para `scripts/medicoes/`. Também apareceu e foi
+corrigido um parágrafo do `CLAUDE.md` mal encaixado por uma edição anterior.
+
+---
 <!--
 MODELO PARA NOVAS ENTRADAS — copiar abaixo desta linha
 
