@@ -17,16 +17,32 @@ Exemplos que valem como prova:
 | Extrapolar a tendência melhora a previsão | **Erra mais** que usar a fila atual, em todo horizonte (6.6) |
 | Tercil por posição reparte bem as faixas | 74% de estabilidade contra 83% da razão sobre a mediana, e ainda **força** um terço em cada faixa (7.4) |
 | Perfil horário permite montar o roteiro do dia | ~11 min de erro entre dias, contra 2,50 do baseline — inviável por ora |
+| O cron do GitHub mantém o Render acordado | Rodava a cada **~4 h**, sempre verde; o coletor ficou ~90% parado por um mês |
+| O fator de sinuosidade 1,3 é chute | Medido contra o OpenStreetMap: **estava certo** (o melhor possível é 1,33) |
+| O roteiro ganha do guloso por prever a fila | Ganha pela **geografia**; planejar com o perfil horário rende *menos* que supor filas paradas |
 
 ---
 
 ## Como medir
 
-**1. Script no scratchpad, nunca no repositório.** É instrumento de investigação, não
-código de produção. Vai embora com a sessão; o que fica é a conclusão.
+**1. Primeiro, olhe `scripts/medicoes/`.** Se já existe um script para a pergunta, rode-o
+em vez de escrever outro — uma segunda versão mede algo ligeiramente diferente da
+primeira, e a comparação entre rodadas perde o valor.
 
-**2. Ler o banco de produção é seguro; escrever não.** A medição é sempre `SELECT`. O
-`config.py` já carrega o `.env`, então basta:
+**2. Onde o script novo mora depende de se ele vai ser repetido:**
+
+- **Exploração de uma vez só** → no scratchpad da sessão. Vai embora; o que fica é a
+  conclusão, registrada no `PROJETO.md`.
+- **Medição que será repetida** (há uma data marcada, ou a conclusão depende de mais
+  dado) → em `scripts/medicoes/`, versionada, com o cabeçalho dizendo a origem, onde está
+  o resultado e quando repetir. Adicione a linha na tabela do `README.md` da pasta.
+
+Na dúvida, comece no scratchpad e promova quando a repetição aparecer.
+
+**3. Ler o banco de produção é seguro; escrever não.** A medição é sempre `SELECT`. Nos
+scripts versionados, use `_comum.consultar`, que recusa qualquer comando que não seja
+leitura antes de abrir a conexão. Num script de scratchpad, o `config.py` já carrega o
+`.env`, então basta:
 
 ```python
 from nextup.storage import connection, create_engine
@@ -37,6 +53,13 @@ async with connection(motor) as conexao:
 
 > ⚠️ A suíte tem uma trava no `conftest.py` que força SQLite em memória. Ela protege os
 > testes, **não** protege um script solto. Confira que o script só lê.
+
+> ⚠️ **Antes de medir sobre o histórico, confira a coleta:**
+> `python scripts/medicoes/auditoria_coleta.py --horas 3`, ou sem a opção para o
+> período inteiro. ~12 ciclos por hora com o parque aberto é coleta contínua.
+
+> ⚠️ **Fuso do parque, nunca deslocamento fixo.** `_comum.fuso_mk()` lê o fuso do
+> catálogo. O horário de verão de Orlando acaba no primeiro domingo de novembro.
 
 **3. Imprima a tabela inteira, não só o agregado.** A média esconde o caso que muda a
 decisão. Foi olhando linha a linha que apareceu o `n=3` que invalidava uma faixa, e o
