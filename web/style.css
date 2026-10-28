@@ -17,40 +17,57 @@
  * só faz sentido quando há espaço sobrando.
  */
 
-/* As cores vêm das paletas escolhidas pelo Gabriel em 28/10/2026, a partir da ideia
-   do algodão-doce (docs/design/claude-design/): 3c no tema claro, 3b no escuro.
-   Cada par de tinta e fundo abaixo foi medido pela fórmula de contraste da WCAG
-   antes de entrar — o menor ficou em 5,3:1, para um mínimo de 4,5. O pastel nunca
-   é texto: rosa pastel sobre branco dá 1,44:1. */
+/* As cores do tema claro vêm da especificação "Algodão Doce" (28/10/2026), feita
+   depois de o Gabriel achar o claro da 3c muito abaixo do escuro: página baunilha,
+   cartão pastel luminoso em vez do índigo que virava um "buraco negro" na tela
+   clara, e as três cores do algodão-doce com papéis fixos — rosa é fila, azul é
+   caminhada e navegação, amarelo é destaque. O escuro continua a 3b.
+
+   Cada par de tinta e fundo foi medido pela fórmula de contraste da WCAG antes de
+   entrar. Quatro tons da especificação não passavam no papel que ela lhes dava, e
+   foram escurecidos o mínimo para passar (o original vai entre parênteses):
+   o número do cartão (#FF5C8D, 2,7:1 → #E8336D, 3,7:1, texto grande), o azul de
+   link (#3B9AE1, 3,1:1 → #1D7ABF, 4,6:1), o pontilhado sobre o cartão (#3B9AE1 →
+   #2F86CC, 3,5:1) e a rota (#3B9AE1, 2,9:1 sobre o chão do mapa → #3798E0, 3,0:1).
+   O pastel nunca é texto. */
 :root {
-  /* Índigo da noite de parque, e não preto: assenta melhor sobre o fundo lilás. */
-  --tinta: #2a1e4a;
-  --tinta-suave: #625780;
+  /* Azul-noite suave, e nunca preto: assenta melhor sobre a baunilha. */
+  --tinta: #1e2640;
+  --tinta-suave: #5a657d;
 
-  --fundo: #fbf7fc;
+  --fundo: #fffdf9;
   --superficie: #ffffff;
-  --superficie-alt: #f2ecf6;
-  --borda: #e4d9ea;
+  --superficie-alt: #fbf5ee;
+  --borda: #f0eae1;
 
-  /* A cor de AÇÃO: botões, links, foco. Índigo no claro; no escuro, o rosa da 3b. */
-  --destaque: #2b2250;
-  --destaque-escuro: #3d3275;
-  --destaque-fraco: #ece6f5;
+  /* A cor de AÇÃO: botões e foco. Azul-noite no claro; no escuro, o rosa da 3b. */
+  --destaque: #1e2640;
+  --destaque-escuro: #2e3a5c;
+  --destaque-fraco: #e6f4ff;
 
   /* A tinta que vai POR CIMA da cor de ação. No claro a ação é escura e pede
      branco; no escuro ela vira rosa claro, e o branco sumiria. */
   --sobre-quente: #ffffff;
 
-  /* Amarelo é DESTAQUE — a melhor escolha agora —, nos dois temas: a regra da
-     paleta (azul é caminhada, rosa é fila, amarelo é destaque). Fundo claro nos
-     dois, então a tinta por cima é sempre escura, e por isso é um token à parte:
-     dividir o `--sobre-quente` com a cor de ação faria um dos dois ilegível. */
-  --ambar: #ffe27a;
-  --ambar-fraco: #fff7d6;
-  --sobre-ambar: #2b2250;
+  /* Azul de navegação: links (escurecido para texto), controles deslizantes e o
+     selo de filtro ligado. */
+  --link: #1d7abf;
+  --controle: #3b9ae1;
+  --selo: #1d7abf;
+  --sobre-selo: #ffffff;
+  /* O "+" de "Escolher atrações": azul, porque branco sobre o rosa forte da
+     especificação dá 2,9:1, abaixo do mínimo de 3:1 para um ícone. */
+  --mais: #3b9ae1;
+  --sobre-mais: #ffffff;
+
+  /* Amarelo é DESTAQUE — a melhor escolha agora —, nos dois temas. Fundo claro nos
+     dois, então a tinta por cima é sempre escura, e por isso é um token à parte. */
+  --ambar: #ffe066;
+  --ambar-fraco: #fff3b0;
+  --sobre-ambar: #1e2640;
 
   /* O número do custo e o segmento marcado no painel. */
-  --profundo: #4a3f8c;
+  --profundo: #1e2640;
   --sobre-profundo: #ffffff;
 
   --alerta: #9a3412;
@@ -58,64 +75,78 @@
 
   /* Tendência da fila: verde e vermelho carregam significado de produto — caindo
      é boa notícia, subindo é má — e por isso ficam fora da paleta pastel. */
-  --verde-tendencia: #1e7a4c;
+  --verde-tendencia: #0f766e;
   --vermelho-tendencia: #ad4519;
 
   /* As duas parcelas do custo, com cor própria: azul caminha, rosa espera. São
      cores de GRÁFICO (pontilhado e cápsula), conferidas a 3:1, nunca de texto. */
-  --caminhada: #2f6fae;
-  --fila: #d94c86;
+  --caminhada: #3798e0;
+  --fila: #e8336d;
 
-  /* Marcador numerado do mapa. */
-  --pino: #2b2250;
-  --sobre-pino: #ffffff;
+  /* Marcador numerado do mapa: branco com aro azul-noite, em vez de um círculo
+     escuro pesado sobre o mapa claro. */
+  --pino: #ffffff;
+  --sobre-pino: #1e2640;
+  --pino-borda: #1e2640;
 
-  /* O cartão do próximo passo: escuro nos dois temas, com os pastéis acesos por
-     cima (3c no claro, 3b no escuro). Conferidos sobre o fundo do cartão — o mais
-     apertado ficou em 7,3:1. */
-  --cartao: #2b2250;
-  --sobre-cartao: #ffffff;
-  --sobre-cartao-suave: #d8cff0;
-  --cartao-numero: #ffb8d4;
-  --caminhada-no-cartao: #a9d3ff;
-  --fila-no-cartao: #ffb3d1;
-  --cartao-botao: #ffe27a;
-  --sobre-cartao-botao: #2b2250;
+  /* O cartão do próximo passo: pastel e luminoso no claro (rosa → azul), escuro
+     no escuro. Conferidos sobre as duas pontas do degradê. */
+  --cartao: linear-gradient(135deg, #fff0f6 0%, #eef7ff 100%);
+  --cartao-borda: #ffd6e7;
+  --cartao-sombra: 0 10px 25px rgb(255 92 141 / 12%);
+  --sobre-cartao: #1e2640;
+  --sobre-cartao-suave: #4a5568;
+  --cartao-olho: #c2185b;
+  --cartao-numero: #e8336d;
+  --caminhada-no-cartao: #2f86cc;
+  --fila-no-cartao: #e8336d;
+  --cartao-botao: #fff3b0;
+  --sobre-cartao-botao: #5c4800;
+  --cartao-botao-borda: #ffe066;
+  --cartao-botao-hover: #ffe885;
+  --cartao-contorno: rgb(30 38 64 / 22%);
+  --cartao-selo-fundo: #fff3b0;
+  --cartao-selo-tinta: #5c4800;
+  --cartao-selo-borda: #ffe066;
+  --verde-no-cartao: #0f766e;
+  --vermelho-no-cartao: #ad4519;
+  /* A tendência vira uma pílula no claro; no escuro continua texto solto. */
+  --tendencia-boa-fundo: #ccfbf1;
+  --tendencia-ruim-fundo: #ffedd5;
+  --tendencia-recuo: 3px 10px;
+  --esqueleto-a: rgb(30 38 64 / 5%);
+  --esqueleto-b: rgb(30 38 64 / 11%);
 
   /* O desenho do parque (web/mapas/), pintado aqui em vez de vir pintado num tile:
-     é o que deixa o mapa trocar de tema junto com o resto da tela.
-
-     Cada coisa com a sua cor, porque o primeiro desenho pintou tudo de lilás e
-     ficou ilegível no celular (28/10/2026): o caminho branco sobre um chão quase
-     branco não aparecia, e prédio, gramado e chão eram a mesma mancha. Agora o
-     chão escurece o bastante para o caminho saltar, o gramado é verde e a água é
-     azul — as convenções que qualquer mapa de parque usa. */
-  --mapa-fundo: #dcd3e6;
-  --mapa-verde: #cde2d0;
-  --mapa-predio: #c9bcd9;
-  --mapa-agua: #a6cdf1;
+     é o que deixa o mapa trocar de tema junto com o resto da tela. No claro, a
+     mesma família da tela: chão branco-quente, gramado menta, água azul-algodão,
+     prédios rosa-lavanda com contorno. */
+  --mapa-fundo: #fcfbf9;
+  --mapa-verde: #e3f6ec;
+  --mapa-predio: #f6e6f2;
+  --mapa-predio-contorno: #e5cce0;
+  --mapa-agua: #bce3ff;
   --mapa-trilha: #ffffff;
-  --mapa-praca: #f7f4fa;
-  /* O contorno dos caminhos. No escuro o caminho já é o que tem mais luz e se
-     destaca sozinho; no claro, branco sobre chão claro some sem uma borda — a
-     mesma técnica das ruas de qualquer mapa claro. */
-  --mapa-casco: #a493bb;
+  --mapa-praca: #ffffff;
+  /* O contorno dos caminhos. Com o chão quase branco, o caminho branco só existe
+     pela borda — a técnica das ruas de qualquer mapa claro. No escuro o caminho é
+     o que tem mais luz e dispensa borda. */
+  --mapa-casco: #d9c3d3;
 
-  /* A barra de "Todas as filas", fixa no pé da tela. Cor própria: com a cor de
-     ação (índigo no claro) ela sumia sobre o cartão, que é índigo também. */
+  /* A barra de "Todas as filas", fixa no pé da tela. */
   --barra: #ffffff;
-  --sobre-barra: #2b2250;
-  --barra-borda: #cfc4e0;
+  --sobre-barra: #1e2640;
+  --barra-borda: #f0eae1;
   /* O entorno (estacionamento, bastidores) fica sob um véu: o parque vira uma
      ilha colorida, e o olho para nela. */
-  --mapa-veu: #f6f3f9;
-  --mapa-limite: #b3a5c7;
-  --mapa-nome-area: #6e5f8c;
+  --mapa-veu: #fffdf9;
+  --mapa-limite: #e5cce0;
+  --mapa-nome-area: #7a4e6e;
 
   --raio: 18px;
   --raio-p: 12px;
-  --sombra: 0 1px 2px rgb(43 34 80 / 6%), 0 6px 18px rgb(43 34 80 / 8%);
-  --sombra-forte: 0 2px 4px rgb(43 34 80 / 8%), 0 12px 28px rgb(43 34 80 / 14%);
+  --sombra: 0 1px 2px rgb(30 38 64 / 5%), 0 6px 18px rgb(30 38 64 / 7%);
+  --sombra-forte: 0 2px 4px rgb(30 38 64 / 7%), 0 12px 28px rgb(30 38 64 / 12%);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -180,6 +211,33 @@
     --mapa-veu: #0b1121;
     --mapa-limite: #4a5b88;
     --mapa-nome-area: #a3b3d6;
+
+    /* Os tokens que o claro ganhou, com os valores que o escuro já usava: o
+       escuro não muda. */
+    --link: #ffc2d9;
+    --controle: #ffc2d9;
+    --selo: #ffc2d9;
+    --sobre-selo: #1d2a4a;
+    --mais: #bfe0fd;
+    --sobre-mais: #1d2a4a;
+    --pino-borda: #172038;
+    --cartao-borda: transparent;
+    --cartao-sombra: var(--sombra-forte);
+    --cartao-olho: #bfe0fd;
+    --cartao-botao-borda: transparent;
+    --cartao-botao-hover: #ffc2d9;
+    --cartao-contorno: rgb(255 255 255 / 28%);
+    --cartao-selo-fundo: rgb(255 255 255 / 12%);
+    --cartao-selo-tinta: #ffffff;
+    --cartao-selo-borda: transparent;
+    --verde-no-cartao: #8fe3b6;
+    --vermelho-no-cartao: #ffb48c;
+    --tendencia-boa-fundo: transparent;
+    --tendencia-ruim-fundo: transparent;
+    --tendencia-recuo: 0;
+    --esqueleto-a: rgb(255 255 255 / 6%);
+    --esqueleto-b: rgb(255 255 255 / 16%);
+    --mapa-predio-contorno: none;
 
     --sombra: 0 1px 2px rgb(0 0 0 / 30%), 0 6px 18px rgb(0 0 0 / 25%);
     --sombra-forte: 0 2px 4px rgb(0 0 0 / 35%), 0 12px 28px rgb(0 0 0 / 35%);
@@ -388,7 +446,7 @@ select:focus-visible {
   font-weight: 800;
   color: var(--sobre-pino);
   background: var(--pino);
-  border: 2.5px solid var(--superficie);
+  border: 2.5px solid var(--pino-borda);
   border-radius: 50%;
   box-shadow: 0 2px 6px rgb(0 0 0 / 35%);
   font-variant-numeric: tabular-nums;
@@ -580,8 +638,8 @@ h2 {
   font-size: 1.25rem;
   font-weight: 700;
   line-height: 1;
-  color: var(--sobre-profundo);
-  background: var(--profundo);
+  color: var(--sobre-mais);
+  background: var(--mais);
   border-radius: 50%;
   transition: transform 0.18s ease;
 }
@@ -667,8 +725,8 @@ h2 {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--sobre-quente);
-  background: var(--destaque);
+  color: var(--sobre-selo);
+  background: var(--selo);
   border-radius: 999px;
 }
 
@@ -697,7 +755,7 @@ h2 {
   /* Alvo generoso: a barra padrão tem poucos pixels de altura, e acertá-la com o
      dedo em movimento é frustrante. */
   height: 28px;
-  accent-color: var(--destaque);
+  accent-color: var(--controle);
   cursor: pointer;
 }
 
@@ -763,7 +821,7 @@ h2 {
   padding: 2px 0;
   font-size: 0.82rem;
   font-weight: 700;
-  color: var(--destaque);
+  color: var(--link);
   background: none;
   border: 0;
   text-decoration: underline;
@@ -1096,7 +1154,7 @@ h2 {
 }
 
 a {
-  color: var(--destaque);
+  color: var(--link);
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
 }
@@ -1334,7 +1392,7 @@ a {
 .altura input[type="range"] {
   width: 100%;
   margin: 12px 0 0;
-  accent-color: var(--profundo);
+  accent-color: var(--controle);
 }
 
 /* "Só os adultos": a marca que substitui o esconder. Cor de aviso calmo, e o
@@ -1394,7 +1452,8 @@ a {
 .m-predio {
   fill: var(--mapa-predio);
   fill-opacity: 1;
-  stroke: none;
+  stroke: var(--mapa-predio-contorno);
+  stroke-width: 0.8;
 }
 
 /* Hierarquia medida na extração: praça é área, via larga é traço grosso,
@@ -1684,12 +1743,13 @@ body {
 
 /* --- O cartão ----------------------------------------------------------- */
 
-/* Escuro nos dois temas. Por isso redefine aqui dentro os tokens que foram
-   pensados para fundo claro: verde e laranja da tendência, tinta suave. Variável
-   CSS vale para o elemento e os filhos — o resto da página não muda. */
+/* Pastel no claro, escuro no escuro. Redefine aqui dentro os tokens da página
+   que dependem do fundo — verde e laranja da tendência, tinta suave —, com os
+   valores do cartão. Variável CSS vale para o elemento e os filhos: o resto da
+   página não muda. */
 .passo {
-  --verde-tendencia: #8fe3b6;
-  --vermelho-tendencia: #ffb48c;
+  --verde-tendencia: var(--verde-no-cartao);
+  --vermelho-tendencia: var(--vermelho-no-cartao);
   --tinta-suave: var(--sobre-cartao-suave);
 
   position: relative;
@@ -1697,8 +1757,9 @@ body {
   padding: 18px 18px 20px;
   color: var(--sobre-cartao);
   background: var(--cartao);
+  border: 1px solid var(--cartao-borda);
   border-radius: var(--raio);
-  box-shadow: var(--sombra-forte);
+  box-shadow: var(--cartao-sombra);
 }
 
 .passo__cabecalho {
@@ -1713,7 +1774,7 @@ body {
   white-space: nowrap;
   font-size: 0.95rem;
   font-weight: 700;
-  color: var(--cartao-numero);
+  color: var(--cartao-olho);
 }
 
 .chip-perfil {
@@ -1727,7 +1788,7 @@ body {
   font-weight: 600;
   color: var(--sobre-cartao);
   background: transparent;
-  border: 1.5px solid rgb(255 255 255 / 28%);
+  border: 1.5px solid var(--cartao-contorno);
   border-radius: 20px;
   cursor: pointer;
 }
@@ -1761,6 +1822,7 @@ body {
   width: 100%;
   color: var(--sobre-cartao-botao);
   background: var(--cartao-botao);
+  border: 1px solid var(--cartao-botao-borda);
 }
 
 .passo__linha {
@@ -1798,7 +1860,7 @@ body {
 }
 
 .passo__total span {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   font-weight: 700;
 }
 
@@ -1861,13 +1923,31 @@ body {
   font-size: 0.88rem;
 }
 
+/* No claro, a tendência vira pílula: verde-menta para fila caindo, pêssego para
+   subindo. No escuro os fundos são transparentes e o recuo é zero. */
+.passo .tendencia {
+  display: inline-flex;
+  padding: var(--tendencia-recuo);
+  border-radius: 999px;
+}
+
+.passo .tendencia--caindo {
+  background: var(--tendencia-boa-fundo);
+}
+
+.passo .tendencia--subindo {
+  background: var(--tendencia-ruim-fundo);
+}
+
 .passo__selo {
   display: inline-block;
   margin-top: 10px;
   padding: 4px 11px;
   font-size: 0.78rem;
   font-weight: 700;
-  background: rgb(255 255 255 / 12%);
+  color: var(--cartao-selo-tinta);
+  background: var(--cartao-selo-fundo);
+  border: 1px solid var(--cartao-selo-borda);
   border-radius: 999px;
 }
 
@@ -1884,9 +1964,13 @@ body {
   font-weight: 700;
   color: var(--sobre-cartao-botao);
   background: var(--cartao-botao);
-  border: 0;
+  border: 1px solid var(--cartao-botao-borda);
   border-radius: 16px;
   cursor: pointer;
+}
+
+.botao-ja-fui:hover {
+  background: var(--cartao-botao-hover);
 }
 
 .botao-ja-fui svg {
@@ -1907,7 +1991,7 @@ body {
 .esqueleto--passo {
   height: 190px;
   margin-top: 14px;
-  background: linear-gradient(90deg, rgb(255 255 255 / 6%), rgb(255 255 255 / 16%), rgb(255 255 255 / 6%));
+  background: linear-gradient(90deg, var(--esqueleto-a), var(--esqueleto-b), var(--esqueleto-a));
   background-size: 200% 100%;
 }
 
