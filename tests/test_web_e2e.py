@@ -42,6 +42,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 POSICAO = {"latitude": 28.42037, "longitude": -81.58031}
 CELULAR = {"width": 390, "height": 844}
+COMPUTADOR = {"width": 1440, "height": 900}
 
 
 def carregar(nome: str) -> dict:
@@ -111,6 +112,7 @@ def abrir(
     api=None,
     perfil: dict | None = PERFIL_PULADO,
     seletor: bool = False,
+    tela: dict = CELULAR,
 ) -> Page:
     """Abre a página com a API interceptada dentro do navegador.
 
@@ -124,7 +126,7 @@ def abrir(
     testado por aqui, sem que o visitante tenha como chegar a ele.
     """
     contexto = navegador.new_context(
-        viewport=CELULAR,
+        viewport=tela,
         locale="pt-BR",
         geolocation=POSICAO if com_gps else None,
         permissions=["geolocation"] if com_gps else [],
@@ -2344,3 +2346,57 @@ class TestMapaLegivel:
                 mapa["y"] <= caixa["y"]
                 and caixa["y"] + caixa["height"] <= mapa["y"] + mapa["height"]
             )
+
+
+class TestComputador:
+    """No computador, mapa à direita e uma coluna de leitura à esquerda.
+
+    O layout de celular esticado deixava dois terços da tela vazios (Gabriel,
+    28/10/2026). A lista, que no celular mora num painel, aqui fica aberta.
+    """
+
+    def test_a_lista_fica_aberta_sem_painel(self, navegador, servidor):
+        pagina = abrir(navegador, servidor, tela=COMPUTADOR)
+        _com_cartao(pagina)
+
+        expect(pagina.locator("#btn-todas-filas")).to_be_hidden()
+        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(8)
+        expect(pagina.locator("[data-modo='ranking'] .item").first).to_be_visible()
+        # Aberta, mas não como modal: o resto da página continua tocável.
+        assert not pagina.locator("#painel-filas").evaluate("d => d.open")
+
+    def test_o_mapa_ocupa_a_altura_inteira_ao_lado(self, navegador, servidor):
+        pagina = abrir(navegador, servidor, tela=COMPUTADOR)
+        mapa = pagina.locator("#mapa").bounding_box()
+        cartao = pagina.locator("#proximo-passo").bounding_box()
+
+        assert mapa["height"] == COMPUTADOR["height"]
+        assert cartao["x"] + cartao["width"] <= mapa["x"], "o cartão invade o mapa"
+
+    def test_o_mapa_fica_parado_ao_rolar_a_lista(self, navegador, servidor):
+        pagina = abrir(navegador, servidor, tela=COMPUTADOR)
+        _com_cartao(pagina)
+        antes = pagina.locator("#mapa").bounding_box()
+
+        pagina.mouse.move(200, 600)
+        pagina.mouse.wheel(0, 900)
+        pagina.wait_for_function("window.scrollY > 0")
+
+        assert pagina.locator("#mapa").bounding_box() == antes
+
+    def test_passar_o_ponteiro_acende_o_numero_no_mapa(self, navegador, servidor):
+        pagina = abrir(navegador, servidor, tela=COMPUTADOR)
+        _com_cartao(pagina)
+
+        pagina.locator("[data-modo='ranking'] .item").nth(1).hover()
+        expect(pagina.locator("#mapa .pino--realce")).to_have_text("2")
+
+        pagina.locator("#proximo-passo").hover()
+        expect(pagina.locator("#mapa .pino--realce")).to_have_count(0)
+
+    def test_no_celular_a_lista_continua_no_painel(self, navegador, servidor):
+        """O par do primeiro teste: a mudança é só do computador."""
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+        expect(pagina.locator("#btn-todas-filas")).to_be_visible()
+        expect(pagina.locator("#painel-filas")).to_be_hidden()

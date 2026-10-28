@@ -1882,3 +1882,107 @@ a {
   border-radius: 50%;
   cursor: pointer;
 }
+
+/* ---------------------------------------------------------------------------
+   Computador: mapa à direita, coluna de leitura à esquerda
+   --------------------------------------------------------------------------- */
+
+/* No celular, mapa em cima e resposta embaixo é a única ordem que cabe. Esticado
+   a 1440 px, o mesmo layout deixava dois terços da tela vazios e um mapa de 400 px
+   de altura (Gabriel, 28/10/2026). Com espaço dos lados, o mapa ganha a tela
+   inteira e a resposta vira uma coluna ao lado — o arranjo de qualquer app de
+   mapa no computador.
+
+   A lista de filas, que no celular mora num painel, aqui fica aberta na coluna:
+   o painel existia para poupar altura, e altura é o que sobra. É o mesmo
+   elemento (`<dialog>`) mostrado sem o modo modal: um só HTML, um só código. */
+@media (min-width: 1024px) {
+  :root {
+    --lateral: 460px;
+  }
+
+  body {
+    padding: 0;
+  }
+
+  main,
+  .rodape {
+    max-width: none;
+    width: var(--lateral);
+    margin: 0;
+    padding: 0 28px;
+  }
+
+  main {
+    padding-top: 84px;
+  }
+
+  .rodape {
+    padding-bottom: 32px;
+    border-top: 0;
+  }
+
+  .palco {
+    position: fixed;
+    inset: 0 0 0 var(--lateral);
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    border-left: 1px solid var(--borda);
+  }
+
+  .palco #mapa {
+    height: 100%;
+  }
+
+  /* A marca vira o cabeçalho da coluna, e não um selo sobre o mapa: fixa no topo,
+     com o fundo da página, para o conteúdo passar por baixo ao rolar. */
+  .palco__topo {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: var(--lateral);
+    padding: 20px 28px 12px;
+    background: var(--fundo);
+  }
+
+  .selo-marca {
+    height: auto;
+    padding: 0;
+    font-size: 1.6rem;
+    background: none;
+    box-shadow: none;
+  }
+
+  .passo {
+    margin-top: 0;
+  }
+
+  /* A lista já está à vista: o botão que a abre seria um atalho para onde se está. */
+  .pilula,
+  .painel__fechar {
+    display: none;
+  }
+
+  #painel-filas:not([open]) {
+    position: static;
+    display: block;
+    width: auto;
+    max-height: none;
+    margin: 28px 0 0;
+    padding: 0;
+    color: inherit;
+    background: none;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  /* O ponteiro passa num item da lista e o número dele acende no mapa: a ligação
+     entre os dois, que no celular é feita pelo número, aqui é feita pela mão. */
+  .pino--realce {
+    outline: 3px solid var(--destaque);
+    outline-offset: 2px;
+    transform: scale(1.15);
+  }
+}

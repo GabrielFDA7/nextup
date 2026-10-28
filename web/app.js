@@ -344,6 +344,27 @@ function posicionarRotulos() {
   if (!mapaEmMovimento) container.dataset.rotulos = "prontos";
 }
 
+/* Acende no mapa o número do item da lista sob o ponteiro (computador).
+ *
+ * A lista e os marcadores saem da mesma ordem (`desenharMapa(visiveis)`), então a
+ * posição do item é a `ordem` do marcador. Antes do ranking os marcadores não têm
+ * ordem, e nada acende — não há número para ligar.
+ */
+function realcarNoMapa(evento) {
+  const anterior = mapa.getContainer().querySelector(".pino--realce");
+  anterior?.classList.remove("pino--realce");
+  if (evento.type === "mouseleave") return;
+
+  const item = evento.target.closest(".item");
+  if (!item) return;
+  const ordem = [...el.lista.children].indexOf(item);
+  camadaAtracoes.eachLayer((marcador) => {
+    if (marcador.options.ordem === ordem) {
+      marcador.getElement()?.querySelector(".pino")?.classList.add("pino--realce");
+    }
+  });
+}
+
 /* O nome de uma área cede a vez a qualquer coisa que o visitante precise ler.
  *
  * Ele orienta ("estou na Fantasyland"), mas não responde nada: se bate num número,
@@ -2185,6 +2206,8 @@ function iniciar() {
   el.btnAlturaMais.addEventListener("click", () => definirAltura(Number(el.altura.value) + 1));
 
   el.btnTodasFilas.addEventListener("click", () => el.painelFilas.showModal());
+  el.lista.addEventListener("mouseover", realcarNoMapa);
+  el.lista.addEventListener("mouseleave", realcarNoMapa);
   el.btnFecharFilas.addEventListener("click", () => el.painelFilas.close());
 
   el.passoDestaque.addEventListener("click", (evento) => {
