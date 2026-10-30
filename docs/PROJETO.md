@@ -16,9 +16,9 @@
 > caminhada (7.3) e popularidade (7.4). A última fecha o ciclo da Fase 6 — é a primeira
 > feature construída **sobre o histórico que nós mesmos coletamos**, e não sobre a API.
 >
-> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **941
+> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **946
 > testes**: 745 na suíte rápida (272 do roteiro, a maioria instâncias aleatórias
-> conferidas contra força bruta) e 196 de interface em navegador.
+> conferidas contra força bruta) e 201 de interface em navegador.
 >
 > **Fase 9 — Perfil do visitante: iniciada (27/10/2026).** Nasceu de uma crítica do
 > Gabriel: ver a fila não resolve nada que a fonte já não resolva. O app passa a saber
@@ -2116,6 +2116,22 @@ fila de meia hora atrás, sem aviso nenhum.
   por cima dela, e o "já fui" a deixava transparente. O palco ganhou prioridade sobre a
   coluna, só no computador.
 
+#### "Já fui" com cerimônia, e a visitada fica no lugar ✅ *30/10/2026*
+
+- **No cartão, o "Já fui" confirma antes de trocar.** O botão fica verde com "Feito!", a
+  atração sai para a esquerda e a próxima entra pela direita, em ~0,4 s. Antes o nome
+  trocava num piscar, e o visitante não tinha certeza de que o toque pegou. Um segundo
+  toque durante a saída é ignorado (cairia na próxima), e quem pediu menos movimento ao
+  sistema troca na hora.
+- **Nas listas, a visitada fica no lugar, reduzida ao nome e ao "Fui"**; tocar de novo a
+  devolve inteira. **Isto revê a decisão da 7.1**, em que marcar *tirava* a atração do
+  ranking e só um "Mostrar" a trazia de volta: desfazer um toque errado exigia achar um
+  botão noutro canto. O "Mostrar" saiu; o aviso "N já visitadas hoje · Limpar" fica. O
+  que a 7.1 protegia continua: as visitadas **não ocupam** as oito vagas (a nona sobe),
+  nunca recebem a etiqueta de melhor escolha e não aparecem no mapa.
+- De quebra: o "Fui" marcado tinha texto branco fixo, que no escuro sumia sobre o verde
+  claro. Virou token (`--sobre-verde`).
+
 **Um bug introduzido e pego no caminho.** Guardar a referência das trilhas para o limite
 do mapa fez criá-las antes da casca, e o grupo do Leaflet pinta pela ordem de criação, não
 pela da lista: a casca escura foi parar por cima dos caminhos. O teste da pilha de pintura,
@@ -2560,6 +2576,7 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 30/10/2026 | Filas renovadas sozinhas a cada 2 min, em silêncio, com indicador de frescor pela idade da medição da fonte | "A sensação deve ser de atualidade" (Gabriel). Silenciosa porque piscar a cada 2 min e apagar a tela numa falha do 4G seriam piores que dado velho |
 | 30/10/2026 | `park_id` validado (UUID + lista de parques do cache); `Cache-Control: no-cache` na tela; catálogo restrito à listagem oficial | Revisão de segurança de 29/10 e varredura de 30/10. A lista de parques só do cache, aquecida pelo coletor, para não pôr uma chamada à fonte em todo pedido |
 | 30/10/2026 | Com "Das minhas", o mapa mostra os alvos numerados; o realce do computador acha o pino pela atração | A rota até o alvo terminava sem pino, porque o mapa mostrava os números do parque (Gabriel) |
+| 30/10/2026 | Visitadas ficam na lista, compactas e no lugar, em vez de sumirem; sai o "Mostrar" | Revê a 7.1 a pedido do Gabriel: desfazer exigia achar o "Mostrar". Continuam fora das oito vagas, da etiqueta e do mapa |
 | 29/10/2026 | Monetização: validar antes de cobrar; se cobrar, B2B com consultores e agências é o caminho preferido | É o público que já paga por esse serviço, e o app segue gratuito e sem conta para o visitante. Bloqueio a resolver antes: termos de uso comercial da ThemeParks.wiki, não encontrados |
 
 ---
