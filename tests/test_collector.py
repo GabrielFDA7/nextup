@@ -199,6 +199,40 @@ class TestContagem:
 
 
 class TestLaco:
+    async def test_aquece_a_lista_de_parques(self, cliente, engine):
+        """É o que deixa a API recusar parque inventado sem ir à fonte (30/10/2026)."""
+        with respx.mock:
+            mockar_parque_inteiro()
+            respx.get(f"{THEMEPARKS_BASE_URL}/destinations").mock(
+                return_value=httpx.Response(200, json=carregar("destinations.json"))
+            )
+            with pytest.raises(asyncio.CancelledError):
+                await run_collector(
+                    client=cliente,
+                    engine=engine,
+                    park_ids=[DEFAULT_PARK_ID],
+                    now=relogio(),
+                    sleep=SleepContado(ciclos=1),
+                )
+
+        assert DEFAULT_PARK_ID in (cliente.known_park_ids() or set())
+
+    async def test_lista_de_parques_fora_do_ar_nao_custa_a_coleta(self, cliente, engine):
+        with respx.mock:
+            mockar_parque_inteiro()
+            respx.get(f"{THEMEPARKS_BASE_URL}/destinations").mock(return_value=httpx.Response(503))
+            with pytest.raises(asyncio.CancelledError):
+                await run_collector(
+                    client=cliente,
+                    engine=engine,
+                    park_ids=[DEFAULT_PARK_ID],
+                    now=relogio(),
+                    sleep=SleepContado(ciclos=1),
+                )
+
+        assert await _ids_gravados(engine), "a falha da lista de parques derrubou a coleta"
+        assert cliente.known_park_ids() is None
+
     async def test_coleta_antes_da_primeira_espera(self, cliente, engine):
         """Se esperasse primeiro, um serviço que hiberna renderia quase nada.
 

@@ -67,6 +67,37 @@ ClienteThemeParks = Annotated[ThemeParksClient, Depends(obter_cliente)]
 #: O banco, que pode não existir. Ver `obter_engine`.
 MotorDoBanco = Annotated[AsyncEngine | None, Depends(obter_engine)]
 
+#: Todo parque da fonte tem ID neste formato (199 de 199, conferido em 30/10/2026).
+_FORMATO_DO_ID = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+
+
+async def parque_valido(
+    park_id: Annotated[
+        str, Path(pattern=_FORMATO_DO_ID, description="ID do parque, obtido em `/destinations`.")
+    ],
+    cliente: ClienteThemeParks,
+) -> str:
+    """Recusa o parque que não existe **antes** de perguntar à fonte.
+
+    O `park_id` vai direto para a URL da ThemeParks.wiki, e cada pedido com um ID
+    inventado custava duas chamadas a ela, que nunca entram no cache (dão erro).
+    Um laço de alguém faria o NextUp martelar uma API pública mantida por
+    voluntários — e o bloqueio do nosso IP derrubaria o app para todo mundo
+    (revisão de segurança de 29/10/2026).
+
+    Duas barreiras. O **formato** recusa lixo e injeção (`x?a=b` chegava à fonte
+    como parte do caminho) com 422, sem custo. A **lista de parques** recusa o
+    UUID inventado com 404 — mas só se ela já estiver no cache: ir buscá-la aqui
+    poria uma chamada à fonte em todo pedido. Quem a mantém aquecida é o coletor.
+    """
+    conhecidos = cliente.known_park_ids()
+    if conhecidos is not None and park_id not in conhecidos:
+        raise EntityNotFoundError(park_id)
+    return park_id
+
+
+ParqueValido = Annotated[str, Depends(parque_valido)]
+
 
 @router.get("/health", response_model=HealthOut, tags=["sistema"])
 async def health() -> HealthOut:
@@ -97,7 +128,7 @@ async def listar_destinos(cliente: ClienteThemeParks) -> DestinationsOut:
 async def listar_atracoes(
     cliente: ClienteThemeParks,
     motor: MotorDoBanco,
-    park_id: Annotated[str, Path(description="ID do parque, obtido em `/destinations`.")],
+    park_id: ParqueValido,
 ) -> ParkAttractionsOut:
     """Como está o parque agora — **sem** precisar saber onde o visitante está.
 
@@ -139,7 +170,7 @@ async def listar_atracoes(
 async def historico_da_atracao(
     cliente: ClienteThemeParks,
     motor: MotorDoBanco,
-    park_id: Annotated[str, Path(description="ID do parque.")],
+    park_id: ParqueValido,
     attraction_id: Annotated[str, Path(description="ID da atração.")],
     hours: Annotated[
         int,
@@ -207,7 +238,7 @@ async def historico_da_atracao(
 async def recomendar(
     cliente: ClienteThemeParks,
     motor: MotorDoBanco,
-    park_id: Annotated[str, Path(description="ID do parque, obtido em `/destinations`.")],
+    park_id: ParqueValido,
     lat: Annotated[float, Query(ge=-90, le=90, description="Latitude do visitante.")],
     lon: Annotated[float, Query(ge=-180, le=180, description="Longitude do visitante.")],
     limit: Annotated[

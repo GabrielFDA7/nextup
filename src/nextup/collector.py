@@ -227,6 +227,16 @@ async def run_collector(
                     resultado.forecasts_stored,
                 )
 
+        # A lista de parques, aquecida para a API recusar ID inventado sem ir à fonte
+        # (`parque_valido`, em routes.py). O cache dela é de 24 h: na prática, uma
+        # ida por dia. Num `try` só dela — falhar aqui não pode custar uma coleta.
+        try:
+            await client.get_destinations()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning("lista de parques indisponível; a API aceita qualquer ID válido")
+
         if now() >= proxima_limpeza:
             try:
                 apagadas = await purge_expired(

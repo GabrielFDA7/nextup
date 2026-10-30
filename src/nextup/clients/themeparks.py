@@ -91,6 +91,18 @@ class ThemeParksClient:
         """Todos os destinos e seus parques. Muda raramente — cache de 24h."""
         return await self._get_model("/destinations", self._catalog_cache, DestinationList)
 
+    def known_park_ids(self) -> frozenset[str] | None:
+        """Os parques que a fonte conhece, **só se a lista já estiver no cache**.
+
+        Não vai à rede, de propósito: é chamado a cada pedido para recusar ID
+        inventado, e uma ida à fonte ali anularia o motivo de recusar. `None` quer
+        dizer "não sei" — e quem chama deve deixar passar.
+        """
+        destinos = self._catalog_cache.get("/destinations")
+        if destinos is None:
+            return None
+        return frozenset(parque.id for d in destinos.destinations for parque in d.parks)
+
     async def get_park_catalog(self, park_id: str) -> ParkCatalog:
         """Catálogo de um parque: nomes, tipos e **coordenadas GPS**.
 

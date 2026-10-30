@@ -24,6 +24,9 @@ from nextup.config import DEFAULT_PARK_ID, THEMEPARKS_BASE_URL
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
+#: Um parque que não existe, mas no formato certo: inventar "fantasma" agora daria 422
+#: na validação do formato, antes de chegar à fonte — e o teste é sobre o 404 dela.
+FANTASMA = "00000000-0000-4000-8000-000000000000"
 URL_CATALOGO = f"{THEMEPARKS_BASE_URL}/entity/{DEFAULT_PARK_ID}/children"
 URL_LIVE = f"{THEMEPARKS_BASE_URL}/entity/{DEFAULT_PARK_ID}/live"
 
@@ -86,14 +89,14 @@ class TestRespostaBasica:
 
     def test_parque_inexistente_da_404(self, cliente_http):
         with respx.mock:
-            respx.get(f"{THEMEPARKS_BASE_URL}/entity/nao-existe/children").mock(
+            respx.get(f"{THEMEPARKS_BASE_URL}/entity/{FANTASMA}/children").mock(
                 return_value=httpx.Response(404)
             )
-            respx.get(f"{THEMEPARKS_BASE_URL}/entity/nao-existe/live").mock(
+            respx.get(f"{THEMEPARKS_BASE_URL}/entity/{FANTASMA}/live").mock(
                 return_value=httpx.Response(404)
             )
 
-            resposta = cliente_http.get("/api/parks/nao-existe/attractions")
+            resposta = cliente_http.get(f"/api/parks/{FANTASMA}/attractions")
 
         assert resposta.status_code == 404
 
