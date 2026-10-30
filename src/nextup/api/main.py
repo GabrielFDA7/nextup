@@ -141,6 +141,21 @@ def criar_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    @app.middleware("http")
+    async def _sempre_a_versao_nova(request: Request, call_next):
+        """Manda o navegador conferir a tela com o servidor antes de usar a cópia.
+
+        Sem cabeçalho nenhum, cada navegador decidia sozinho por quanto tempo
+        guardar o CSS e o JS — e quem já tinha aberto o app via a versão anterior
+        por um tempo depois de cada publicação. `no-cache` não é "não guarde": é
+        "pergunte antes". O `ETag` que o `StaticFiles` já manda faz a resposta de
+        "nada mudou" sair com poucos bytes, o que importa no 4G do parque.
+        """
+        resposta = await call_next(request)
+        if not request.url.path.startswith("/api"):
+            resposta.headers.setdefault("Cache-Control", "no-cache")
+        return resposta
+
     _registrar_erros(app)
     app.include_router(router, prefix="/api")
 
