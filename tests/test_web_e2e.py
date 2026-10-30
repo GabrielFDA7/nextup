@@ -2618,3 +2618,218 @@ class TestComputador:
         _com_cartao(pagina)
         expect(pagina.locator("#btn-todas-filas")).to_be_visible()
         expect(pagina.locator("#painel-filas")).to_be_hidden()
+
+
+def _com_alvos(pagina, *trechos: str) -> None:
+    """Grava alvos direto no armazenamento e recarrega, como um visitante que volta."""
+    pagina.evaluate(
+        "([parque, ids]) => localStorage.setItem('nextup:alvos', JSON.stringify({[parque]: ids}))",
+        [DEFAULT_PARK_ID, [_id_de(t) for t in trechos]],
+    )
+    pagina.reload(wait_until="networkidle")
+
+
+class TestChaveDoCartao:
+    """A chave "Melhor do parque | Das minhas" (Gabriel, 29/10/2026).
+
+    Na fixture: a melhor do parque é o Prince Charming (7 min no total); entre os
+    alvos usados aqui, Space Mountain (50) vem antes de Big Thunder (68).
+    """
+
+    def test_sem_alvos_a_chave_nao_aparece(self, navegador, servidor):
+        """'Das minhas' sem nenhuma marcada seria uma opção que não leva a nada."""
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+        expect(pagina.locator("#passo-criterio")).to_be_hidden()
+
+    def test_com_alvos_o_padrao_continua_o_parque(self, navegador, servidor):
+        """Quem nunca tocou na chave não pode ver a resposta mudar de critério."""
+        pagina = abrir(navegador, servidor)
+        _com_alvos(pagina, "Space Mountain", "Big Thunder")
+        _com_cartao(pagina)
+
+        expect(pagina.locator("#passo-criterio")).to_be_visible()
+        expect(pagina.locator("#passo-destaque .passo__nome")).to_have_text(
+            "Prince Charming Regal Carrousel"
+        )
+        expect(pagina.locator("#passo-titulo")).to_have_text("Seu próximo passo")
+
+    def test_das_minhas_mostra_a_melhor_das_marcadas(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        _com_alvos(pagina, "Space Mountain", "Big Thunder")
+        _com_cartao(pagina)
+
+        pagina.get_by_text("Das minhas").click()
+
+        expect(pagina.locator("#passo-destaque .passo__nome")).to_have_text("Space Mountain")
+        # O número continua sendo o tempo de verdade: a chave troca o conjunto,
+        # não dá bônus a ninguém.
+        expect(pagina.locator("#passo-destaque .passo__total strong")).to_have_text("50")
+        expect(pagina.locator("#passo-titulo")).to_have_text("Próxima da sua lista")
+
+    def test_a_escolha_sobrevive_a_recarregar(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        _com_alvos(pagina, "Space Mountain", "Big Thunder")
+        _com_cartao(pagina)
+        pagina.get_by_text("Das minhas").click()
+
+        pagina.reload(wait_until="networkidle")
+        _com_cartao(pagina)
+
+        expect(pagina.locator("#passo-destaque .passo__nome")).to_have_text("Space Mountain")
+
+    def test_sem_marcada_disponivel_volta_ao_parque_e_avisa(self, navegador, servidor):
+        """Trocar de critério calado faria o visitante ler a sugestão como uma das dele."""
+        pagina = abrir(navegador, servidor)
+        _com_alvos(pagina, "Space Mountain")
+        _com_cartao(pagina)
+        pagina.get_by_text("Das minhas").click()
+
+        pagina.click("#passo-destaque .botao-ja-fui")
+
+        expect(pagina.locator("#passo-destaque .passo__nome")).to_have_text(
+            "Prince Charming Regal Carrousel"
+        )
+        expect(pagina.locator("#passo-destaque")).to_contain_text(
+            "Nenhuma das suas está disponível agora"
+        )
+        expect(pagina.locator("#passo-titulo")).to_have_text("Seu próximo passo")
+
+    def test_a_rota_vai_ate_o_alvo(self, navegador, servidor):
+        """O mapa acompanha o cartão: a rota leva aonde o cartão manda."""
+        pagina = abrir(navegador, servidor)
+        _com_alvos(pagina, "Space Mountain")
+        _com_cartao(pagina)
+        pagina.get_by_text("Das minhas").click()
+
+        destino = pagina.evaluate(
+            "() => [estado.destaque.attraction.latitude, estado.destaque.attraction.longitude]"
+        )
+        pagina.wait_for_function(
+            "([lat, lon]) => mapa.getBounds().contains([lat, lon])", arg=destino
+        )
+
+
+class TestAlternativasNoCartao:
+    """O plano B sem abrir o painel: a 2ª e a 3ª do mesmo critério do cartão."""
+
+    def test_cita_as_duas_seguintes(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+
+        outras = pagina.locator("#passo-destaque .passo__outras li")
+        expect(outras).to_have_count(2)
+        expect(outras.nth(0)).to_contain_text("PeopleMover")
+        expect(outras.nth(0)).to_contain_text("10 min")
+        expect(outras.nth(1)).to_contain_text("Mad Tea Party")
+
+    def test_com_das_minhas_as_seguintes_tambem_sao_marcadas(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        _com_alvos(pagina, "Space Mountain", "Big Thunder")
+        _com_cartao(pagina)
+        pagina.get_by_text("Das minhas").click()
+
+        outras = pagina.locator("#passo-destaque .passo__outras li")
+        expect(outras).to_have_count(1)
+        expect(outras.first).to_contain_text("Big Thunder")
+
+
+def _mapa_preso(pagina) -> None:
+    """Espera o desenho do parque chegar: é ele que prende o mapa."""
+    pagina.wait_for_function("Boolean(mapa.options.maxBounds)")
+
+
+def _ve_o_parque_inteiro(pagina) -> None:
+    pagina.wait_for_function(
+        """() => {
+          const l = estado.limitesDoParque;
+          return mapa.getBounds().contains([[l.south, l.west], [l.north, l.east]]);
+        }"""
+    )
+
+
+class TestMapaPresoAoParque:
+    """Na versão só do Magic Kingdom, o mapa não sai do parque (Gabriel, 29/10/2026).
+
+    O outro lado — nos parques com tiles o mapa fica livre — é o que deixa
+    `TestTrocaDeParque` levar a vista até a Europa: preso, ele não iria.
+    """
+
+    def test_arrastar_nao_tira_o_mapa_do_parque(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        _mapa_preso(pagina)
+        caixa = pagina.locator("#mapa").bounding_box()
+        meio_y = caixa["y"] + caixa["height"] / 2
+
+        # Arrastos longos para a esquerda: sem limite, o mapa iria parar em Tampa.
+        for _ in range(6):
+            pagina.mouse.move(caixa["x"] + caixa["width"] - 10, meio_y)
+            pagina.mouse.down()
+            pagina.mouse.move(caixa["x"] + 10, meio_y, steps=8)
+            pagina.mouse.up()
+
+        pagina.wait_for_timeout(400)
+        assert pagina.evaluate("mapa.options.maxBounds.pad(0.01).contains(mapa.getBounds())"), (
+            "a vista saiu do parque"
+        )
+
+    def test_nao_afasta_alem_do_parque_inteiro(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        _mapa_preso(pagina)
+
+        pagina.evaluate("mapa.setZoom(10)")
+        pagina.wait_for_timeout(400)
+
+        zoom, minimo = pagina.evaluate("[mapa.getZoom(), mapa.getMinZoom()]")
+        assert minimo > 13, f"zoom mínimo {minimo} deixa o parque virar um ponto"
+        assert zoom >= minimo
+
+
+class TestRecentralizar:
+    """O botão que volta o mapa para o que importa (Gabriel, 29/10/2026)."""
+
+    def test_e_confortavel_para_o_dedo(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        caixa = pagina.locator("#btn-recentralizar").bounding_box()
+        assert caixa["width"] >= 44 and caixa["height"] >= 44
+
+    def test_volta_para_o_visitante_e_a_resposta(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+        _mapa_parado(pagina)
+        # Longe do visitante: o canto nordeste do parque, bem perto.
+        pagina.evaluate("mapa.setView([28.4232, -81.5752], 18, { animate: false })")
+
+        pagina.click("#btn-recentralizar")
+
+        pagina.wait_for_function(
+            """() => mapa.getBounds().contains([estado.posicao.lat, estado.posicao.lon])
+                  && mapa.getBounds().contains([estado.destaque.attraction.latitude,
+                                                estado.destaque.attraction.longitude])"""
+        )
+
+    def test_o_segundo_toque_mostra_o_parque_inteiro(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+        _mapa_parado(pagina)
+
+        pagina.click("#btn-recentralizar")  # já está na resposta: vai ao parque
+        _ve_o_parque_inteiro(pagina)
+
+    def test_sem_posicao_mostra_o_parque_inteiro(self, navegador, servidor):
+        pagina = abrir(navegador, servidor, com_gps=False)
+        _mapa_preso(pagina)
+        pagina.evaluate("mapa.setView([28.4232, -81.5752], 18, { animate: false })")
+
+        pagina.click("#btn-recentralizar")
+
+        _ve_o_parque_inteiro(pagina)
+
+    def test_tocar_no_botao_nao_vira_posicao(self, navegador, servidor):
+        """Tocar no mapa define a posição; o toque no botão não pode vazar para ele."""
+        pagina = abrir(navegador, servidor, com_gps=False)
+        pagina.click("#btn-recentralizar")
+        pagina.wait_for_timeout(300)
+
+        expect(pagina.locator("#passo-sem-posicao")).to_be_visible()
+        assert pagina.evaluate("estado.posicao") is None

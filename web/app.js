@@ -172,6 +172,17 @@ const NOMES_NO_MAPA = 3;
 
 /** O enquadramento da resposta já feito: só se refaz quando a resposta muda. */
 let enquadramentoFeito = null;
+/** O visitante e as primeiras colocadas: aonde o botão de recentralizar volta. */
+let pontosDaResposta = null;
+/** Centro e zoom em que o enquadramento da resposta terminou. */
+let vistaDaResposta = null;
+/** O parque desenhado. Enquanto houver, o mapa não sai dele. */
+let limitesDoDesenho = null;
+
+/* Quanto o mapa deixa passar da borda do parque desenhado, em fração do tamanho
+ * dele. Zero cortaria os marcadores da borda pela metade; muito mais deixaria o
+ * visitante se perder de novo no estacionamento. */
+const FOLGA_DO_PARQUE = 0.12;
 
 // ---------------------------------------------------------------------------
 // Avisos
@@ -198,9 +209,18 @@ function iniciarMapa() {
   // sabe recortar as linhas e quebra ("reading 'min'"). Achado no protótipo.
   // Zoom em quartos: com só inteiros, enquadrar a resposta caía um nível inteiro
   // abaixo do que cabia, e o celular voltava a ver o parque todo, miúdo.
-  mapa = L.map("mapa", { zoomControl: false, zoomSnap: 0.25 }).setView([28.4177, -81.5812], 15);
+  // `maxBoundsViscosity: 1`: o limite do parque é parede, não elástico. Sem limite
+  // (parques com tiles), a opção não faz nada.
+  mapa = L.map("mapa", { zoomControl: false, zoomSnap: 0.25, maxBoundsViscosity: 1 }).setView(
+    [28.4177, -81.5812],
+    15
+  );
   // O canto esquerdo é da marca, que flutua sobre o mapa.
   L.control.zoom({ position: "topright" }).addTo(mapa);
+  // No canto de baixo, onde o polegar alcança — o lugar do "minha localização"
+  // em qualquer app de mapa.
+  new BotaoRecentralizar({ position: "bottomright" }).addTo(mapa);
+  mapa.on("resize", ajustarZoomMinimo);
 
   // O desenho do parque mora numa camada própria, abaixo da rota (400). Antes ele
   // dividia a camada com a rota e era empurrado para o fundo com `bringToBack()` —
@@ -269,6 +289,9 @@ async function trocarFundoDoMapa(parqueId) {
   camadaFundo = null;
   redeDeTrilhas = null;
   camadaRota.clearLayers();
+  // Solto até o desenho chegar: preso ao parque anterior, o mapa não deixaria o
+  // enquadramento do parque novo acontecer.
+  soltarDoParque();
 
   const arquivo = DESENHOS[parqueId];
   mapa.getContainer().classList.toggle("mapa--desenhado", Boolean(arquivo));
@@ -302,12 +325,22 @@ async function trocarFundoDoMapa(parqueId) {
         ...opcoes,
         style: (f) => ({ className: `m-casco m-casco-${f.properties.t}` }),
       };
-      camadaFundo = L.featureGroup([
-        L.geoJSON(so("verde", "agua", "praca", "predio"), { ...opcoes, attribution: CREDITO_OSM }),
-        L.geoJSON(so("trilha"), casca),
-        L.geoJSON(so("trilha"), opcoes),
-        L.geoJSON(so("fora", "area"), opcoes),
-      ]).addTo(mapa);
+      // Criadas NA ORDEM DE PINTURA, uma por linha: o grupo do Leaflet pinta pela
+      // ordem em que cada camada nasceu (o id que ela recebe), e não pela ordem da
+      // lista. Criar as trilhas antes da casca, para guardar a referência, pintou a
+      // casca por cima dos caminhos (29/10/2026, pego por
+      // `test_o_contorno_fica_por_baixo_das_trilhas`).
+      const chao = L.geoJSON(so("verde", "agua", "praca", "predio"), {
+        ...opcoes,
+        attribution: CREDITO_OSM,
+      });
+      const contorno = L.geoJSON(so("trilha"), casca);
+      const trilhas = L.geoJSON(so("trilha"), opcoes);
+      const entorno = L.geoJSON(so("fora", "area"), opcoes);
+      camadaFundo = L.featureGroup([chao, contorno, trilhas, entorno]).addTo(mapa);
+      // O limite é o parque desenhado, sem o véu: o véu cobre quilômetros de
+      // estacionamento e estrada justamente para não chamar o olho para lá.
+      prenderAoParque(L.featureGroup([chao, trilhas]).getBounds());
       redeDeTrilhas = ROTA.montarRede(desenho);
       desenharRota();
       return;
@@ -512,30 +545,44 @@ function marcarVisitante(lat, lon) {
 function enquadrarResposta(recomendacoes) {
   if (!estado.posicao || recomendacoes.length === 0) return;
 
+  // Guardados sempre, mesmo quando o enquadramento não se refaz: são o destino
+  // do botão de recentralizar.
+  // O destaque entra sempre: com "Das minhas", ele pode estar longe das primeiras
+  // do ranking, e a rota até ele sairia da tela.
+  const destaque = estado.destaque ? [estado.destaque] : [];
+  pontosDaResposta = [
+    [estado.posicao.lat, estado.posicao.lon],
+    ...[...destaque, ...recomendacoes.slice(0, NOMES_NO_MAPA)].map((r) => [
+      r.attraction.latitude,
+      r.attraction.longitude,
+    ]),
+  ];
+
   const chave = `${estado.posicao.lat},${estado.posicao.lon},${estado.destaque?.attraction.id}`;
   if (chave === enquadramentoFeito) return;
   enquadramentoFeito = chave;
-
-  const pontos = [
-    [estado.posicao.lat, estado.posicao.lon],
-    ...recomendacoes
-      .slice(0, NOMES_NO_MAPA)
-      .map((r) => [r.attraction.latitude, r.attraction.longitude]),
-  ];
-  // Folga maior no topo, onde a marca flutua sobre o mapa.
-  const enquadrar = () =>
-    mapa.fitBounds(pontos, {
-      paddingTopLeft: [36, 76],
-      paddingBottomRight: [36, 44],
-      maxZoom: 18,
-    });
 
   // Pedido no meio de uma animação de zoom, o enquadramento é DESCARTADO em
   // silêncio pelo Leaflet (`_tryAnimatedZoom` responde "já movi" sem mover). Na
   // abertura o mapa anima até o parque inteiro, e um GPS rápido caía bem nessa
   // janela: o mapa ficava longe, sem erro nenhum. Esperar o fim da animação resolve.
-  if (mapaEmMovimento) mapa.once("moveend", enquadrar);
-  else enquadrar();
+  if (mapaEmMovimento) mapa.once("moveend", () => enquadrarPontos(pontosDaResposta));
+  else enquadrarPontos(pontosDaResposta);
+}
+
+/** O visitante e as primeiras colocadas, com folga maior no topo, onde a marca flutua. */
+function enquadrarPontos(pontos) {
+  // A vista só é conhecida quando o movimento termina — e é ela, e não os pontos,
+  // que o botão de recentralizar compara: o limite do parque pode ter cortado o
+  // enquadramento pedido.
+  mapa.once("moveend", () => {
+    vistaDaResposta = { centro: mapa.getCenter(), zoom: mapa.getZoom() };
+  });
+  mapa.fitBounds(pontos, {
+    paddingTopLeft: [36, 76],
+    paddingBottomRight: [36, 44],
+    maxZoom: 18,
+  });
 }
 
 /* Enquadra o parque inteiro, em vez de centralizar num ponto.
@@ -561,6 +608,77 @@ function enquadrarParque(limites) {
     { padding: [30, 30], maxZoom: 17 }
   );
 }
+
+/* O mapa preso ao parque (Gabriel, 29/10/2026).
+ *
+ * Na versão só do Magic Kingdom, arrastar para fora dele não mostra nada útil — e
+ * quem se perde no estacionamento não sabe voltar. O limite é o parque desenhado
+ * com uma folga, e o zoom mínimo é o que mostra esse retângulo inteiro: mais
+ * longe que isso, o parque só encolheria no meio de um vazio.
+ *
+ * Só onde há desenho. Nos parques com tiles (atrás da chave do seletor) o mapa
+ * continua livre, como sempre foi.
+ */
+function prenderAoParque(limites) {
+  limitesDoDesenho = limites.pad(FOLGA_DO_PARQUE);
+  mapa.setMaxBounds(limitesDoDesenho);
+  ajustarZoomMinimo();
+}
+
+function soltarDoParque() {
+  limitesDoDesenho = null;
+  mapa.setMaxBounds(null);
+  mapa.setMinZoom(0);
+}
+
+/* O zoom mínimo depende do tamanho da tela: girar o celular, ou a coluna do
+ * computador, muda quanto do parque cabe. Por isso ele se refaz no `resize`. */
+function ajustarZoomMinimo() {
+  if (!limitesDoDesenho) return;
+  mapa.setMinZoom(mapa.getBoundsZoom(limitesDoDesenho));
+}
+
+/* Volta o mapa para o que importa, alternando entre dois destinos.
+ *
+ * O primeiro toque traz de volta o visitante e as primeiras colocadas — a vista
+ * que o app monta sozinho. Se o mapa já está nela, o toque mostra o parque
+ * inteiro. Sem posição, só existe o parque inteiro. É o comportamento do botão
+ * de localização dos apps de mapa, que o visitante já conhece.
+ */
+function recentralizar() {
+  if (pontosDaResposta && estado.posicao && !mapaNaVista(vistaDaResposta)) {
+    enquadrarPontos(pontosDaResposta);
+    return;
+  }
+  enquadrarParque(estado.limitesDoParque);
+}
+
+/** Se o mapa está parado na vista dada — com tolerância de uns metros. */
+function mapaNaVista(vista) {
+  return (
+    vista !== null &&
+    Math.abs(mapa.getZoom() - vista.zoom) < 0.01 &&
+    mapa.getCenter().distanceTo(vista.centro) < 5
+  );
+}
+
+/* O botão, como controle do Leaflet: assim ele mora dentro do mapa e acompanha a
+ * pilha de controles do canto, sem posicionamento à mão. */
+const BotaoRecentralizar = L.Control.extend({
+  onAdd() {
+    const botao = L.DomUtil.create("button", "recentralizar");
+    botao.id = "btn-recentralizar";
+    botao.type = "button";
+    botao.innerHTML = ICONE.mira;
+    botao.setAttribute("aria-label", "Recentralizar o mapa");
+    botao.title = "Volta para você. Toque de novo para ver o parque inteiro.";
+    // Sem isto o toque atravessaria o botão e chegaria ao mapa, que o leria como
+    // "estou aqui" e moveria o visitante para o canto da tela.
+    L.DomEvent.disableClickPropagation(botao);
+    L.DomEvent.on(botao, "click", recentralizar);
+    return botao;
+  },
+});
 
 /* Marcador discreto para quando ainda não há ranking.
  *
@@ -803,6 +921,7 @@ async function carregarParque({ trocaDeParque = false } = {}) {
     // O fuso do parque decide quando "hoje" vira "ontem" para as visitadas. Só a
     // rota de atrações o informa, e por isso a leitura acontece aqui.
     estado.fusoDoParque = dados.timezone || estado.fusoDoParque;
+    estado.limitesDoParque = dados.bounds;
     estado.visitadas = VISITADAS.doParque(estado.parqueId, estado.fusoDoParque);
     // Alvos não dependem do fuso: valem até o visitante mudar de ideia.
     estado.alvos = ALVOS.doParque(estado.parqueId);
@@ -1505,6 +1624,12 @@ const ICONE = {
   check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M20 6 9 17l-5-5" />
+    </svg>`,
+  mira: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+      stroke-linecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="7" />
+      <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
     </svg>`,
   alvo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

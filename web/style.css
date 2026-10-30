@@ -1760,6 +1760,37 @@ a {
   pointer-events: none;
 }
 
+/* Recentralizar: redondo e com sombra, como o "minha localização" dos apps de
+   mapa. 44 px, o alvo confortável para o dedo — maior que os botões de zoom, que
+   são do Leaflet e pouco usados com dois dedos à mão. */
+.recentralizar {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: var(--tinta);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 50%;
+  box-shadow: var(--sombra-forte);
+  cursor: pointer;
+}
+
+.recentralizar svg {
+  width: 22px;
+  height: 22px;
+}
+
+.recentralizar:hover {
+  background: var(--superficie-alt);
+}
+
+.recentralizar:focus-visible {
+  outline: 3px solid var(--controle);
+  outline-offset: 2px;
+}
+
 .selo-marca {
   display: inline-flex;
   align-items: center;
