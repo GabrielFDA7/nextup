@@ -2426,6 +2426,19 @@ class TestMapaLegivel:
     disputando o olhar.
     """
 
+    def test_o_chao_do_mapa_e_o_do_tema(self, navegador, servidor):
+        """Bug de 28/10, achado em 29/10/2026: `#mapa` (seletor de id) vencia a regra
+        do mapa desenhado, e o chão saía branco puro no claro. Areia no claro; no
+        escuro, o mesmo tom que ele sempre mostrou."""
+        pagina = abrir(navegador, servidor)
+        expect(pagina.locator("#mapa.mapa--desenhado")).to_be_attached()
+        fundo = "getComputedStyle(document.querySelector('#mapa')).backgroundColor"
+
+        pagina.emulate_media(color_scheme="light")
+        assert pagina.evaluate(fundo) == "rgb(241, 233, 220)"
+        pagina.emulate_media(color_scheme="dark")
+        assert pagina.evaluate(fundo) == "rgb(23, 32, 56)"
+
     def test_o_gramado_fica_embaixo_das_trilhas(self, navegador, servidor):
         """Bug real: `bringToBack()` num grupo invertia a pilha inteira.
 

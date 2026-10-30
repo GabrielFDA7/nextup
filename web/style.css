@@ -119,18 +119,23 @@
 
   /* O desenho do parque (web/mapas/), pintado aqui em vez de vir pintado num tile:
      é o que deixa o mapa trocar de tema junto com o resto da tela. No claro, a
-     mesma família da tela: chão branco-quente, gramado menta, água azul-algodão,
-     prédios rosa-lavanda com contorno. */
-  --mapa-fundo: #fcfbf9;
+     mesma família da tela: chão areia, gramado menta, água azul-algodão, prédios
+     rosa-lavanda com contorno.
+
+     Chão e praça AREIA (Gabriel, 29/10/2026), e não branco: com os dois brancos o
+     caminho branco não tinha contra o que aparecer, e o mapa inteiro virava um
+     clarão. Areia é quente como a página baunilha, e o caminho passa a ser a coisa
+     mais clara do mapa — o padrão dos mapas claros. */
+  --mapa-fundo: #f1e9dc;
   --mapa-verde: #e3f6ec;
   --mapa-predio: #f6e6f2;
   --mapa-predio-contorno: #e5cce0;
   --mapa-agua: #bce3ff;
   --mapa-trilha: #ffffff;
-  --mapa-praca: #ffffff;
-  /* O contorno dos caminhos. Com o chão quase branco, o caminho branco só existe
-     pela borda — a técnica das ruas de qualquer mapa claro. No escuro o caminho é
-     o que tem mais luz e dispensa borda. */
+  --mapa-praca: #f1e9dc;
+  /* O contorno dos caminhos. Com o chão claro, o caminho branco depende da borda
+     para aparecer — a técnica das ruas de qualquer mapa claro. No escuro o caminho
+     é o que tem mais luz e dispensa borda. */
   --mapa-casco: #d9c3d3;
 
   /* A barra de "Todas as filas", fixa no pé da tela. */
@@ -139,7 +144,7 @@
   --barra-borda: #f0eae1;
   /* O entorno (estacionamento, bastidores) fica sob um véu: o parque vira uma
      ilha colorida, e o olho para nela. */
-  --mapa-veu: #fffdf9;
+  --mapa-veu: #f5efe6;
   --mapa-limite: #e5cce0;
   --mapa-nome-area: #7a4e6e;
 
@@ -195,8 +200,13 @@
     --cartao-botao: #ffc2d9;
     --sobre-cartao-botao: #1d2a4a;
 
-    /* No escuro, o caminho é o que tem mais luz. */
-    --mapa-fundo: #18233d;
+    /* No escuro, o caminho é o que tem mais luz.
+
+       O chão é o que o escuro sempre MOSTROU, e não o tom que este token tinha
+       (#18233d): até 29/10/2026 uma regra de `#mapa` vencia a do mapa desenhado,
+       e o fundo saía `--superficie`. O escuro foi aprovado assim ("ideal") — o
+       conserto da regra não podia mudá-lo. */
+    --mapa-fundo: #172038;
     --mapa-verde: #173832;
     --mapa-predio: #253252;
     --mapa-agua: #1e4b7d;
@@ -1510,9 +1520,12 @@ a {
    --------------------------------------------------------------------------- */
 
 /* O Leaflet pinta cada caminho por atributo; regra CSS vence atributo, e é por
-   aqui que o tema entra. A ordem das camadas vem do próprio GeoJSON. */
-.mapa--desenhado,
-.mapa--desenhado.leaflet-container {
+   aqui que o tema entra. A ordem das camadas vem do próprio GeoJSON.
+
+   `#mapa.` na frente: sem o id, a regra `#mapa { background: var(--superficie) }`
+   vencia por especificidade, e o chão saía branco puro no claro desde 28/10 —
+   achado só ao testar tons para ele (29/10/2026). */
+#mapa.mapa--desenhado {
   background: var(--mapa-fundo);
 }
 
