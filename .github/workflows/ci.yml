@@ -131,8 +131,11 @@ jobs:
           curl --fail --silent --show-error http://localhost:8000/api/health | tee /dev/stderr | grep -q '"status":"ok"'
 
       - name: A interface é servida
+        # Procura um elemento da estrutura, e não um texto: até 30/10/2026 o passo
+        # procurava "NextUp", e trocar o título da aba para "nextup" o derrubou com
+        # o site perfeitamente no ar.
         run: |
-          curl --fail --silent --show-error http://localhost:8000/ | grep -q "NextUp"
+          curl --fail --silent --show-error http://localhost:8000/ | grep -q 'id="proximo-passo"'
 
       - name: Não roda como root
         # Processo como root dentro do contêiner é um risco desnecessário; este
