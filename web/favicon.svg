@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- O logo em miniatura: o "n" de nextup e o ponto âmbar com aro azul-noite,
+       sobre a mesma pílula branca do selo. Desenhado em traço, e não com a fonte:
+       um favicon não carrega fonte da web. -->
+  <rect x="1" y="1" width="62" height="62" rx="18" fill="#ffffff" stroke="#e7dfd3" stroke-width="2" />
+  <path d="M16 49V25M16 34c0-6 4.5-10 10.5-10S37 28 37 34v15" fill="none" stroke="#1e2640"
+        stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="49" cy="41.5" r="6.5" fill="#ffe066" stroke="#1e2640" stroke-width="3.5" />
+</svg>
