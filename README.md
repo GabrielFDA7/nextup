@@ -56,7 +56,10 @@ custo_total = tempo_de_caminhada + tempo_de_fila
 ```
 
 É isso que o consultor humano faz de cabeça sem perceber — e é o que separa o NextUp de
-um site de tempos de espera comum.
+um site de tempos de espera comum. Planejadores como o Lines e o app oficial da Disney
+também pesam caminhada contra fila; o NextUp se diferencia por responder em português,
+na hora e sem cadastro. O levantamento dos concorrentes está em
+[`docs/PROJETO.md`](docs/PROJETO.md), seção 1.
 
 ## Como funciona
 

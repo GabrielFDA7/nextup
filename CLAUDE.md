@@ -14,7 +14,14 @@ gratuita, sem chave).
 
 **A decisão de produto mais importante:** ranquear por `custo_total = caminhada + fila`,
 **nunca** pela menor fila isolada. A menor fila pode ficar a 900 metros — o visitante
-andaria 15 minutos para economizar 10. Esse detalhe é o diferencial do projeto.
+andaria 15 minutos para economizar 10.
+
+> ⚠️ **Isso não é inédito** (levantamento de 29/10/2026): o Lines (TouringPlans) e o
+> Disney Genie já pesam caminhada contra fila, e o app oficial tem rota a pé. O que
+> sustenta o projeto é o público brasileiro, a resposta sem cadastro, o perfil e as
+> decisões medidas — seção 1 de `docs/PROJETO.md`. Monetização: validar antes; B2B com
+> consultores é o caminho preferido, e os termos comerciais da ThemeParks.wiki são o
+> bloqueio a resolver.
 
 Contexto completo, arquitetura, roadmap e registro de decisões em
 [docs/PROJETO.md](docs/PROJETO.md). **Leia antes de trabalhar no projeto.**

@@ -70,6 +70,84 @@ latência de reação e disciplina de monitoramento, e software faz as duas cois
 
 **Este projeto substitui esse serviço manual por um algoritmo.**
 
+### Quem mais resolve isso — levantamento de 29/10/2026
+
+O projeto nasceu olhando para o consultor de WhatsApp, e por sete semanas tratou
+`caminhada + fila` como "o diferencial". Um levantamento feito depois, a partir de uma
+pergunta do Gabriel sobre o app **Lines**, mostrou que a ideia não é inédita. O
+levantamento veio de lojas de apps, blogs e fóruns — **nenhum dos apps foi testado à
+mão ainda**, e boa parte das fontes é marketing do próprio fornecedor.
+
+| Grupo | Exemplos | O que faz | Frente ao NextUp |
+|---|---|---|---|
+| **Oficial** | My Disney Experience + Disney Genie | Roteiro do dia a partir de interesses, atualizado ao longo do dia; pontua por distância a pé e **espalha os visitantes** entre as recomendações; filas previstas; **rota a pé** ("Get Directions", desde 2016) | O mais forte, e gratuito. Tem dado que nunca teremos (reservas, ingressos, posição de todos). Exige conta e ingresso vinculado; críticas de travamento e confusão. ⚠️ *A confirmar:* se o roteiro do Genie sobreviveu à troca do Genie+ pelo Lightning Lane, em 2024 |
+| **Planejadores** | Lines (TouringPlans) | Roteiros com botão "Optimize" que replaneja durante o dia, controle de "caminhar × esperar", previsão própria | Já pesa caminhada contra fila há mais de dez anos. Em inglês, parte por assinatura |
+| **Só filas** | Wait Times for Disney World, Wait Times for Disney Parks, MouseWait, LineTime, Undercover Tourist | Lista de esperas, às vezes com tempos enviados pelos usuários | Categoria lotada. É onde o NextUp estaria se parasse no ranking — a crítica que originou a Fase 9 |
+| **No Brasil** | consultores e agências por WhatsApp | O serviço manual da seção anterior | **Nenhum app em português** com essa proposta foi encontrado |
+
+**O que muda na forma de apresentar o projeto.** `custo_total = caminhada + fila`
+continua sendo a decisão de produto mais importante — sem ela o NextUp seria mais uma
+lista de filas —, mas não é o que o separa de tudo o que existe. Também não é verdade
+que "ninguém mais tem mapa e rota": o app oficial tem. O que sustenta o projeto diante
+dos concorrentes é:
+
+1. **Para o visitante brasileiro, em português** — o espaço sem concorrente direto.
+2. **Resposta imediata, sem conta nem ingresso vinculado.** "Para onde vou agora?" ao
+   abrir, em vez de um plano a montar.
+3. **O mapa como parte da resposta**, com rota pelas trilhas reais — diferença de
+   execução, não de existência.
+4. **O perfil do visitante** (altura e intensidade) com curadoria conferida na fonte
+   oficial.
+5. **Decisões medidas e publicadas**, inclusive as negativas. Nenhum dos concorrentes
+   diz quanto erra.
+
+A praticidade e a beleza da tela parecem vantagens reais, mas por enquanto foram
+avaliadas só por quem construiu o app. Viram argumento quando visitantes de fora
+disserem o mesmo.
+
+**Limitação conhecida, aprendida com o Genie:** se muita gente seguisse a mesma
+recomendação ao mesmo tempo, o NextUp criaria a fila que mandou evitar. O Genie espalha
+os visitantes porque vê todos eles; o NextUp, sem conta e sem servidor de estado, não
+vê. Irrelevante com poucos usuários, real com muitos.
+
+### Se um dia for cobrar — estudo de 29/10/2026 (não é decisão)
+
+**Recomendação: validar antes de monetizar.** Cobrar exige usuários, e para o objetivo
+de carreira "150 usuários reais e três consultores interessados" vale mais que um botão
+de pagamento.
+
+| Caminho | Como seria | Avaliação |
+|---|---|---|
+| **B2B — consultores e agências** | Mensalidade para o consultor oferecer o app aos clientes dele, com a marca dele | **O preferido.** É o público que já cobra por esse serviço; poucos clientes, valor maior, venda por conversa. O app segue gratuito e sem conta para o visitante. Valida-se com cinco conversas, antes de qualquer código |
+| Passe por viagem (B2C) | Pagamento único por viagem (~R$ 20–40), via Pix; ranking grátis, roteiro e perfil completo pagos | Assinatura mensal não combina com 4–10 dias de uso por ano. O atrito é cobrar de quem está no parque, com pressa |
+| Afiliados | Comissão sobre ingresso, seguro, chip, aluguel de carro | Essas compras acontecem **antes** da viagem; o app é usado **durante**. Só complementar |
+| Anúncios | — | Descartado: volume pequeno, retorno quase nulo, e estraga uma tela que é ponto forte |
+
+**Antes de cobrar qualquer coisa:**
+
+1. **Termos de uso comercial da ThemeParks.wiki** — o risco mais sério, porque o projeto
+   inteiro depende dela. O código do backend é MIT, mas isso não cobre o uso comercial
+   da API hospedada, e os termos não foram encontrados. Confirmar no site, no GitHub ou
+   com o mantenedor.
+2. **Marca Disney.** Apps comerciais independentes existem (o Lines é um); a regra de
+   não imitar nada da marca passa a ser também jurídica.
+3. **Infraestrutura sem hibernação e formalização** (CNPJ — MEI deve bastar no começo —,
+   termos de uso, LGPD).
+
+**Custo de sair do plano gratuito** (pesquisado em 29/10/2026, quase tudo em fontes
+secundárias — conferir nas páginas oficiais antes de contratar):
+
+| Item | Opção | Custo aproximado |
+|---|---|---|
+| Hospedagem sem hibernação | Render Starter (512 MB, nada muda no deploy) | US$ 7/mês |
+| | Fly.io (máquina compartilhada, 256 MB, cobrança por segundo) | ~US$ 2–3/mês |
+| | VPS gerenciado por nós (Hetzner, DigitalOcean) | ~US$ 4–5/mês |
+| Banco | Neon, plano gratuito — já usado, não muda | US$ 0 |
+| Domínio | `.com.br` no Registro.br | R$ 40/ano |
+
+Domínio próprio **não exige sair do Render**: o plano gratuito já aceita domínio
+personalizado. São duas decisões independentes.
+
 ---
 
 ## 2. Objetivos
@@ -128,6 +206,10 @@ Validado tecnicamente em 11/09/2026, com chamadas reais à API. Não é estimati
 A última linha é a mais importante. **Sem coordenadas não existiria o "mais próximo de
 você"** — o projeto viraria só mais uma lista de filas, que é o que já existe por aí.
 Com elas, o diferencial do projeto está de pé.
+
+> **Revisto em 29/10/2026:** "o que já existe por aí" era mais do que listas de filas.
+> Planejadores e o app oficial da Disney já pesam caminhada contra fila — ver
+> "Quem mais resolve isso", na seção 1.
 
 ### IDs de referência (Walt Disney World)
 
@@ -1929,7 +2011,9 @@ passavam na WCAG e foram escurecidos o mínimo; a tabela da seção 10 tem os n�
 - Dados públicos, consumidos por API pública, sem burlar autenticação ou bloqueio.
 - Projeto sem vínculo com a The Walt Disney Company. Aviso explícito no README.
 - Crédito à ThemeParks.wiki como fonte, no README e na interface.
-- Se o projeto for monetizado no futuro, revisar os termos de uso da fonte antes.
+- Se o projeto for monetizado no futuro, revisar os termos de uso da fonte antes. Em
+  29/10/2026 os termos de uso comercial da API **não foram encontrados** — ver "Se um
+  dia for cobrar", na seção 1.
 - **A curadoria (Fase 9) não raspa o site da Disney.** Em 27/10/2026, com autorização do
   Gabriel, houve **uma** tentativa de ler o endpoint JSON interno que a listagem oficial
   usa. O site não respondeu a cliente automatizado — proteção contra robôs, colocada de
