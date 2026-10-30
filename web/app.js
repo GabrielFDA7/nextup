@@ -1053,7 +1053,7 @@ function mostrarPanoramaDoParque(dados) {
   // com fila zero: verdadeiros e inúteis.
   el.resumo.innerHTML = `
     ${dados.available} de ${dados.total_attractions} atrações com fila medida.
-    <strong>Ordenado pela menor fila</strong> — que raramente é a melhor escolha.
+    <strong>Ordenado pela menor fila</strong>, que raramente é a melhor escolha.
     Diga onde você está para somar a caminhada.
   `;
   el.resumo.hidden = false;
@@ -1095,7 +1095,7 @@ function criarItemSimples(item) {
       <div class="corpo">
         <p class="nome">${escapar(item.name)}</p>
         <p class="conta">
-          <span class="parcela">${ICONE.fila} só a fila — falta a caminhada</span>
+          <span class="parcela">${ICONE.fila} só a fila, sem a caminhada</span>
         </p>
         ${criarRestricao(item)}
       </div>
@@ -1671,7 +1671,7 @@ function criarRestricao(atracao) {
   if (estado.perfil.alturaCm !== null && PERFIL.semCuradoria(atracao)) {
     return `
       <p class="restricao restricao--desconhecida">
-        ${ICONE.altura} Altura mínima não conferida — confira na entrada
+        ${ICONE.altura} Altura mínima não conferida. Confira na entrada
       </p>
     `;
   }
@@ -2179,7 +2179,7 @@ function desenharGrafico(dados) {
   if (pontos.length < 2) {
     return `<p class="grafico-vazio">
       Ainda não há histórico suficiente para esta atração. O NextUp coleta a cada
-      5 minutos — volte mais tarde.
+      5 minutos. Volte mais tarde.
     </p>`;
   }
 
