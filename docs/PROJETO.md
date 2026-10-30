@@ -16,9 +16,9 @@
 > caminhada (7.3) e popularidade (7.4). A última fecha o ciclo da Fase 6 — é a primeira
 > feature construída **sobre o histórico que nós mesmos coletamos**, e não sobre a API.
 >
-> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **876
-> testes**: 722 na suíte rápida (272 do roteiro, a maioria instâncias aleatórias
-> conferidas contra força bruta) e 154 de interface em navegador.
+> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **901
+> testes**: 726 na suíte rápida (272 do roteiro, a maioria instâncias aleatórias
+> conferidas contra força bruta) e 175 de interface em navegador.
 >
 > **Fase 9 — Perfil do visitante: iniciada (27/10/2026).** Nasceu de uma crítica do
 > Gabriel: ver a fila não resolve nada que a fonte já não resolva. O app passa a saber
@@ -1993,6 +1993,57 @@ rosa-lavanda. Implementada por tokens: tudo que pressupunha cartão escuro virou
 com o valor antigo no escuro — que continua igual. Quatro tons da especificação não
 passavam na WCAG e foram escurecidos o mínimo; a tabela da seção 10 tem os números.
 
+#### 9.3 — Quarta rodada: catálogo, cartão e mapa preso ✅ *29/10/2026*
+
+Seis pontos levantados pelo Gabriel usando o app. Três eram decisão de produto e foram
+perguntados antes de construir; nos três ele escolheu a opção recomendada.
+
+1. **O catálogo de alvos virou parte do site.** Era uma planilha — caixinhas do
+   navegador, uma borda entre cada linha. Agora são linhas soltas, círculo de marcação na
+   cor de ação e fila em pílula. **Ordenado por popularidade**, em grupos com título ("As
+   principais do parque", "Também procuradas"…), e não alfabético nem por fila: quem monta
+   a lista de desejos procura as principais, e a faixa é estável; a fila de agora mudaria
+   a cada minuto e repetiria o ranking — alvo é desejo, não oportunidade. Para isso a rota
+   `/attractions` passou a devolver a popularidade, com a mesma regra da recomendação
+   (sem banco, sai nula e nada quebra). Sem popularidade, volta a ordem alfabética, sem
+   títulos.
+2. **O painel de filas estava desalinhado no celular** — bug real. A coluna implícita da
+   grade não encolhe abaixo da palavra mais longa que não quebra ("PeopleMover"), e o item
+   passava 20 px da borda do painel, que cortava. O teste de rolagem horizontal não pegou
+   porque o corte era dentro do painel, não na página; o teste novo mede o item contra o
+   painel.
+3. **O cartão ganhou a chave "Melhor do parque | Das minhas"**, visível só com alvos
+   marcados. A decisão de 20/09 (alvo não ganha bônus no ranking) continua de pé: a chave
+   troca o **conjunto**, às claras, e o número segue sendo o tempo de verdade. O padrão é
+   o parque, e o app lembra a escolha. Pedir "Das minhas" sem nenhuma disponível volta ao
+   parque **e diz isso** — trocar de critério calado faria o visitante ler a sugestão como
+   uma das dele.
+4. **"Todas as filas" virou "Outras opções"**, e o cartão cita a 2ª e a 3ª colocadas do
+   mesmo critério. O painel é o plano B de quem não gostou da sugestão; "lista de filas"
+   é o que os concorrentes já entregam (seção 1).
+5. **O mapa ficou preso ao parque.** Limite no parque desenhado com 12% de folga, parede
+   e não elástico, e zoom mínimo igual ao que mostra o parque inteiro — refeito ao girar
+   a tela. Só onde há desenho: nos parques com tiles o mapa continua livre.
+6. **Botão de recentralizar**, redondo no canto inferior do mapa, como o "minha
+   localização" dos apps de mapa: o primeiro toque volta ao visitante e às primeiras; se o
+   mapa já está ali, mostra o parque inteiro. O toque não vaza para o mapa (que o leria
+   como "estou aqui").
+
+**O branco do mapa — e um bug escondido nele.** O Gabriel pediu opções antes de qualquer
+mudança. Ao prepará-las apareceu a causa: `#mapa { background: var(--superficie) }` é
+seletor de ID e vence `.mapa--desenhado`, então o chão do mapa **nunca** usou
+`--mapa-fundo`; no claro ele era branco puro, e as praças também. No escuro a diferença
+era imperceptível (`#172038` contra `#18233d`), e por isso passou. Três tons foram
+fotografados (areia, lavanda, névoa) e ele escolheu **areia** (`#f1e9dc`), para o chão e
+as praças: quente como a página, e o caminho branco vira a coisa mais clara do mapa. A
+regra foi corrigida, e o escuro ficou **exatamente** como estava — o token passou a ter o
+valor que ele sempre mostrou.
+
+**Um bug introduzido e pego no caminho.** Guardar a referência das trilhas para o limite
+do mapa fez criá-las antes da casca, e o grupo do Leaflet pinta pela ordem de criação, não
+pela da lista: a casca escura foi parar por cima dos caminhos. O teste da pilha de pintura,
+escrito em 28/10 para outro bug da mesma família, pegou.
+
 ---
 
 ## 8. Riscos e Limitações
@@ -2418,7 +2469,14 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 28/10/2026 | Casca nas trilhas, só no tema claro | Branco sobre claro some sem borda; no escuro o caminho já é o que tem mais luz, e o Gabriel o achou ideal como estava |
 | 28/10/2026 | "Todas as filas" como barra fixa no pé da tela do celular, com cor própria | Sobre o mapa e pequeno, se perdia no desenho. No pé, fica à vista em qualquer ponto da rolagem e sob o polegar. Com a cor de ação, sumia sobre o cartão índigo |
 | 28/10/2026 | Computador: mapa fixo à direita, coluna de 460 px com a lista aberta | O layout de celular esticado deixava dois terços da tela vazios. O painel poupava altura, que no computador sobra. Mesmo `<dialog>`, sem o modo modal: um só HTML |
+| 29/10/2026 | `caminhada + fila` deixa de ser apresentado como "o diferencial"; o projeto se apresenta pelo público brasileiro, pela resposta sem cadastro, pelo perfil e pelas decisões medidas | Levantamento de concorrentes: o Lines (TouringPlans) e o Disney Genie já pesam caminhada contra fila, e o app oficial tem rota a pé. Nenhum app em português com a proposta foi encontrado |
+| 29/10/2026 | Catálogo de alvos ordenado por popularidade, em grupos com título; `/attractions` devolve a popularidade | Quem monta a lista de desejos procura as principais, e a faixa é estável. Por fila repetiria o ranking (alvo é desejo, não oportunidade); alfabética a busca já cobre. Decisão do Gabriel |
+| 29/10/2026 | Cartão com a chave "Melhor do parque \| Das minhas", padrão parque, lembrada no navegador | Troca o conjunto às claras, sem bônus de custo — preserva a decisão de 20/09. Sem marcada disponível, volta ao parque e avisa. Decisão do Gabriel |
+| 29/10/2026 | "Todas as filas" vira "Outras opções", e o cartão cita a 2ª e a 3ª | O painel é o plano B; "lista de filas" é o que os concorrentes entregam. Decisão do Gabriel |
+| 29/10/2026 | Mapa preso ao parque desenhado (12% de folga, sem elástico) e zoom mínimo do parque inteiro; botão de recentralizar alterna entre a resposta e o parque | Na versão só do Magic Kingdom, arrastar para fora não mostra nada e quem se perde não volta. Pedido do Gabriel |
+| 29/10/2026 | Chão e praças do mapa em areia (`#f1e9dc`) no claro; escuro inalterado | O chão era branco puro por um bug de especificidade, e o caminho branco não tinha contra o que aparecer. Escolha do Gabriel entre três tons fotografados; nomes de área a 5,55:1 sobre a areia |
+| 29/10/2026 | Monetização: validar antes de cobrar; se cobrar, B2B com consultores e agências é o caminho preferido | É o público que já paga por esse serviço, e o app segue gratuito e sem conta para o visitante. Bloqueio a resolver antes: termos de uso comercial da ThemeParks.wiki, não encontrados |
 
 ---
 
-*Mantido por Gabriel de Angelis, com Claude Code. Última atualização: 28/10/2026.*
+*Mantido por Gabriel de Angelis, com Claude Code. Última atualização: 29/10/2026.*
