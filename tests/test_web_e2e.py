@@ -2249,6 +2249,35 @@ class TestPainelDeFilas:
 
         expect(pagina.locator("#passo-destaque .passo__nome")).to_contain_text("PeopleMover")
 
+    def test_os_itens_ficam_centralizados_no_celular(self, navegador, servidor):
+        """O bug de 29/10/2026: o item passava 20 px da borda direita do painel, que
+        cortava, e a lista parecia empurrada para a direita.
+
+        A página não rolava para o lado — o corte era dentro do painel —, e por isso
+        `test_nao_ha_rolagem_horizontal_no_celular` não o pegou. Aqui se mede o
+        próprio item contra o painel.
+        """
+        pagina = abrir(navegador, servidor)
+        _localizar(pagina)
+
+        margens = pagina.evaluate(
+            """() => {
+              const painel = document.querySelector('#painel-filas');
+              const estilo = getComputedStyle(painel);
+              const dentro = painel.getBoundingClientRect();
+              const esquerda = dentro.left + parseFloat(estilo.paddingLeft);
+              const direita = dentro.right - parseFloat(estilo.paddingRight);
+              return [...painel.querySelectorAll('#lista .item')].map((item) => {
+                const r = item.getBoundingClientRect();
+                return [r.left - esquerda, direita - r.right];
+              });
+            }"""
+        )
+
+        assert margens
+        for esquerda, direita in margens:
+            assert abs(esquerda) < 1 and abs(direita) < 1, f"item fora do painel: {margens}"
+
 
 class TestSoMagicKingdom:
     """A primeira versão é só o Magic Kingdom (decisão do Gabriel, 28/10/2026).
