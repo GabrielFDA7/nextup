@@ -16,9 +16,9 @@
 > caminhada (7.3) e popularidade (7.4). A última fecha o ciclo da Fase 6 — é a primeira
 > feature construída **sobre o histórico que nós mesmos coletamos**, e não sobre a API.
 >
-> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **901
+> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **906
 > testes**: 726 na suíte rápida (272 do roteiro, a maioria instâncias aleatórias
-> conferidas contra força bruta) e 175 de interface em navegador.
+> conferidas contra força bruta) e 180 de interface em navegador.
 >
 > **Fase 9 — Perfil do visitante: iniciada (27/10/2026).** Nasceu de uma crítica do
 > Gabriel: ver a fila não resolve nada que a fonte já não resolva. O app passa a saber
@@ -2041,6 +2041,41 @@ valor que ele sempre mostrou. No dia seguinte (30/10), já no celular, o Gabriel
 foi para **marfim** (`#f7f2e8`): o off-white testado junto (`#f9f6f0`) deixava a trilha a
 1,08:1 do chão, perto de sumir de novo.
 
+#### Varredura de 30/10/2026
+
+Pedida pelo Gabriel, olhando o que o visitante vê e o que pode estar errado sem que
+nenhum teste reclame. Corrigido, com um teste por achado:
+
+1. **Minutos cortados na linha "Ou então"** do cartão, no celular ("10 m"): a mesma grade
+   sem `minmax(0, 1fr)` corrigida no painel no dia anterior, repetida no componente
+   escrito logo depois.
+2. **A barra dizia "· 26" sobre um painel de oito.** O número passou a ser contado na lista
+   desenhada — o comentário do código já prometia isso ("quanto há lá dentro").
+3. **Duas horas em dois fusos na mesma tela.** "Dado da fonte às" saía no fuso do celular,
+   e "entra às" no do parque: num aparelho brasileiro, uma hora de diferença sem
+   explicação. As duas agora usam o fuso do parque.
+4. **Sem favicon**: o navegador pedia `/favicon.ico` e recebia 404 a cada visita. Agora o
+   ícone é o logo em miniatura (o "n" e o ponto âmbar), em SVG, com PNG para o Safari e o
+   ícone de atalho do iPhone. O título da aba virou "nextup · sua próxima atração".
+5. **Travessão no meio das frases**, a pedido do Gabriel: trocado por vírgula, ponto ou
+   reescrita em todo texto da tela. O "—" sozinho, que diz "sem fila medida", fica. Um
+   teste lê o texto inteiro da página e recusa travessão em frase.
+6. O aviso do `pytest-asyncio` que aparecia em toda execução: a configuração ficou
+   explícita, igual ao padrão de hoje.
+
+**Achado e não corrigido — esperando decisão:**
+
+- **As filas não se atualizam sozinhas.** Ao abrir e ao localizar, o app busca as filas
+  uma vez; depois só o botão "Atualizar", que no celular mora dentro do painel. A
+  posição também é lida uma vez (`getCurrentPosition`), então o ranking não acompanha
+  quem anda pelo parque. A fonte atualiza a cada ~5 min e o nosso cache é de 60 s.
+- Cabeçalho `Cache-Control` nos arquivos estáticos: sem ele, quem já abriu o app pode ver
+  a versão anterior por um tempo depois de cada publicação.
+- Validação do `park_id` na API (achado da revisão de segurança de 29/10).
+- A fonte lista atrações de festa ("Allergy Request Trick-or-Treating Experience…") como
+  atração comum: 37 no catálogo ao vivo contra 35 da fixture. Caem no fim do catálogo,
+  em "Sem histórico suficiente".
+
 **Um bug introduzido e pego no caminho.** Guardar a referência das trilhas para o limite
 do mapa fez criá-las antes da casca, e o grupo do Leaflet pinta pela ordem de criação, não
 pela da lista: a casca escura foi parar por cima dos caminhos. O teste da pilha de pintura,
@@ -2478,6 +2513,9 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 29/10/2026 | Mapa preso ao parque desenhado (12% de folga, sem elástico) e zoom mínimo do parque inteiro; botão de recentralizar alterna entre a resposta e o parque | Na versão só do Magic Kingdom, arrastar para fora não mostra nada e quem se perde não volta. Pedido do Gabriel |
 | 29/10/2026 | Chão e praças do mapa em areia (`#f1e9dc`) no claro; escuro inalterado | O chão era branco puro por um bug de especificidade, e o caminho branco não tinha contra o que aparecer. Escolha do Gabriel entre três tons fotografados; nomes de área a 5,55:1 sobre a areia |
 | 30/10/2026 | Chão do mapa suaviza de areia para marfim (`#f7f2e8`) | Pedido do Gabriel. Entre marfim e off-white, o marfim: o off-white deixava a trilha branca a 1,08:1 do chão; marfim a 1,12:1, e nomes de área a 5,99:1 |
+| 30/10/2026 | Favicon é o logo em miniatura (SVG + PNG + ícone do iPhone); título da aba "nextup · sua próxima atração" | Não havia ícone (404 a cada visita). O logo em letra minúscula, como o selo |
+| 30/10/2026 | Sem travessão no meio de frase em todo texto da tela; o "—" de "sem fila" fica | Pedido do Gabriel. Vigiado por teste que lê o texto inteiro da página |
+| 30/10/2026 | O número da barra conta o que está no painel; horas da tela sempre no fuso do parque | A barra dizia 26 sobre oito itens; "Dado da fonte" saía uma hora à frente de "entra às" num celular brasileiro |
 | 29/10/2026 | Monetização: validar antes de cobrar; se cobrar, B2B com consultores e agências é o caminho preferido | É o público que já paga por esse serviço, e o app segue gratuito e sem conta para o visitante. Bloqueio a resolver antes: termos de uso comercial da ThemeParks.wiki, não encontrados |
 
 ---
