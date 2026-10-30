@@ -67,7 +67,7 @@ documentação de decisões **fazem parte da entrega** — não são extras opci
 >   popularidade** (`/attractions` devolve a faixa), painel de filas centralizado (bug),
 >   chave **"Melhor do parque | Das minhas"** no cartão (padrão parque), barra
 >   **"Outras opções"** com a 2ª e a 3ª no cartão, **mapa preso ao parque** e botão de
->   **recentralizar**. O chão do mapa no claro virou **areia** (`#f1e9dc`), escolha do
+>   **recentralizar**. O chão do mapa no claro virou **marfim** (`#f7f2e8`; foi areia por um dia), escolha do
 >   Gabriel — e corrigiu um bug: `#mapa` vencia `.mapa--desenhado` por especificidade, e o
 >   chão nunca tinha usado `--mapa-fundo`. O escuro ficou idêntico. Publicado em 29/10;
 >   esperando o veredito dele no celular.

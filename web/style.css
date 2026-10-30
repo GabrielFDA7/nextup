@@ -119,20 +119,21 @@
 
   /* O desenho do parque (web/mapas/), pintado aqui em vez de vir pintado num tile:
      é o que deixa o mapa trocar de tema junto com o resto da tela. No claro, a
-     mesma família da tela: chão areia, gramado menta, água azul-algodão, prédios
+     mesma família da tela: chão marfim, gramado menta, água azul-algodão, prédios
      rosa-lavanda com contorno.
 
-     Chão e praça AREIA (Gabriel, 29/10/2026), e não branco: com os dois brancos o
-     caminho branco não tinha contra o que aparecer, e o mapa inteiro virava um
-     clarão. Areia é quente como a página baunilha, e o caminho passa a ser a coisa
-     mais clara do mapa — o padrão dos mapas claros. */
-  --mapa-fundo: #f1e9dc;
+     Chão e praça MARFIM, e não branco: com os dois brancos o caminho branco não
+     tinha contra o que aparecer, e o mapa inteiro virava um clarão. Foi areia
+     (#f1e9dc) em 29/10/2026 e suavizou para marfim no dia seguinte (Gabriel). Mais
+     claro que isto o caminho some: o off-white #f9f6f0 deixava a trilha a 1,08:1
+     do chão, contra 1,12:1 aqui. */
+  --mapa-fundo: #f7f2e8;
   --mapa-verde: #e3f6ec;
   --mapa-predio: #f6e6f2;
   --mapa-predio-contorno: #e5cce0;
   --mapa-agua: #bce3ff;
   --mapa-trilha: #ffffff;
-  --mapa-praca: #f1e9dc;
+  --mapa-praca: #f7f2e8;
   /* O contorno dos caminhos. Com o chão claro, o caminho branco depende da borda
      para aparecer — a técnica das ruas de qualquer mapa claro. No escuro o caminho
      é o que tem mais luz e dispensa borda. */
@@ -144,7 +145,7 @@
   --barra-borda: #f0eae1;
   /* O entorno (estacionamento, bastidores) fica sob um véu: o parque vira uma
      ilha colorida, e o olho para nela. */
-  --mapa-veu: #f5efe6;
+  --mapa-veu: #faf7f1;
   --mapa-limite: #e5cce0;
   --mapa-nome-area: #7a4e6e;
 

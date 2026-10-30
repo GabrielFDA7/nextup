@@ -2037,7 +2037,9 @@ era imperceptível (`#172038` contra `#18233d`), e por isso passou. Três tons f
 fotografados (areia, lavanda, névoa) e ele escolheu **areia** (`#f1e9dc`), para o chão e
 as praças: quente como a página, e o caminho branco vira a coisa mais clara do mapa. A
 regra foi corrigida, e o escuro ficou **exatamente** como estava — o token passou a ter o
-valor que ele sempre mostrou.
+valor que ele sempre mostrou. No dia seguinte (30/10), já no celular, o Gabriel pediu um tom mais suave, e o chão
+foi para **marfim** (`#f7f2e8`): o off-white testado junto (`#f9f6f0`) deixava a trilha a
+1,08:1 do chão, perto de sumir de novo.
 
 **Um bug introduzido e pego no caminho.** Guardar a referência das trilhas para o limite
 do mapa fez criá-las antes da casca, e o grupo do Leaflet pinta pela ordem de criação, não
@@ -2475,6 +2477,7 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 29/10/2026 | "Todas as filas" vira "Outras opções", e o cartão cita a 2ª e a 3ª | O painel é o plano B; "lista de filas" é o que os concorrentes entregam. Decisão do Gabriel |
 | 29/10/2026 | Mapa preso ao parque desenhado (12% de folga, sem elástico) e zoom mínimo do parque inteiro; botão de recentralizar alterna entre a resposta e o parque | Na versão só do Magic Kingdom, arrastar para fora não mostra nada e quem se perde não volta. Pedido do Gabriel |
 | 29/10/2026 | Chão e praças do mapa em areia (`#f1e9dc`) no claro; escuro inalterado | O chão era branco puro por um bug de especificidade, e o caminho branco não tinha contra o que aparecer. Escolha do Gabriel entre três tons fotografados; nomes de área a 5,55:1 sobre a areia |
+| 30/10/2026 | Chão do mapa suaviza de areia para marfim (`#f7f2e8`) | Pedido do Gabriel. Entre marfim e off-white, o marfim: o off-white deixava a trilha branca a 1,08:1 do chão; marfim a 1,12:1, e nomes de área a 5,99:1 |
 | 29/10/2026 | Monetização: validar antes de cobrar; se cobrar, B2B com consultores e agências é o caminho preferido | É o público que já paga por esse serviço, e o app segue gratuito e sem conta para o visitante. Bloqueio a resolver antes: termos de uso comercial da ThemeParks.wiki, não encontrados |
 
 ---

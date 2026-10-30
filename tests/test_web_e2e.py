@@ -2428,14 +2428,14 @@ class TestMapaLegivel:
 
     def test_o_chao_do_mapa_e_o_do_tema(self, navegador, servidor):
         """Bug de 28/10, achado em 29/10/2026: `#mapa` (seletor de id) vencia a regra
-        do mapa desenhado, e o chão saía branco puro no claro. Areia no claro; no
+        do mapa desenhado, e o chão saía branco puro no claro. Marfim no claro; no
         escuro, o mesmo tom que ele sempre mostrou."""
         pagina = abrir(navegador, servidor)
         expect(pagina.locator("#mapa.mapa--desenhado")).to_be_attached()
         fundo = "getComputedStyle(document.querySelector('#mapa')).backgroundColor"
 
         pagina.emulate_media(color_scheme="light")
-        assert pagina.evaluate(fundo) == "rgb(241, 233, 220)"
+        assert pagina.evaluate(fundo) == "rgb(247, 242, 232)"
         pagina.emulate_media(color_scheme="dark")
         assert pagina.evaluate(fundo) == "rgb(23, 32, 56)"
 
