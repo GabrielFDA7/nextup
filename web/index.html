@@ -82,6 +82,13 @@
           </button>
         </div>
 
+        <!-- O app se renova sozinho (30/10/2026), e precisa dizer isso: sem o
+             indicador, fila de dez minutos atrás e fila de agora são iguais na tela.
+             No topo do cartão: no pé, ficava atrás da barra fixa de "Outras opções".
+             `aria-live="off"`: o cartão é uma região viva, e o "há 2 min" mudando a
+             cada meio minuto seria lido em voz alta sem parar. -->
+        <p id="frescor" class="frescor" aria-live="off" hidden></p>
+
         <div id="passo-sem-posicao" class="passo__sem-posicao">
           <p class="passo__pergunta">Onde você está?</p>
           <p class="passo__explica">

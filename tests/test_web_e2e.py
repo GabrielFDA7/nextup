@@ -114,6 +114,7 @@ def abrir(
     seletor: bool = False,
     tela: dict = CELULAR,
     fuso: str | None = None,
+    relogio: str | None = None,
 ) -> Page:
     """Abre a página com a API interceptada dentro do navegador.
 
@@ -143,6 +144,10 @@ def abrir(
     if seletor:
         contexto.add_init_script("window.NEXTUP_SELETOR_DE_PARQUES = true;")
     pagina = contexto.new_page()
+    if relogio:
+        # Relógio falso, que anda sozinho e pode saltar: é o que deixa testar a
+        # renovação de dois minutos sem esperar dois minutos.
+        pagina.clock.install(time=relogio)
 
     pagina.route(
         "**/api/destinations",
@@ -1524,7 +1529,7 @@ class TestGpsNegado:
         pagina.mouse.click(caixa["x"] + caixa["width"] / 2, caixa["y"] + caixa["height"] / 2)
         _ver_filas(pagina, "ranking")
 
-        expect(pagina.locator("#posicao-atual")).to_contain_text("definido no mapa")
+        expect(pagina.locator("#posicao-atual")).to_contain_text("marcada no mapa")
         expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(8)
 
 
@@ -2232,7 +2237,7 @@ class TestCartaoDoProximoPasso:
         _com_cartao(pagina)
 
         posicao = pagina.locator("#posicao-atual")
-        expect(posicao).to_have_text("📍 Ponto de partida definido pelo GPS")
+        expect(posicao).to_have_text("📍 Seguindo você pelo GPS")
         expect(posicao).to_have_attribute("title", "28.42037, -81.58031")
 
     def test_ja_fui_no_cartao_passa_para_a_proxima(self, navegador, servidor):
@@ -2926,3 +2931,195 @@ class TestVarreduraDe30Out:
             if "—" in linha and linha.strip() != "—"
         ]
         assert not frases, f"travessão em texto: {frases}"
+
+
+#: Dois minutos depois da medição mais recente da fixture (2026-09-12T15:58:18Z): o
+#: relógio falso começa aqui para o "há X min" ter uma idade conhecida.
+LOGO_DEPOIS_DA_FIXTURE = "2026-09-12T16:00:18Z"
+
+
+def _pedidos_de_ranking(pagina) -> list[str]:
+    """Anota cada pedido de ranking que a página faz, para contar e ler a posição."""
+    pedidos: list[str] = []
+    pagina.on("request", lambda r: "recommendations" in r.url and pedidos.append(r.url))
+    return pedidos
+
+
+def _lat_de(url: str) -> float:
+    from urllib.parse import parse_qs, urlparse
+
+    return float(parse_qs(urlparse(url).query)["lat"][0])
+
+
+class TestGpsAcompanha:
+    """A posição acompanha quem anda (30/10/2026). Antes era lida uma vez só, e o
+    ranking ficava preso a onde o visitante estava ao abrir o app."""
+
+    def test_andar_refaz_o_ranking(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+        pedidos = _pedidos_de_ranking(pagina)
+
+        # ~55 m para o norte: mais que o passo mínimo de 25 m.
+        nova = {"latitude": POSICAO["latitude"] + 0.0005, "longitude": POSICAO["longitude"]}
+        pagina.context.set_geolocation(nova)
+
+        pagina.wait_for_function("estado.posicaoDoRanking.lat > 28.4205")
+        assert any(abs(_lat_de(u) - nova["latitude"]) < 1e-6 for u in pedidos)
+
+    def test_oscilar_parado_nao_refaz_o_ranking(self, navegador, servidor):
+        """O GPS entre prédios oscila com a pessoa parada; refazer a cada oscilação
+        seria gastar 4G à toa. O ponto se move; o ranking, não."""
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+        pedidos = _pedidos_de_ranking(pagina)
+
+        # ~5 m.
+        pagina.context.set_geolocation(
+            {"latitude": POSICAO["latitude"] + 0.00005, "longitude": POSICAO["longitude"]}
+        )
+        pagina.wait_for_function("marcadorVisitante.getLatLng().lat > 28.42040")
+        pagina.wait_for_timeout(500)
+
+        assert pedidos == []
+
+    def test_andar_nao_puxa_o_mapa(self, navegador, servidor):
+        """O ponto anda; a vista fica com quem está olhando outra parte do parque."""
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+        _mapa_parado(pagina)
+        pagina.evaluate("mapa.setView([28.4200, -81.5800], 18, { animate: false })")
+        antes = pagina.evaluate("[mapa.getCenter().lat, mapa.getCenter().lng, mapa.getZoom()]")
+
+        pagina.context.set_geolocation(
+            {"latitude": POSICAO["latitude"] + 0.0005, "longitude": POSICAO["longitude"]}
+        )
+        pagina.wait_for_function("estado.posicaoDoRanking.lat > 28.4205")
+        pagina.wait_for_timeout(300)
+
+        depois = pagina.evaluate("[mapa.getCenter().lat, mapa.getCenter().lng, mapa.getZoom()]")
+        assert depois == antes
+
+    def test_marcar_no_mapa_para_de_seguir_e_da_para_voltar(self, navegador, servidor):
+        """Tocar no mapa é corrigir o GPS: ele não pode desfazer a correção no segundo
+        seguinte. E quem corrigiu precisa de um caminho de volta."""
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+        caixa = pagina.locator("#mapa").bounding_box()
+        pagina.mouse.click(caixa["x"] + caixa["width"] / 2, caixa["y"] + caixa["height"] * 0.7)
+        expect(pagina.locator("#posicao-atual")).to_contain_text("marcada no mapa")
+        marcada = pagina.evaluate("estado.posicao.lat")
+
+        pagina.context.set_geolocation(
+            {"latitude": POSICAO["latitude"] + 0.001, "longitude": POSICAO["longitude"]}
+        )
+        pagina.wait_for_timeout(500)
+        assert pagina.evaluate("estado.posicao.lat") == marcada
+
+        pagina.get_by_role("button", name="Usar o GPS").click()
+        expect(pagina.locator("#posicao-atual")).to_contain_text("Seguindo você pelo GPS")
+
+
+class TestRenovacaoAutomatica:
+    """As filas se renovam sozinhas a cada dois minutos (30/10/2026)."""
+
+    def test_as_filas_se_renovam_sozinhas(self, navegador, servidor):
+        pagina = abrir(navegador, servidor, relogio=LOGO_DEPOIS_DA_FIXTURE)
+        _com_cartao(pagina)
+
+        with pagina.expect_request("**/recommendations*"):
+            pagina.clock.fast_forward("02:30")
+
+    def test_renovar_nao_pisca_a_tela(self, navegador, servidor):
+        """Sem esqueleto: a renovação troca o dado sem a tela piscar."""
+        pagina = abrir(navegador, servidor, relogio=LOGO_DEPOIS_DA_FIXTURE)
+        _com_cartao(pagina)
+        pagina.evaluate(
+            """() => {
+              window.__piscou = false;
+              new MutationObserver(() => {
+                if (document.querySelector('.esqueleto')) window.__piscou = true;
+              }).observe(document.body, { subtree: true, childList: true });
+            }"""
+        )
+
+        pagina.clock.fast_forward("02:30")
+        pagina.wait_for_timeout(500)
+
+        assert pagina.evaluate("window.__piscou") is False
+
+    def test_aba_escondida_nao_renova_e_ao_voltar_renova_na_hora(self, navegador, servidor):
+        """Celular no bolso não gasta 4G; quem tira do bolso não espera 30 s."""
+        pagina = abrir(navegador, servidor, relogio=LOGO_DEPOIS_DA_FIXTURE)
+        _com_cartao(pagina)
+        pedidos = _pedidos_de_ranking(pagina)
+        pagina.evaluate(
+            "Object.defineProperty(document, 'hidden', { configurable: true, get: () => true })"
+        )
+
+        pagina.clock.fast_forward("05:00")
+        pagina.wait_for_timeout(300)
+        assert pedidos == [], "renovou com a aba escondida"
+
+        pagina.evaluate(
+            """() => {
+              Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+              document.dispatchEvent(new Event('visibilitychange'));
+            }"""
+        )
+        pagina.wait_for_timeout(500)
+        assert len(pedidos) == 1, "não renovou ao voltar"
+
+    def test_falha_ao_renovar_mantem_a_tela_e_avisa(self, navegador, servidor):
+        """Uma oscilação do 4G no parque não pode apagar uma resposta boa."""
+        pagina = abrir(navegador, servidor, relogio=LOGO_DEPOIS_DA_FIXTURE)
+        _com_cartao(pagina)
+        nome = pagina.locator("#passo-destaque .passo__nome").inner_text()
+        pagina.route("**/recommendations*", lambda rota: rota.abort())
+
+        pagina.clock.fast_forward("02:30")
+
+        expect(pagina.locator("#frescor")).to_contain_text("Sem conexão")
+        expect(pagina.locator("#passo-destaque .passo__nome")).to_have_text(nome)
+        expect(pagina.locator("#aviso")).to_be_hidden()
+
+    def test_com_o_painel_aberto_espera_ele_fechar(self, navegador, servidor):
+        """Redesenhar a lista com o painel aberto faria o visitante perder o lugar."""
+        pagina = abrir(navegador, servidor, relogio=LOGO_DEPOIS_DA_FIXTURE)
+        _com_cartao(pagina)
+        pagina.click("#btn-todas-filas")
+        pedidos = _pedidos_de_ranking(pagina)
+
+        pagina.clock.fast_forward("02:30")
+        pagina.wait_for_timeout(300)
+        assert pedidos == [], "renovou com o painel aberto"
+
+        pagina.keyboard.press("Escape")
+        pagina.wait_for_timeout(500)
+        assert len(pedidos) == 1, "não renovou quando o painel fechou"
+
+
+class TestFrescor:
+    """O indicador que diz que o dado é de agora — e que nunca finge."""
+
+    def test_ao_vivo_com_a_idade_da_medicao(self, navegador, servidor):
+        pagina = abrir(navegador, servidor, relogio=LOGO_DEPOIS_DA_FIXTURE)
+        _com_cartao(pagina)
+
+        expect(pagina.locator("#frescor")).to_have_text("Ao vivo · filas medidas há 2 min")
+        expect(pagina.locator("#frescor")).to_have_attribute("data-estado", "ao-vivo")
+
+    def test_fonte_parada_deixa_de_ser_ao_vivo(self, navegador, servidor):
+        """Renovar um dado que a fonte não atualizou não o torna novo: a idade é a da
+        medição. De madrugada, com o parque fechado, é o estado normal."""
+        pagina = abrir(navegador, servidor, relogio=LOGO_DEPOIS_DA_FIXTURE)
+        _com_cartao(pagina)
+
+        pagina.clock.fast_forward("20:00")
+
+        expect(pagina.locator("#frescor")).to_have_attribute("data-estado", "parado")
+        expect(pagina.locator("#frescor")).to_contain_text("a fonte não atualizou desde então")
+
+    def test_aparece_tambem_sem_posicao(self, navegador, servidor):
+        pagina = abrir(navegador, servidor, com_gps=False, relogio=LOGO_DEPOIS_DA_FIXTURE)
+        expect(pagina.locator("#frescor")).to_contain_text("Ao vivo")

@@ -415,6 +415,49 @@ select:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+.posicao .link {
+  font-size: inherit;
+}
+
+/* "Ao vivo · filas medidas há 2 min". O ponto pulsa só enquanto é verdade: parado
+   ou sem conexão, ele fica fixo e muda de cor — o olho percebe a diferença antes de
+   ler a frase. */
+.frescor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  color: var(--tinta-suave);
+  font-variant-numeric: tabular-nums;
+}
+
+.frescor::before {
+  content: "";
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--alerta);
+}
+
+.frescor[data-estado="ao-vivo"]::before {
+  background: var(--verde-tendencia);
+  animation: pulso-ao-vivo 2s ease-in-out infinite;
+}
+
+@keyframes pulso-ao-vivo {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frescor[data-estado="ao-vivo"]::before {
+    animation: none;
+  }
+}
+
 /* --- Avisos ------------------------------------------------------------- */
 
 .aviso {

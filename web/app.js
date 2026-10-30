@@ -36,6 +36,28 @@ const MOSTRAR_SELETOR_DE_PARQUES = window.NEXTUP_SELETOR_DE_PARQUES === true;
 //: Quanto tempo o "Desfazer" do "Já fui" do cartão fica à mão.
 const DESFAZER_MS = 5000;
 
+//: De quanto em quanto tempo as filas se renovam sozinhas. A fonte atualiza a cada
+//: ~5 min e o cache do servidor dura 1: dois minutos deixam a tela no máximo um
+//: passo atrás da fonte sem gastar a bateria e o 4G de quem está no parque.
+const RENOVAR_MS = 2 * 60 * 1000;
+
+//: O relógio que mantém a tela viva: refaz o "há X min" e confere se é hora de
+//: renovar. Mais curto que `RENOVAR_MS` para o atraso máximo ser de 30 s, não 2 min.
+const TIQUE_MS = 30 * 1000;
+
+//: Dado mais velho que isto deixa de ser "ao vivo". Três vezes o ritmo da fonte:
+//: um atraso dela é normal, três seguidos querem dizer que ela parou.
+const VELHO_MS = 15 * 60 * 1000;
+
+//: Quanto o visitante anda antes de o ranking ser refeito. Menos que isto some no
+//: arredondamento dos minutos de caminhada, e o GPS entre prédios oscila uns
+//: 10–20 m com a pessoa parada: refazer a cada oscilação seria gastar à toa.
+const PASSO_MINIMO_M = 25;
+
+//: Leitura de GPS menos precisa que isto é ignorada depois da primeira. Pior que
+//: um quarteirão, ela confunde mais do que ajuda.
+const PRECISAO_MAXIMA_M = 100;
+
 //: Quantas colocadas seguintes o cartão cita abaixo da resposta. Duas cabem numa
 //: linha de celular e bastam para "não gostei, e agora?".
 const ALTERNATIVAS_NO_CARTAO = 2;
@@ -81,6 +103,21 @@ const estado = {
   alternativas: [],
   /** Os quatro cantos do parque, como a API devolve: o "parque inteiro" do mapa. */
   limitesDoParque: null,
+  /** Se a posição está acompanhando o GPS, ou foi marcada à mão no mapa. */
+  seguindoGps: false,
+  /** Onde o visitante estava no último ranking: é dali que se mede o quanto andou. */
+  posicaoDoRanking: null,
+  /** Sobe a cada posição escolhida (a primeira do GPS, ou um toque no mapa), nunca
+   * ao andar. O mapa só reenquadra quando ela ou a melhor escolha mudam. */
+  versaoDaPosicao: 0,
+  /** Quando a última busca deu certo, em ms. Zero: ainda não houve. */
+  ultimaBusca: 0,
+  /** Quando a fonte mediu as filas que estão na tela (ISO). */
+  dadoDe: null,
+  /** Se a última renovação automática falhou: a tela mostra dado velho, e diz. */
+  falhouRenovar: false,
+  /** Uma renovação que ficou para depois, porque o visitante estava no meio de algo. */
+  renovacaoPendente: false,
 };
 
 const el = {
@@ -137,6 +174,7 @@ const el = {
   btnFecharFilas: document.getElementById("btn-fechar-filas"),
   passoSemPosicao: document.getElementById("passo-sem-posicao"),
   passoTitulo: document.getElementById("passo-titulo"),
+  frescor: document.getElementById("frescor"),
   passoCriterio: document.getElementById("passo-criterio"),
   passoDestaque: document.getElementById("passo-destaque"),
   desfazer: document.getElementById("desfazer"),
@@ -241,7 +279,10 @@ function iniciarMapa() {
   // (comum entre prédios) pode corrigir na mão — risco previsto na seção 8.
   // O desenho do parque é `interactive: false` justamente para o toque chegar aqui.
   mapa.on("click", (evento) => {
-    definirPosicao(evento.latlng.lat, evento.latlng.lng, "definido no mapa");
+    // Marcar à mão é corrigir o GPS, e o GPS não pode desfazer a correção no
+    // segundo seguinte: o acompanhamento para até o visitante pedir de volta.
+    pararDeSeguirGps();
+    definirPosicao(evento.latlng.lat, evento.latlng.lng, "mapa");
   });
 
   // Zoom e arrasto mudam o espaço livre: os nomes se reorganizam. Durante a
@@ -515,7 +556,7 @@ function desenharMapa(recomendacoes) {
  * (`enquadrarResposta`): dois saltos seguidos, um para o visitante e outro para as
  * atrações, desorientavam mais do que ajudavam.
  */
-function marcarVisitante(lat, lon) {
+function marcarVisitante(lat, lon, { centralizar = true } = {}) {
   if (marcadorVisitante) {
     marcadorVisitante.setLatLng([lat, lon]);
   } else {
@@ -532,7 +573,9 @@ function marcarVisitante(lat, lon) {
     }).addTo(mapa);
     marcadorVisitante.bindPopup("Você está aqui");
   }
-  if (!mapa.getBounds().contains([lat, lon])) mapa.setView([lat, lon], 17);
+  // Ao andar, o ponto se move e o mapa fica: puxar a vista a cada passo tiraria o
+  // mapa das mãos de quem está olhando outra parte do parque.
+  if (centralizar && !mapa.getBounds().contains([lat, lon])) mapa.setView([lat, lon], 17);
 }
 
 /* Aproxima o mapa do que o visitante está decidindo: ele e as primeiras colocadas.
@@ -558,7 +601,9 @@ function enquadrarResposta(recomendacoes) {
     ]),
   ];
 
-  const chave = `${estado.posicao.lat},${estado.posicao.lon},${estado.destaque?.attraction.id}`;
+  // A versão da posição, e não a coordenada: andar pelo GPS muda a coordenada a
+  // cada passo, e reenquadrar a cada passo puxaria o mapa das mãos de quem olha.
+  const chave = `${estado.versaoDaPosicao},${estado.destaque?.attraction.id}`;
   if (chave === enquadramentoFeito) return;
   enquadramentoFeito = chave;
 
@@ -716,19 +761,45 @@ function desenharParque(atracoes) {
 // Posição
 // ---------------------------------------------------------------------------
 
+/* Uma posição nova e escolhida: a primeira do GPS, ou um toque no mapa.
+ *
+ * Andar não passa por aqui — passa por `andarPeloGps`, que move o ponto sem
+ * reenquadrar o mapa nem mostrar o carregamento. */
 function definirPosicao(lat, lon, origem) {
   estado.posicao = { lat, lon };
-
-  // Frase, e não coordenada: "28.41707, -81.58104" não diz nada a quem está no
-  // parque. O número continua no `title`, para quem precisar conferir.
-  el.posicaoAtual.innerHTML = `<span aria-hidden="true">📍</span> Ponto de partida ${origem}`;
-  el.posicaoAtual.title = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
-  el.posicaoAtual.hidden = false;
-
+  estado.versaoDaPosicao += 1;
+  descreverPosicao(origem);
   marcarVisitante(lat, lon);
   buscarRecomendacoes();
 }
 
+/* Frase, e não coordenada: "28.41707, -81.58104" não diz nada a quem está no
+ * parque. O número continua no `title`, para quem precisar conferir. */
+function descreverPosicao(origem) {
+  const { lat, lon } = estado.posicao;
+  // Quem marcou à mão precisa de um caminho de volta para o GPS, e ele mora
+  // aqui: o botão "Usar minha localização" sumiu quando a posição foi dada.
+  const voltar = navigator.geolocation
+    ? ' · <button type="button" class="link voltar-gps">Usar o GPS</button>'
+    : "";
+  el.posicaoAtual.innerHTML =
+    origem === "gps"
+      ? '<span aria-hidden="true">📍</span> Seguindo você pelo GPS'
+      : `<span aria-hidden="true">📍</span> Posição marcada no mapa${voltar}`;
+  el.posicaoAtual.title = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+  el.posicaoAtual.hidden = false;
+}
+
+/** O id do `watchPosition`, para parar de acompanhar. */
+let vigiaDoGps = null;
+
+/* Acompanha o visitante pelo GPS, e não só uma leitura (30/10/2026).
+ *
+ * Até aqui a posição era lida uma vez: quem andava pelo parque continuava vendo o
+ * ranking calculado a partir de onde estava ao abrir o app — "o mais perto" de dez
+ * minutos atrás. A primeira leitura posiciona e enquadra; as seguintes movem o
+ * ponto e, quando o visitante andou o bastante, refazem o ranking em silêncio.
+ */
 function localizar() {
   if (!navigator.geolocation) {
     mostrarAviso(
@@ -737,24 +808,73 @@ function localizar() {
     return;
   }
 
+  pararDeSeguirGps();
   el.btnLocalizar.disabled = true;
   el.btnLocalizar.textContent = "Localizando…";
   mostrarAviso("Procurando sua posição…", "info");
 
-  navigator.geolocation.getCurrentPosition(
+  let primeira = true;
+  vigiaDoGps = navigator.geolocation.watchPosition(
     (posicao) => {
-      restaurarBotaoLocalizar();
-      limparAviso();
-      definirPosicao(posicao.coords.latitude, posicao.coords.longitude, "definido pelo GPS");
+      const { latitude, longitude, accuracy } = posicao.coords;
+      if (primeira) {
+        primeira = false;
+        estado.seguindoGps = true;
+        restaurarBotaoLocalizar();
+        limparAviso();
+        definirPosicao(latitude, longitude, "gps");
+        return;
+      }
+      if (accuracy > PRECISAO_MAXIMA_M) return;
+      andarPeloGps(latitude, longitude);
     },
     (erro) => {
-      restaurarBotaoLocalizar();
-      mostrarAviso(explicarErroDeGps(erro));
+      if (primeira) {
+        restaurarBotaoLocalizar();
+        mostrarAviso(explicarErroDeGps(erro));
+        pararDeSeguirGps();
+        return;
+      }
+      // Depois da primeira, perder o sinal por um instante é rotina — entre
+      // prédios, numa fila coberta. Só a recusa da permissão muda alguma coisa.
+      if (erro.code === erro.PERMISSION_DENIED) {
+        pararDeSeguirGps();
+        descreverPosicao("mapa");
+      }
     },
     // `enableHighAccuracy` pede o GPS de verdade em vez da posição aproximada
     // por antena — necessário para diferenciar atrações a 50 m uma da outra.
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+    { enableHighAccuracy: true, timeout: 20000, maximumAge: 10000 }
   );
+}
+
+function pararDeSeguirGps() {
+  if (vigiaDoGps !== null) navigator.geolocation.clearWatch(vigiaDoGps);
+  vigiaDoGps = null;
+  estado.seguindoGps = false;
+}
+
+/* O visitante andou. O ponto e a rota acompanham sempre; o ranking só quando a
+ * distância desde o último já muda a conta (`PASSO_MINIMO_M`). */
+function andarPeloGps(lat, lon) {
+  estado.posicao = { lat, lon };
+  el.posicaoAtual.title = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+  marcarVisitante(lat, lon, { centralizar: false });
+  desenharRota();
+
+  const desde = estado.posicaoDoRanking;
+  if (!desde || metrosEntre(desde, estado.posicao) >= PASSO_MINIMO_M) {
+    renovar();
+  }
+}
+
+/** Distância curta em metros. Plana, e não Haversine: em centenas de metros a
+ * curvatura da Terra não aparece no terceiro algarismo. */
+function metrosEntre(a, b) {
+  const rad = Math.PI / 180;
+  const x = (b.lon - a.lon) * rad * Math.cos(((a.lat + b.lat) / 2) * rad);
+  const y = (b.lat - a.lat) * rad;
+  return Math.hypot(x, y) * 6371000;
 }
 
 function restaurarBotaoLocalizar() {
@@ -908,15 +1028,17 @@ function trocarParque(novoId) {
  * quem recusasse a localização via uma tela vazia e nenhuma razão para confiar
  * no resto.
  */
-async function carregarParque({ trocaDeParque = false } = {}) {
+async function carregarParque({ trocaDeParque = false, silencioso = false } = {}) {
   try {
     const resposta = await fetch(`/api/parks/${estado.parqueId}/attractions`);
     if (!resposta.ok) {
+      if (silencioso) return falhaAoRenovar();
       mostrarAviso(await explicarErroDaApi(resposta));
       return;
     }
 
     const dados = await resposta.json();
+    registrarBusca(dados.data_updated_at);
 
     // O fuso do parque decide quando "hoje" vira "ontem" para as visitadas. Só a
     // rota de atrações o informa, e por isso a leitura acontece aqui.
@@ -931,7 +1053,8 @@ async function carregarParque({ trocaDeParque = false } = {}) {
     estado.atracoesDoParque = [...dados.attractions].sort((a, b) =>
       a.name.localeCompare(b.name, "pt-BR")
     );
-    desenharCatalogo(el.buscaAtracao.value);
+    // Com o catálogo aberto, redesenhar o reordenaria sob o dedo de quem escolhe.
+    if (!(silencioso && el.escolherAlvos.open)) desenharCatalogo(el.buscaAtracao.value);
     desenharAlvos(estado.ultimoRanking ? estado.ultimoRanking.recommendations : []);
 
     // Na primeira visita o painel do perfil abre antes de o catálogo chegar, e a
@@ -942,7 +1065,7 @@ async function carregarParque({ trocaDeParque = false } = {}) {
     // visitante liberar o GPS enquanto esta ainda está no ar, a resposta chega
     // atrasada e jogaria a vista para longe de onde ele está. Numa troca de
     // parque o enquadramento é o que ele pediu; na abertura, não.
-    if (trocaDeParque || !estado.posicao) {
+    if (trocaDeParque || (!estado.posicao && !silencioso)) {
       enquadrarParque(dados.bounds);
     }
 
@@ -952,15 +1075,114 @@ async function carregarParque({ trocaDeParque = false } = {}) {
       mostrarPanoramaDoParque(dados);
     }
   } catch {
+    if (silencioso) return falhaAoRenovar();
     mostrarAviso("Não foi possível falar com o servidor. Verifique sua conexão.");
   }
 }
 
-async function buscarRecomendacoes() {
+// ---------------------------------------------------------------------------
+// Tempo real: renovação automática e frescor
+// ---------------------------------------------------------------------------
+
+/* O relógio da tela. A cada `TIQUE_MS`: o "há X min" e a hora de entrada andam, e,
+ * se já passou `RENOVAR_MS` desde a última busca, as filas se renovam.
+ *
+ * Com a aba escondida não renova nada — celular no bolso não gasta 4G. Ao voltar,
+ * o `visibilitychange` chama o tique na hora, e o visitante não vê fila velha nem
+ * pelos 30 s até o próximo. */
+function tique() {
+  atualizarFrescor();
+  atualizarHoraDeEntrada();
+  if (document.hidden) return;
+  if (estado.renovacaoPendente || Date.now() - estado.ultimaBusca >= RENOVAR_MS) renovar();
+}
+
+function renovar() {
+  if (estado.carregando) return;
+  // No meio de algo, a renovação espera: redesenhar a lista fecharia o gráfico
+  // que o visitante abriu, e o painel aberto perderia o lugar da rolagem.
+  if (!podeRedesenhar()) {
+    estado.renovacaoPendente = true;
+    return;
+  }
+  estado.renovacaoPendente = false;
+  if (estado.posicao) buscarRecomendacoes({ silencioso: true });
+  else carregarParque({ silencioso: true });
+}
+
+function podeRedesenhar() {
+  const graficoAberto = document.querySelector(".item[data-expandido='true']");
+  const painelModal = el.painelFilas.open && el.painelFilas.matches(":modal");
+  return !graficoAberto && !painelModal;
+}
+
+function registrarBusca(dadoDe) {
+  estado.ultimaBusca = Date.now();
+  estado.dadoDe = dadoDe || estado.dadoDe;
+  estado.falhouRenovar = false;
+  atualizarFrescor();
+}
+
+function falhaAoRenovar() {
+  estado.falhouRenovar = true;
+  // Tentar de novo no próximo tique, e não em dois minutos: quem perdeu o sinal
+  // numa fila coberta quer o dado de volta assim que ele voltar.
+  estado.renovacaoPendente = true;
+  atualizarFrescor();
+}
+
+/* "Ao vivo · filas medidas há 2 min". A idade é a da MEDIÇÃO da fonte, e não a da
+ * nossa busca: buscar de novo um dado que a fonte não atualizou não o torna novo.
+ * Três estados, e o indicador nunca finge: ao vivo, fonte parada (de madrugada, o
+ * normal) e sem conexão. */
+function atualizarFrescor() {
+  if (!estado.dadoDe) {
+    el.frescor.hidden = true;
+    return;
+  }
+
+  const idade = Date.now() - new Date(estado.dadoDe).getTime();
+  const minutos = Math.max(0, Math.floor(idade / 60000));
+  let quando = `há ${minutos} min`;
+  if (minutos < 1) quando = "agora";
+  if (idade > VELHO_MS) quando = `às ${formatarHora(estado.dadoDe)}`;
+
+  let situacao;
+  let texto;
+  if (estado.falhouRenovar) {
+    situacao = "sem-conexao";
+    texto = `Sem conexão · filas medidas ${quando}`;
+  } else if (idade > VELHO_MS) {
+    situacao = "parado";
+    texto = `Filas medidas ${quando} · a fonte não atualizou desde então`;
+  } else {
+    situacao = "ao-vivo";
+    texto = `Ao vivo · filas medidas ${quando}`;
+  }
+
+  el.frescor.dataset.estado = situacao;
+  el.frescor.textContent = texto;
+  el.frescor.hidden = false;
+}
+
+/* "entra às 21:51" envelhece a cada minuto entre uma renovação e outra. Mexe só no
+ * texto, e não no cartão: redesenhá-lo faria o leitor de tela o anunciar inteiro. */
+function atualizarHoraDeEntrada() {
+  const chegada = el.passoDestaque.querySelector(".passo__chegada");
+  if (!chegada || !estado.destaque) return;
+  chegada.textContent = `entra às ${horaDaqui(estado.destaque.total_minutes)}`;
+}
+
+/* `silencioso`: a renovação automática e o andar pelo GPS. Sem esqueleto, que
+ * faria a tela piscar a cada dois minutos; e, se falhar, a tela **fica** com o que
+ * tinha — uma oscilação do 4G no parque não pode apagar uma resposta boa. O
+ * indicador de frescor diz que o dado envelheceu. */
+async function buscarRecomendacoes({ silencioso = false } = {}) {
   if (!estado.posicao || estado.carregando) return;
 
   estado.carregando = true;
-  mostrarEsqueleto();
+  if (!silencioso) mostrarEsqueleto();
+  const posicaoPedida = { ...estado.posicao };
 
   // `limit=0` pede o ranking INTEIRO, e quem corta é a exibição.
   //
@@ -984,6 +1206,7 @@ async function buscarRecomendacoes() {
     );
 
     if (!resposta.ok) {
+      if (silencioso) return falhaAoRenovar();
       mostrarAviso(await explicarErroDaApi(resposta));
       el.lista.innerHTML = "";
       el.resumo.hidden = true;
@@ -992,9 +1215,13 @@ async function buscarRecomendacoes() {
       return;
     }
 
+    const dados = await resposta.json();
     limparAviso();
-    renderizar(await resposta.json());
+    renderizar(dados);
+    registrarBusca(dados.data_updated_at);
+    estado.posicaoDoRanking = posicaoPedida;
   } catch {
+    if (silencioso) return falhaAoRenovar();
     mostrarAviso("Não foi possível falar com o servidor. Verifique sua conexão.");
     el.lista.innerHTML = "";
     estado.destaque = null;
@@ -1878,12 +2105,24 @@ function desenharPasso() {
     // Pego pelo teste que garante que o esqueleto some quando dá erro.
     el.passoDestaque.innerHTML = "";
     el.passoDestaque.hidden = true;
+    ultimoPasso = null;
     return;
   }
 
-  el.passoDestaque.innerHTML = criarPasso(estado.destaque);
+  // O cartão é `aria-live`: substituí-lo inteiro a cada renovação faria o leitor
+  // de tela o anunciar a cada dois minutos, igual. Só a hora de entrada muda
+  // sozinha, e ela fica de fora da comparação (`atualizarHoraDeEntrada`).
+  const html = criarPasso(estado.destaque);
+  const chave = html.replace(/entra às \d\d:\d\d/, "");
+  if (chave !== ultimoPasso || el.passoDestaque.hidden) {
+    el.passoDestaque.innerHTML = html;
+    ultimoPasso = chave;
+  }
   el.passoDestaque.hidden = false;
 }
+
+/** O último cartão desenhado, sem a hora de entrada. Ver `desenharPasso`. */
+let ultimoPasso = null;
 
 /* O conteúdo do cartão.
  *
@@ -1929,7 +2168,7 @@ function criarPasso(item) {
     <p class="passo__conta">
       <span>${ICONE.caminhada} ${pe} min a pé</span>
       <span>${ICONE.fila} ${fila} min de fila</span>
-      <span class="passo__chegada">entra às ${horaDaqui(item.total_minutes)}</span>
+      <span class="passo__chegada" aria-live="off">entra às ${horaDaqui(item.total_minutes)}</span>
     </p>
     ${porque}
     ${selo}
@@ -2494,6 +2733,17 @@ function iniciar() {
   el.btnAlturaMais.addEventListener("click", () => definirAltura(Number(el.altura.value) + 1));
 
   el.btnTodasFilas.addEventListener("click", () => el.painelFilas.showModal());
+  // Uma renovação que esperou o painel fechar acontece assim que ele fecha.
+  el.painelFilas.addEventListener("close", () => {
+    if (estado.renovacaoPendente) renovar();
+  });
+  el.posicaoAtual.addEventListener("click", (evento) => {
+    if (evento.target.closest(".voltar-gps")) localizar();
+  });
+  setInterval(tique, TIQUE_MS);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) tique();
+  });
   el.passoCriterio.addEventListener("change", (evento) => {
     estado.criterio = CARTAO.salvar(evento.target.value);
     if (estado.ultimoRanking) renderizar(estado.ultimoRanking);
