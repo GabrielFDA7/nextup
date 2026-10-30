@@ -16,9 +16,9 @@
 > caminhada (7.3) e popularidade (7.4). A última fecha o ciclo da Fase 6 — é a primeira
 > feature construída **sobre o histórico que nós mesmos coletamos**, e não sobre a API.
 >
-> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **937
+> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **941
 > testes**: 745 na suíte rápida (272 do roteiro, a maioria instâncias aleatórias
-> conferidas contra força bruta) e 192 de interface em navegador.
+> conferidas contra força bruta) e 196 de interface em navegador.
 >
 > **Fase 9 — Perfil do visitante: iniciada (27/10/2026).** Nasceu de uma crítica do
 > Gabriel: ver a fila não resolve nada que a fonte já não resolva. O app passa a saber
@@ -2103,6 +2103,19 @@ fila de meia hora atrás, sem aviso nenhum.
   e Tiana também não têm) e sem fila (apagaria o Castelo e atrações em reforma). A
   curadoria, montada sobre a listagem pública, separou exatamente as duas.
 
+#### Alvos no mapa e a marca no computador ✅ *30/10/2026*
+
+- **Com "Das minhas", o mapa mostra os alvos numerados.** Antes ficavam os números do
+  parque, e a rota até o alvo terminava num lugar sem pino (Gabriel). O 1 é o fim da rota;
+  o 2 e o 3 são os da linha "Ou então". No computador, passar o ponteiro num alvo acende o
+  pino dele — o realce passou a achar o pino pela atração, e não pela posição na lista,
+  que deixou de ser a mesma nos dois modos.
+- **A marca no computador era coberta por parte do que rolava na coluna.** Ela mora dentro
+  do palco do mapa, que isola as camadas do Leaflet; sem prioridade, o que na coluna criava
+  camada própria (o cartão, um item "já fui" com opacidade, um item sob o ponteiro) passava
+  por cima dela, e o "já fui" a deixava transparente. O palco ganhou prioridade sobre a
+  coluna, só no computador.
+
 **Um bug introduzido e pego no caminho.** Guardar a referência das trilhas para o limite
 do mapa fez criá-las antes da casca, e o grupo do Leaflet pinta pela ordem de criação, não
 pela da lista: a casca escura foi parar por cima dos caminhos. O teste da pilha de pintura,
@@ -2546,6 +2559,7 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 30/10/2026 | GPS acompanha (`watchPosition`); ranking refeito a cada 25 m andados; tocar no mapa para de seguir | A posição era lida uma vez, e o ranking ficava preso a onde o visitante abriu o app. 25 m: menos some no arredondamento, e o GPS oscila 10–20 m parado |
 | 30/10/2026 | Filas renovadas sozinhas a cada 2 min, em silêncio, com indicador de frescor pela idade da medição da fonte | "A sensação deve ser de atualidade" (Gabriel). Silenciosa porque piscar a cada 2 min e apagar a tela numa falha do 4G seriam piores que dado velho |
 | 30/10/2026 | `park_id` validado (UUID + lista de parques do cache); `Cache-Control: no-cache` na tela; catálogo restrito à listagem oficial | Revisão de segurança de 29/10 e varredura de 30/10. A lista de parques só do cache, aquecida pelo coletor, para não pôr uma chamada à fonte em todo pedido |
+| 30/10/2026 | Com "Das minhas", o mapa mostra os alvos numerados; o realce do computador acha o pino pela atração | A rota até o alvo terminava sem pino, porque o mapa mostrava os números do parque (Gabriel) |
 | 29/10/2026 | Monetização: validar antes de cobrar; se cobrar, B2B com consultores e agências é o caminho preferido | É o público que já paga por esse serviço, e o app segue gratuito e sem conta para o visitante. Bloqueio a resolver antes: termos de uso comercial da ThemeParks.wiki, não encontrados |
 
 ---

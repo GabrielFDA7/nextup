@@ -113,8 +113,8 @@ O **6.6 terminou com um resultado negativo medido**: prever a fila por extrapola
 mais que usar a fila atual, em todo horizonte. O ranking não mudou — mas agora há número
 para sustentar a escolha. Detalhes na seção 7 de `docs/PROJETO.md`.
 
-**937 testes passando**: 745 na suíte rápida (~4s; 272 são do roteiro, a maioria
-instâncias aleatórias conferidas contra força bruta) e 192 de interface em navegador (~380s).
+**941 testes passando**: 745 na suíte rápida (~4s; 272 são do roteiro, a maioria
+instâncias aleatórias conferidas contra força bruta) e 196 de interface em navegador (~380s).
 CI verde em Python 3.11, 3.12 e 3.13, com job separado para o E2E.
 
 Já existe e funciona:
@@ -168,7 +168,7 @@ Já existe e funciona:
   `cli.py` porque orquestra `clients/` + `storage/`
 - `tests/test_arquitetura.py` — a regra de dependência é verificada automaticamente
 - `tests/test_migracoes.py` — aplica as migrações e compara com `tables.py`
-- `tests/test_web_e2e.py` — 192 testes em Chromium real (`pytest -m e2e`). A lista mora
+- `tests/test_web_e2e.py` — 196 testes em Chromium real (`pytest -m e2e`). A lista mora
   num painel: `_ver_filas` o abre, `_fechar_filas` o fecha antes de tocar no resto
 - Fixtures reais da API em `tests/fixtures/`; nenhum teste toca a internet
 - `.venv` local com **Python 3.13**, mesma versão mais alta testada no CI
@@ -532,7 +532,7 @@ uvicorn nextup.api.main:app --reload     # http://127.0.0.1:8000
 Testes de interface (exigem `pip install -e ".[dev,e2e]"` e `playwright install chromium`):
 
 ```bash
-pytest -m e2e          # esperado: 192 testes, ~380s
+pytest -m e2e          # esperado: 196 testes, ~380s
 ```
 
 ---
