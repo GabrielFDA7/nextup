@@ -1268,14 +1268,61 @@ function desenharCatalogo(termo = "") {
 
   // Marcadas primeiro, para remover ser tão fácil quanto adicionar: quem abriu a
   // lista para tirar algo não deveria ter de procurar entre trinta e cinco.
-  const ordenadas = [...encontradas].sort((a, b) => {
-    const marcadaA = estado.alvos.has(a.id);
-    const marcadaB = estado.alvos.has(b.id);
-    if (marcadaA !== marcadaB) return marcadaA ? -1 : 1;
-    return a.name.localeCompare(b.name, "pt-BR");
-  });
+  const marcadas = encontradas.filter((a) => estado.alvos.has(a.id));
+  const resto = encontradas.filter((a) => !estado.alvos.has(a.id));
 
-  el.catalogoAtracoes.innerHTML = ordenadas.map(criarLinhaDoCatalogo).join("");
+  const grupos = [{ titulo: "Na sua lista", atracoes: marcadas.sort(porPopularidade) }];
+
+  if (resto.some((a) => a.popularity)) {
+    for (const { faixa, titulo } of GRUPOS_DO_CATALOGO) {
+      const daFaixa = resto.filter((a) => (a.popularity?.tier ?? "UNKNOWN") === faixa);
+      grupos.push({ titulo, atracoes: daFaixa.sort(porPopularidade) });
+    }
+  } else {
+    // Sem banco não há faixa, e um título "Sem histórico" sobre o parque inteiro
+    // diria algo verdadeiro e inútil. Sem faixa, volta a ordem alfabética.
+    grupos.push({
+      titulo: marcadas.length > 0 ? "Todas as atrações" : null,
+      atracoes: resto.sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+    });
+  }
+
+  el.catalogoAtracoes.innerHTML = grupos
+    .filter((g) => g.atracoes.length > 0)
+    .map(criarGrupoDoCatalogo)
+    .join("");
+}
+
+/* Os grupos do catálogo, na ordem em que aparecem.
+ *
+ * Por popularidade, e não alfabética nem por fila (Gabriel, 29/10/2026): quem
+ * monta a lista de desejos procura as principais do parque, e a faixa é estável.
+ * A fila de agora muda a cada minuto e repetiria o trabalho do ranking — alvo é
+ * desejo, não oportunidade. O título diz por que a atração está ali; a ordem,
+ * sozinha, não explicaria.
+ */
+const GRUPOS_DO_CATALOGO = [
+  { faixa: "HEADLINER", titulo: "As principais do parque" },
+  { faixa: "MODERATE", titulo: "Também procuradas" },
+  { faixa: "QUIET", titulo: "Costumam ter fila curta" },
+  { faixa: "UNKNOWN", titulo: "Sem histórico suficiente" },
+];
+
+/** Maior fila média primeiro; sem média, pelo nome. */
+function porPopularidade(a, b) {
+  const mediaA = a.popularity?.average_minutes ?? -1;
+  const mediaB = b.popularity?.average_minutes ?? -1;
+  return mediaB - mediaA || a.name.localeCompare(b.name, "pt-BR");
+}
+
+function criarGrupoDoCatalogo({ titulo, atracoes }) {
+  const cabecalho = titulo ? `<p class="catalogo__titulo">${titulo}</p>` : "";
+  return `
+    <li class="catalogo__grupo">
+      ${cabecalho}
+      <ul class="catalogo__linhas">${atracoes.map(criarLinhaDoCatalogo).join("")}</ul>
+    </li>
+  `;
 }
 
 function criarLinhaDoCatalogo(atracao) {
@@ -1286,11 +1333,14 @@ function criarLinhaDoCatalogo(atracao) {
   const fila =
     atracao.queue_minutes === null ? "—" : `${atracao.queue_minutes} min`;
 
+  // A caixa nativa continua lá, transparente e cobrindo a linha: o teclado, o
+  // leitor de tela e o "marcar" do formulário vêm dela. O círculo é só desenho.
   return `
     <li>
       <label class="catalogo__item${marcada ? " catalogo__item--marcada" : ""}">
         <input type="checkbox" data-atracao="${escapar(atracao.id)}"
                ${marcada ? "checked" : ""} />
+        <span class="catalogo__marca" aria-hidden="true">${ICONE.check}</span>
         <span class="catalogo__nome">${escapar(atracao.name)}</span>
         <span class="catalogo__fila">${fila}</span>
       </label>

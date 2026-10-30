@@ -662,61 +662,134 @@ h2 {
   padding: 0 16px 16px;
 }
 
+/* O catálogo foi redesenhado em 29/10/2026: era uma planilha — caixinhas do
+   navegador, uma borda entre cada linha — no meio de uma tela de cantos
+   arredondados (Gabriel: "muito feia e não combina com o site"). Agora são
+   linhas soltas, como os itens da lista, agrupadas por popularidade. */
 .catalogo {
+  display: grid;
+  gap: 14px;
   margin: 0;
-  padding: 0;
+  /* Folga à direita para a barra de rolagem não encostar nas filas. */
+  padding: 2px 4px 2px 0;
   list-style: none;
   /* Trinta e cinco atrações não cabem na tela de um celular. O limite em `vh`
      acompanha o aparelho em vez de fixar uma altura que sobra no desktop e
      falta no celular deitado. */
   max-height: 46vh;
   overflow-y: auto;
-  border: 1px solid var(--borda);
-  border-radius: var(--raio-p);
+}
+
+.catalogo__grupo {
+  display: grid;
+  gap: 6px;
+}
+
+/* A mesma voz dos nomes de área no mapa: caixa alta, espaçada, discreta. */
+.catalogo__titulo {
+  margin: 0;
+  padding: 0 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+
+.catalogo__linhas {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .catalogo__item {
+  position: relative;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
   /* 44px é o alvo mínimo confortável para o dedo — a linha inteira é clicável,
      e não só a caixinha. */
-  min-height: 46px;
-  padding: 8px 14px;
+  min-height: 48px;
+  padding: 8px 12px;
   cursor: pointer;
-  border-bottom: 1px solid var(--borda);
-}
-
-.catalogo li:last-child .catalogo__item {
-  border-bottom: 0;
+  border-radius: var(--raio-p);
+  transition: background 0.15s ease;
 }
 
 .catalogo__item:hover {
   background: var(--superficie-alt);
 }
 
-.catalogo__item--marcada {
+.catalogo__item--marcada,
+.catalogo__item--marcada:hover {
   background: var(--destaque-fraco);
 }
 
+/* A caixa de verdade cobre a linha inteira, invisível: o toque em qualquer ponto
+   a marca, e o foco do teclado continua existindo — o anel vai para a linha. */
 .catalogo__item input {
-  width: 20px;
-  height: 20px;
-  accent-color: var(--profundo);
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
   cursor: pointer;
 }
 
-.catalogo__nome {
-  font-size: 0.92rem;
-  line-height: 1.3;
+.catalogo__item:has(input:focus-visible) {
+  outline: 3px solid var(--controle);
+  outline-offset: 2px;
 }
 
+/* O círculo: vazio quando livre, preenchido na cor de ação quando marcado — o
+   mesmo par do botão principal, nos dois temas. */
+.catalogo__marca {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  color: transparent;
+  border: 2px solid var(--tinta-suave);
+  border-radius: 50%;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.catalogo__marca svg {
+  width: 15px;
+  height: 15px;
+}
+
+.catalogo__item input:checked + .catalogo__marca {
+  color: var(--sobre-profundo);
+  background: var(--profundo);
+  border-color: var(--profundo);
+}
+
+.catalogo__nome {
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+/* A fila vira pílula, como os selos do resto da tela. */
 .catalogo__fila {
-  font-size: 0.78rem;
-  font-weight: 600;
+  padding: 3px 9px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
   color: var(--tinta-suave);
+  background: var(--superficie-alt);
+  border-radius: 999px;
   font-variant-numeric: tabular-nums;
+}
+
+.catalogo__item--marcada .catalogo__fila {
+  background: var(--superficie);
 }
 
 /* --- Filtros ------------------------------------------------------------ */

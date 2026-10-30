@@ -292,6 +292,36 @@ def _atracoes_como_a_api_devolve() -> dict:
     return json.loads(resposta.model_dump_json())
 
 
+#: Faixas inventadas para o catálogo, com médias que fixam a ordem dentro de cada uma.
+#: As três principais são as da medição de verdade (seção 7.4 do PROJETO.md).
+FAIXAS_DE_TESTE = {
+    "TRON": ("HEADLINER", 70.0),
+    "Seven Dwarfs": ("HEADLINER", 65.0),
+    "Space Mountain": ("HEADLINER", 50.0),
+    "Big Thunder": ("MODERATE", 30.0),
+    "Haunted Mansion": ("MODERATE", 25.0),
+}
+
+
+def _atracoes_com_faixas() -> dict:
+    """A resposta real de `/attractions`, com popularidade em algumas atrações.
+
+    As outras ficam com `popularity: null`, como as que o histórico não cobre — e
+    caem no grupo "sem histórico", que é o que um banco recém-ligado mostraria.
+    """
+    corpo = _atracoes_como_a_api_devolve()
+    for atracao in corpo["attractions"]:
+        for trecho, (faixa, media) in FAIXAS_DE_TESTE.items():
+            if trecho in atracao["name"]:
+                atracao["popularity"] = {
+                    "tier": faixa,
+                    "average_minutes": media,
+                    "measurements": 50,
+                    "opportunity": False,
+                }
+    return corpo
+
+
 def _curadoria_mk():
     """A curadoria de verdade, só as linhas conferidas — o que a rota de produção usa.
 
@@ -933,6 +963,73 @@ class TestCatalogoDeAlvos:
 
         expect(pagina.locator(".catalogo__nome").first).to_have_text(nome)
         expect(pagina.locator(".catalogo__item input").first).to_be_checked()
+
+    def test_sem_popularidade_a_ordem_e_alfabetica(self, navegador, servidor):
+        """Sem banco não há faixa, e um título "Sem histórico" sobre o parque
+        inteiro diria algo verdadeiro e inútil."""
+        pagina = self.abrir_catalogo(navegador, servidor)
+        nomes = pagina.locator(".catalogo__nome").all_inner_texts()
+
+        # A régua é a do navegador, e não o `sorted` do Python: as aspas de
+        # "it's a small world" e os acentos ordenam diferente nas duas.
+        em_ordem = pagina.evaluate(
+            "nomes => [...nomes].sort((a, b) => a.localeCompare(b, 'pt-BR'))", nomes
+        )
+        assert nomes == em_ordem
+        expect(pagina.locator(".catalogo__titulo")).to_have_count(0)
+
+    def test_com_popularidade_as_principais_vem_primeiro(self, navegador, servidor):
+        """A ordem que o Gabriel escolheu (29/10/2026): quem monta a lista de
+        desejos procura as principais, e a faixa não muda a cada minuto."""
+        pagina = self.abrir_catalogo_com_faixas(navegador, servidor)
+
+        titulos = pagina.locator(".catalogo__titulo").all_inner_texts()
+        assert [t.lower() for t in titulos] == [
+            "as principais do parque",
+            "também procuradas",
+            "sem histórico suficiente",
+        ]
+        nomes = pagina.locator(".catalogo__nome").all_inner_texts()
+        # Dentro da faixa, a maior fila média primeiro.
+        assert "TRON" in nomes[0]
+        assert "Seven Dwarfs" in nomes[1]
+        assert "Space Mountain" in nomes[2]
+
+    def test_as_marcadas_ganham_grupo_proprio(self, navegador, servidor):
+        pagina = self.abrir_catalogo_com_faixas(navegador, servidor)
+        pagina.locator(".catalogo__item", has_text="Space Mountain").locator("input").check()
+
+        pagina.click(".escolher__gatilho")  # fecha
+        pagina.click(".escolher__gatilho")  # abre de novo
+
+        expect(pagina.locator(".catalogo__titulo").first).to_have_text(
+            re.compile("na sua lista", re.IGNORECASE)
+        )
+        expect(pagina.locator(".catalogo__nome").first).to_contain_text("Space Mountain")
+
+    def test_a_linha_inteira_marca(self, navegador, servidor):
+        """A caixa nativa cobre a linha, transparente: tocar no nome também marca."""
+        pagina = self.abrir_catalogo(navegador, servidor)
+        linha = pagina.locator(".catalogo__item").nth(3)
+
+        # Clicar no nome pelo Playwright seria recusado — e com razão: a caixa
+        # transparente está por cima dele, que é o desenho. O dedo toca a linha.
+        linha.click()
+
+        expect(linha.locator("input")).to_be_checked()
+        expect(linha).to_have_class(re.compile("catalogo__item--marcada"))
+
+    def abrir_catalogo_com_faixas(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        # A rota registrada por último vence: esta passa na frente da de `abrir`.
+        pagina.route(
+            "**/attractions*",
+            lambda rota: rota.fulfill(json=_atracoes_com_faixas()),
+        )
+        pagina.reload(wait_until="networkidle")
+        pagina.wait_for_selector("#catalogo-atracoes .catalogo__item", state="attached")
+        pagina.click(".escolher__gatilho")
+        return pagina
 
     def test_a_busca_filtra_a_lista(self, navegador, servidor):
         pagina = self.abrir_catalogo(navegador, servidor)
