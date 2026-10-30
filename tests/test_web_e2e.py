@@ -565,22 +565,51 @@ class TestJaFuiHoje:
         _ver_filas(pagina, "ranking")
         return pagina
 
-    def test_marcar_tira_a_atracao_e_promove_outra(self, navegador, servidor):
+    def test_marcar_promove_outra_e_a_marcada_fica_compacta(self, navegador, servidor):
         """É o que o consultor de parque faz: não te manda de volta onde já foi.
 
-        E a lista **não encolhe** — a nona colocada sobe. A tela mostra oito
-        sugestões porque oito é o que cabe, não porque oito é o que existe.
+        E a lista **não encolhe** — a nona colocada sobe. A marcada fica no lugar,
+        reduzida ao nome e ao "Fui" (Gabriel, 30/10/2026): antes ela sumia, e
+        desfazer um toque errado exigia achar um "Mostrar" noutro canto.
         """
         pagina = self.com_ranking(navegador, servidor)
         marcada = pagina.locator(".item .nome").first.inner_text()
 
         pagina.locator(".marcar-visitada").first.click()
 
-        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(8)
-        assert marcada not in pagina.locator("#lista").inner_text()
+        expect(pagina.locator(f"{PENDENTES}")).to_have_count(8)
+        feita = pagina.locator(".item--visitada")
+        expect(feita).to_have_count(1)
+        expect(feita.locator(".nome")).to_have_text(marcada)
 
-    def test_avisa_quantas_foram_escondidas(self, navegador, servidor):
-        """Esconder sem dizer que escondeu é a diferença entre ajudar e parecer quebrado."""
+    def test_a_compacta_so_tem_o_fui(self, navegador, servidor):
+        """Custo, tendência e histórico respondem "vale a pena ir?" — já respondido."""
+        pagina = self.com_ranking(navegador, servidor)
+        pagina.locator(".marcar-visitada").first.click()
+
+        feita = pagina.locator(".item--visitada")
+        expect(feita.locator("button")).to_have_count(1)
+        expect(feita.locator(".marcar-visitada")).to_have_text("Fui")
+        expect(feita.locator(".custo, .marcar-alvo, .ver-historico")).to_have_count(0)
+
+    def test_tocar_no_fui_devolve_o_formato_inteiro_no_lugar(self, navegador, servidor):
+        pagina = self.com_ranking(navegador, servidor)
+        nomes = pagina.locator("#lista .item .nome").all_inner_texts()
+
+        pagina.locator(".marcar-visitada").first.click()
+        pagina.locator(".item--visitada .marcar-visitada").click()
+
+        expect(pagina.locator(".item--visitada")).to_have_count(0)
+        expect(pagina.locator("#lista .item .nome")).to_have_text(nomes)
+
+    def test_a_marcada_nao_aparece_no_mapa(self, navegador, servidor):
+        """Fica na lista, mas o mapa é sobre aonde ir."""
+        pagina = self.com_ranking(navegador, servidor)
+        pagina.locator(".marcar-visitada").first.click()
+
+        expect(pagina.locator("#mapa .pino")).to_have_count(8)
+
+    def test_avisa_quantas_foram_marcadas(self, navegador, servidor):
         pagina = self.com_ranking(navegador, servidor)
         pagina.locator(".marcar-visitada").first.click()
 
@@ -593,51 +622,25 @@ class TestJaFuiHoje:
 
         expect(pagina.locator("#visitadas-aviso")).to_be_hidden()
 
-    def test_mostrar_traz_as_visitadas_de_volta(self, navegador, servidor):
-        """A visitada **se soma** às oito sugestões, em vez de ocupar a vaga de uma.
-
-        Se ela tomasse o lugar, revelar o que já foi feito custaria uma sugestão —
-        e quanto mais o visitante andasse pelo parque, menos o app teria a dizer.
-        """
-        pagina = self.com_ranking(navegador, servidor)
-
-        pagina.locator(".marcar-visitada").first.click()
-        pagina.click("#btn-mostrar-visitadas")
-
-        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(9)
-        expect(pagina.locator(".item--visitada")).to_have_count(1)
-
     def test_a_visitada_nao_e_a_melhor_escolha(self, navegador, servidor):
         """Uma atração já feita não é "a melhor escolha agora", por melhor que seja."""
         pagina = self.com_ranking(navegador, servidor)
         pagina.locator(".marcar-visitada").first.click()
-        pagina.click("#btn-mostrar-visitadas")
 
-        primeira = pagina.locator(".item").first
-
-        expect(primeira).to_have_class(re.compile("item--visitada"))
-        expect(primeira.locator(".etiqueta")).to_have_count(0)
-
-    def test_desmarcar_devolve_ao_ranking(self, navegador, servidor):
-        pagina = self.com_ranking(navegador, servidor)
-        antes = pagina.locator("[data-modo='ranking'] .item").count()
-
-        pagina.locator(".marcar-visitada").first.click()
-        pagina.click("#btn-mostrar-visitadas")
-        pagina.locator(".marcar-visitada").first.click()
-
-        expect(pagina.locator(".item--visitada")).to_have_count(0)
-        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(antes)
+        expect(pagina.locator(".item").first).to_have_class(re.compile("item--visitada"))
+        expect(pagina.locator(".item--visitada .etiqueta")).to_have_count(0)
+        expect(pagina.locator(".etiqueta")).to_have_count(1)
 
     def test_limpar_esquece_tudo(self, navegador, servidor):
         pagina = self.com_ranking(navegador, servidor)
         antes = pagina.locator("[data-modo='ranking'] .item").count()
 
-        pagina.locator(".marcar-visitada").first.click()
-        pagina.locator(".marcar-visitada").first.click()
+        pagina.locator(f"{PENDENTES} .marcar-visitada").first.click()
+        pagina.locator(f"{PENDENTES} .marcar-visitada").first.click()
         pagina.click("#btn-limpar-visitadas")
 
         expect(pagina.locator("#visitadas-aviso")).to_be_hidden()
+        expect(pagina.locator(".item--visitada")).to_have_count(0)
         expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(antes)
 
     def test_sobrevive_a_recarregar_a_pagina(self, navegador, servidor):
@@ -651,7 +654,7 @@ class TestJaFuiHoje:
         _ver_filas(pagina, "ranking")
 
         expect(pagina.locator("#visitadas-texto")).to_contain_text("1 atração já visitada")
-        assert nome not in pagina.locator("#lista").inner_text()
+        expect(pagina.locator(".item--visitada .nome")).to_have_text(nome)
 
     def test_o_estado_e_por_parque(self, navegador, servidor):
         """Ter feito o Space Mountain não diz nada sobre o EPCOT."""
@@ -684,15 +687,16 @@ class TestJaFuiHoje:
         primeiros = pagina.locator("[data-modo='ranking'] .item .nome").all_inner_texts()
 
         for _ in range(8):
-            pagina.locator(".marcar-visitada").first.click()
+            pagina.locator(f"{PENDENTES} .marcar-visitada").first.click()
             pagina.wait_for_timeout(120)
 
-        # A lista continua cheia, e com nomes que não estavam lá antes.
-        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(8)
+        # Oito sugestões ainda, todas novas; as oito feitas ficam, compactas.
+        expect(pagina.locator(PENDENTES)).to_have_count(8)
+        expect(pagina.locator(".item--visitada")).to_have_count(8)
 
-        novos = pagina.locator("[data-modo='ranking'] .item .nome").all_inner_texts()
+        novos = pagina.locator(f"{PENDENTES} .nome").all_inner_texts()
 
-        assert not set(novos) & set(primeiros), "as visitadas voltaram para a lista"
+        assert not set(novos) & set(primeiros), "uma visitada voltou como sugestão"
         expect(pagina.locator("#visitadas-texto")).to_contain_text("8 atrações")
 
     def test_a_melhor_escolha_e_promovida_a_cada_marcacao(self, navegador, servidor):
@@ -700,24 +704,21 @@ class TestJaFuiHoje:
         pagina = self.com_ranking(navegador, servidor)
 
         for _ in range(8):
-            pagina.locator(".marcar-visitada").first.click()
+            pagina.locator(f"{PENDENTES} .marcar-visitada").first.click()
             pagina.wait_for_timeout(120)
             expect(pagina.locator(".etiqueta")).to_have_count(1)
 
-    def test_mostrar_nao_expulsa_as_sugestoes(self, navegador, servidor):
-        """Revelar as visitadas não pode empurrar para fora o que interessa decidir."""
+    def test_as_feitas_nao_expulsam_as_sugestoes(self, navegador, servidor):
+        """A feita se soma às oito, em vez de ocupar a vaga de uma: quanto mais o
+        visitante andasse pelo parque, menos o app teria a dizer."""
         pagina = self.com_ranking(navegador, servidor)
 
         for _ in range(3):
-            pagina.locator(".marcar-visitada").first.click()
+            pagina.locator(f"{PENDENTES} .marcar-visitada").first.click()
             pagina.wait_for_timeout(120)
 
-        disponiveis = pagina.locator("[data-modo='ranking'] .item").count()
-        pagina.click("#btn-mostrar-visitadas")
-
-        # As oito sugestões continuam, e as três visitadas se somam a elas.
         expect(pagina.locator(".item--visitada")).to_have_count(3)
-        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(disponiveis + 3)
+        expect(pagina.locator(PENDENTES)).to_have_count(8)
 
     def test_o_botao_anuncia_o_estado(self, navegador, servidor):
         """`aria-pressed` leva a mesma informação que a cor, para quem não a vê."""
@@ -727,9 +728,14 @@ class TestJaFuiHoje:
         expect(botao).to_have_attribute("aria-pressed", "false")
 
         botao.click()
-        pagina.click("#btn-mostrar-visitadas")
 
-        expect(pagina.locator(".marcar-visitada").first).to_have_attribute("aria-pressed", "true")
+        expect(pagina.locator(".item--visitada .marcar-visitada")).to_have_attribute(
+            "aria-pressed", "true"
+        )
+
+
+#: Os itens que ainda são sugestão — sem as visitadas, que ficam compactas na lista.
+PENDENTES = "[data-modo='ranking'] .item:not(.item--visitada)"
 
 
 class TestBrinquedosAlvo:
@@ -1206,7 +1212,8 @@ class TestFiltros:
         )
         pagina.wait_for_timeout(400)
 
-        expect(pagina.locator("[data-modo='ranking'] .item")).to_have_count(0)
+        # Nenhuma sugestão; as marcadas continuam, compactas, para desfazer (30/10/2026).
+        expect(pagina.locator(PENDENTES)).to_have_count(0)
         expect(pagina.locator("#aviso")).to_contain_text("filtros")
 
     def test_lista_vazia_por_visitadas_nao_culpa_o_filtro(self, navegador, servidor):
@@ -3199,3 +3206,54 @@ class TestMarcaNoComputador:
             [x, y],
         )
         assert por_cima, "o conteúdo da coluna passou por cima da marca"
+
+
+class TestAnimacaoDoJaFui:
+    """O "Já fui" do cartão confirma antes de trocar (Gabriel, 30/10/2026).
+
+    Na fixture, a melhor é o Prince Charming; marcada, a seguinte é o PeopleMover.
+    """
+
+    def test_o_botao_confirma_e_a_atracao_sai(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+
+        pagina.click("#passo-destaque .botao-ja-fui")
+
+        expect(pagina.locator("#passo-destaque")).to_have_class(
+            re.compile("passo__destaque--feito")
+        )
+        expect(pagina.locator("#passo-destaque .botao-ja-fui")).to_have_text("Feito!")
+        expect(pagina.locator("#passo-destaque .passo__nome")).to_contain_text("PeopleMover")
+
+    def test_com_menos_movimento_troca_na_hora(self, navegador, servidor):
+        """Quem pediu ao sistema menos movimento não espera animação nenhuma."""
+        pagina = abrir(navegador, servidor)
+        pagina.emulate_media(reduced_motion="reduce")
+        _com_cartao(pagina)
+
+        pagina.click("#passo-destaque .botao-ja-fui")
+
+        assert "PeopleMover" in pagina.locator("#passo-destaque .passo__nome").inner_text()
+        expect(pagina.locator("#passo-destaque.passo__destaque--feito")).to_have_count(0)
+
+    def test_dois_toques_rapidos_marcam_uma_so(self, navegador, servidor):
+        """Durante a saída, o segundo toque cairia no "Já fui" da próxima."""
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+
+        botao = pagina.locator("#passo-destaque .botao-ja-fui")
+        botao.click()
+        botao.click(force=True)
+
+        expect(pagina.locator("#passo-destaque .passo__nome")).to_contain_text("PeopleMover")
+        pagina.wait_for_timeout(600)
+        assert pagina.evaluate("estado.visitadas.size") == 1
+
+    def test_na_lista_o_item_que_mudou_entra_animado(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        _localizar(pagina)
+
+        pagina.locator(".marcar-visitada").first.click()
+
+        expect(pagina.locator(".item--visitada")).to_have_class(re.compile("item--recem"))

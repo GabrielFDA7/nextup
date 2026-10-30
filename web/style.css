@@ -968,13 +968,47 @@ h2 {
 /* Já visitada: apagada, não apagada da tela.
    O item continua legível — quem pediu para ver as visitadas quer LER, não
    decifrar um fantasma. A opacidade diz "isto é passado" sem esconder nada. */
+/* A já feita, reduzida ao nome e ao "Fui" (30/10/2026): o resto do cartão responde
+   "vale a pena ir?", e para ela isso já foi respondido. Fica no lugar, apagada, e
+   o "Fui" desfaz. */
 .item--visitada {
-  opacity: 0.62;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 8px 10px 8px 16px;
+  opacity: 0.72;
+  box-shadow: none;
 }
 
 .item--visitada .nome {
+  font-size: 0.95rem;
   text-decoration: line-through;
   text-decoration-thickness: 1.5px;
+}
+
+.item--visitada .marcar-visitada {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+}
+
+/* O item que acabou de mudar de forma entra com um leve "assentar", para o olho
+   ver que foi aquele, e não outro, que encolheu ou voltou. */
+.item--recem {
+  animation: item-recem 260ms ease-out;
+}
+
+@keyframes item-recem {
+  from {
+    opacity: 0.25;
+    transform: scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .item--recem {
+    animation: none;
+  }
 }
 
 .acoes {
@@ -1011,7 +1045,8 @@ h2 {
 /* Marcada: o botão fica cheio, porque o estado é "ligado" e não "disponível".
    `aria-pressed` carrega a mesma informação para quem não vê a cor. */
 .marcar-visitada[aria-pressed="true"] {
-  color: #fff;
+  /* Token, e não branco fixo: no escuro o verde clareia, e o branco sumia nele. */
+  color: var(--sobre-verde);
   background: var(--verde-tendencia);
   border-color: var(--verde-tendencia);
 }

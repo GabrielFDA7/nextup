@@ -88,7 +88,10 @@ const estado = {
   /** Limites que o visitante impôs. Cortam a lista; não reordenam. */
   filtros: { filaMax: 125, caminhadaMax: 125 },
   /** Se as visitadas estão sendo exibidas em vez de escondidas. */
-  mostrandoVisitadas: false,
+  /** A atração que acabou de ser marcada ou desmarcada: o item dela entra animado. */
+  recemMarcada: null,
+  /** O próximo cartão desenhado entra animado — o seguinte a um "Já fui". */
+  animarEntradaDoPasso: false,
   /** Quem pergunta: altura da criança mais baixa e gosto do grupo (Fase 9). */
   perfil: { respondido: false, alturaCm: null, intensidade: "tudo" },
   /** Se as atrações escondidas pelo gosto do grupo estão à mostra. */
@@ -138,7 +141,6 @@ const el = {
   tituloLista: document.getElementById("titulo-lista"),
   visitadasAviso: document.getElementById("visitadas-aviso"),
   visitadasTexto: document.getElementById("visitadas-texto"),
-  btnMostrarVisitadas: document.getElementById("btn-mostrar-visitadas"),
   btnLimparVisitadas: document.getElementById("btn-limpar-visitadas"),
   secaoAlvos: document.getElementById("secao-alvos"),
   listaAlvos: document.getElementById("lista-alvos"),
@@ -1012,7 +1014,6 @@ function trocarParque(novoId) {
   estado.visitadas = new Set();
   estado.alvos = new Set();
   estado.atracoesDoParque = [];
-  estado.mostrandoVisitadas = false;
   estado.mostrandoEscondidas = false;
   estado.ultimoRanking = null;
   estado.ultimoPanorama = null;
@@ -1392,8 +1393,11 @@ function renderizarLista(dados) {
       .map((r) => r.attraction)
   );
 
-  if (visiveis.length === 0) {
-    el.lista.innerHTML = "";
+  const pendentes = visiveis.filter((r) => !estado.visitadas.has(r.attraction.id));
+
+  if (pendentes.length === 0) {
+    // As visitadas continuam à vista, compactas: é nelas que se desfaz um engano.
+    el.lista.innerHTML = visiveis.map((item) => criarItem(item, null)).join("");
 
     // Quatro motivos diferentes para uma lista vazia, e dizer o errado é pior que
     // não dizer nada: "você já passou por todas" para quem só apertou um filtro
@@ -1456,7 +1460,8 @@ function renderizarLista(dados) {
   // ordem deles. Antes ficavam os números do parque, e a rota até o alvo terminava
   // num lugar sem pino nenhum (Gabriel, 30/10/2026). O 1 é o fim da rota; o 2 e o
   // 3 são os da linha "Ou então".
-  const noMapa = estado.origemDoDestaque === "alvos" ? dosAlvos : visiveis;
+  // As feitas ficam na lista, mas não no mapa: o mapa é sobre aonde ir.
+  const noMapa = estado.origemDoDestaque === "alvos" ? dosAlvos : pendentes;
   desenharMapa(noMapa);
   desenharRota();
   enquadrarResposta(noMapa);
@@ -1535,8 +1540,9 @@ function escolherVisiveis(recomendacoes) {
   const disponiveis = dentroDoLimite.filter((r) => !estado.visitadas.has(r.attraction.id));
   const proximas = disponiveis.slice(0, LIMITE);
 
-  if (!estado.mostrandoVisitadas) return proximas;
-
+  // As visitadas ficam na lista, compactas e no lugar delas, e não tomam vaga das
+  // oito (Gabriel, 30/10/2026). Antes sumiam, e só um "Mostrar" as trazia de
+  // volta: desmarcar um toque errado exigia achar um botão em outro canto.
   const marcadas = dentroDoLimite.filter((r) => estado.visitadas.has(r.attraction.id));
 
   return [...proximas, ...marcadas].sort((a, b) => a.total_minutes - b.total_minutes);
@@ -1772,7 +1778,9 @@ function aoClicarNumItem(evento) {
 
   const visitada = evento.target.closest(".marcar-visitada");
   if (visitada) {
+    estado.recemMarcada = visitada.dataset.atracao;
     alternarVisitada(visitada.dataset.atracao);
+    estado.recemMarcada = null;
     return;
   }
 
@@ -1803,8 +1811,6 @@ function atualizarAvisoDeVisitadas(recomendacoes) {
   const plural = marcadas.length === 1 ? "atração já visitada" : "atrações já visitadas";
   el.visitadasTexto.textContent = `${marcadas.length} ${plural} hoje.`;
 
-  el.btnMostrarVisitadas.textContent = estado.mostrandoVisitadas ? "Ocultar" : "Mostrar";
-  el.btnMostrarVisitadas.setAttribute("aria-pressed", String(estado.mostrandoVisitadas));
   el.visitadasAviso.hidden = false;
 }
 
@@ -2360,6 +2366,8 @@ function criarItem(item, idDaMelhor) {
   const visitada = estado.visitadas.has(id);
   const ehAlvo = estado.alvos.has(id);
 
+  if (visitada) return criarItemFeito(item);
+
   // Uma atração já visitada não é "a melhor escolha agora", por melhor que seja
   // o número. Quem decide qual recebe a etiqueta é `renderizar`.
   const ehMelhor = id === idDaMelhor;
@@ -2370,7 +2378,7 @@ function criarItem(item, idDaMelhor) {
 
   const classes = ["item"];
   if (ehMelhor) classes.push("item--melhor");
-  if (visitada) classes.push("item--visitada");
+  if (id === estado.recemMarcada) classes.push("item--recem");
   if (ehAlvo) classes.push("item--alvo");
   if (PERFIL.soAdultos(item.attraction, estado.perfil)) classes.push("item--adultos");
 
@@ -2408,10 +2416,10 @@ function criarItem(item, idDaMelhor) {
         </button>
         <button type="button" class="marcar-visitada"
                 data-atracao="${escapar(id)}"
-                aria-pressed="${visitada}"
-                title="${visitada ? "Desmarcar" : "Marcar como já visitada"}">
+                aria-pressed="false"
+                title="Marcar como já visitada">
           ${ICONE.check}
-          <span>${visitada ? "Fui" : "Já fui"}</span>
+          <span>Já fui</span>
         </button>
         <button type="button" class="ver-historico"
                 data-atracao="${escapar(id)}"
@@ -2420,6 +2428,26 @@ function criarItem(item, idDaMelhor) {
           <span>Histórico</span>
         </button>
       </div>
+    </li>
+  `;
+}
+
+/* A atração já feita hoje, reduzida ao nome e ao "Fui" (Gabriel, 30/10/2026).
+ *
+ * Custo, tendência e histórico respondem "vale a pena ir?", que para ela já foi
+ * respondida. Fica no lugar, e não some: tocar no "Fui" de novo desfaz, e o item
+ * volta inteiro onde estava — sem precisar caçar um "Mostrar" noutro canto. */
+function criarItemFeito(item) {
+  const id = item.attraction.id;
+  const recem = id === estado.recemMarcada ? " item--recem" : "";
+  return `
+    <li class="item item--visitada${recem}" data-expandido="false">
+      <p class="nome">${escapar(item.attraction.name)}</p>
+      <button type="button" class="marcar-visitada" data-atracao="${escapar(id)}"
+              aria-pressed="true" title="Desmarcar">
+        ${ICONE.check}
+        <span>Fui</span>
+      </button>
     </li>
   `;
 }
@@ -2722,15 +2750,9 @@ function iniciar() {
     if (estado.ultimoRanking) renderizar(estado.ultimoRanking);
   });
 
-  el.btnMostrarVisitadas.addEventListener("click", () => {
-    estado.mostrandoVisitadas = !estado.mostrandoVisitadas;
-    if (estado.ultimoRanking) renderizar(estado.ultimoRanking);
-  });
-
   el.btnLimparVisitadas.addEventListener("click", () => {
     VISITADAS.limpar(estado.parqueId);
     estado.visitadas = new Set();
-    estado.mostrandoVisitadas = false;
     if (estado.ultimoRanking) renderizar(estado.ultimoRanking);
   });
 
