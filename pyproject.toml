@@ -93,6 +93,9 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-v --strict-markers"
 asyncio_mode = "auto"
+# Explícito, e igual ao padrão de hoje: sem a linha, toda execução avisa que o padrão
+# vai mudar numa versão futura — e um aviso que aparece sempre é um que ninguém lê.
+asyncio_default_fixture_loop_scope = "function"
 markers = [
     "e2e: teste de interface em navegador real; exige o extra `e2e` e `playwright install chromium`",
 ]
