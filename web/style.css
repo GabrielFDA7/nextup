@@ -139,7 +139,7 @@
      é o que tem mais luz e dispensa borda. */
   --mapa-casco: #d9c3d3;
 
-  /* A barra de "Todas as filas", fixa no pé da tela. */
+  /* A barra de "Outras opções", fixa no pé da tela. */
   --barra: #ffffff;
   --sobre-barra: #1e2640;
   --barra-borda: #f0eae1;
@@ -2086,6 +2086,10 @@ body {
 
 .passo__outras ul {
   display: grid;
+  /* `minmax(0, 1fr)`, pelo mesmo motivo de `.lista`: a coluna implícita não
+     encolhe abaixo do nome inteiro, e no celular os minutos saíam cortados na
+     borda do cartão ("10 m"). */
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
   margin: 0;
   padding: 0;

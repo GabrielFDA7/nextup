@@ -113,6 +113,7 @@ def abrir(
     perfil: dict | None = PERFIL_PULADO,
     seletor: bool = False,
     tela: dict = CELULAR,
+    fuso: str | None = None,
 ) -> Page:
     """Abre a página com a API interceptada dentro do navegador.
 
@@ -128,6 +129,7 @@ def abrir(
     contexto = navegador.new_context(
         viewport=tela,
         locale="pt-BR",
+        timezone_id=fuso,
         geolocation=POSICAO if com_gps else None,
         permissions=["geolocation"] if com_gps else [],
     )
@@ -2282,10 +2284,19 @@ class TestPainelDeFilas:
     """A lista inteira num painel: a tela principal fica só com a resposta."""
 
     def test_o_botao_diz_quantas_ha_la_dentro(self, navegador, servidor):
-        """Escondida num painel, a lista precisa anunciar que existe."""
+        """Escondida num painel, a lista precisa anunciar que existe — com o número
+        do que está lá dentro. Até 29/10/2026 dizia "· 26" sobre um painel de oito."""
         pagina = abrir(navegador, servidor)
         _com_cartao(pagina)
-        expect(pagina.locator("#btn-todas-filas")).to_contain_text("Outras opções · 26")
+        expect(pagina.locator("#btn-todas-filas")).to_contain_text("Outras opções · 8")
+        expect(pagina.locator("#lista > .item")).to_have_count(8)
+
+    def test_sem_posicao_o_numero_tambem_e_o_do_painel(self, navegador, servidor):
+        pagina = abrir(navegador, servidor, com_gps=False)
+        pagina.wait_for_selector("[data-modo='panorama'] .item", state="attached")
+
+        n = pagina.locator("#lista > .item").count()
+        expect(pagina.locator("#btn-todas-filas")).to_contain_text(f"Outras opções · {n}")
 
     def test_o_botao_fica_fora_do_mapa_e_a_vista(self, navegador, servidor):
         """Sobre o mapa e pequeno, ele se perdia no desenho (Gabriel, 28/10/2026)."""
@@ -2846,3 +2857,72 @@ class TestRecentralizar:
 
         expect(pagina.locator("#passo-sem-posicao")).to_be_visible()
         assert pagina.evaluate("estado.posicao") is None
+
+
+class TestVarreduraDe30Out:
+    """O que a varredura de 30/10/2026 achou, um teste por achado."""
+
+    def test_as_alternativas_cabem_no_cartao(self, navegador, servidor):
+        """No celular, os minutos da linha "Ou então" saíam cortados ("10 m"): a
+        mesma grade sem `minmax(0, 1fr)` corrigida no painel no dia anterior."""
+        pagina = abrir(navegador, servidor)
+        _com_cartao(pagina)
+
+        sobra = pagina.evaluate(
+            """() => {
+              const cartao = document.querySelector('#passo-destaque').getBoundingClientRect();
+              return [...document.querySelectorAll('.passo__outras li')]
+                .map((li) => cartao.right - li.getBoundingClientRect().right);
+            }"""
+        )
+        assert sobra and all(s >= -0.5 for s in sobra), f"passou da borda: {sobra}"
+
+    def test_a_hora_da_fonte_sai_no_fuso_do_parque(self, navegador, servidor):
+        """Num celular brasileiro, "Dado da fonte" saía no fuso do aparelho, uma hora
+        à frente do "entra às" do cartão, que já usava o do parque."""
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        pagina = abrir(navegador, servidor, fuso="America/Sao_Paulo")
+        _localizar(pagina)
+
+        # A verdade externa: o `lastUpdated` mais recente da fixture, no relógio de
+        # Orlando — e não a conta do app refeita aqui.
+        bruto = carregar("live_magic_kingdom.json")["liveData"]
+        mais_recente = max(i["lastUpdated"] for i in bruto if i.get("lastUpdated"))
+        em_orlando = datetime.fromisoformat(mais_recente.replace("Z", "+00:00")).astimezone(
+            ZoneInfo("America/New_York")
+        )
+        expect(pagina.locator("#atualizado")).to_contain_text(f"às {em_orlando:%H:%M}")
+
+    def test_o_favicon_e_o_logo(self, navegador, servidor):
+        """Sem ícone nenhum, o navegador pedia /favicon.ico e recebia 404 a cada visita."""
+        pagina = abrir(navegador, servidor)
+
+        for seletor in ["link[rel='icon'][type='image/svg+xml']", "link[rel='apple-touch-icon']"]:
+            endereco = pagina.locator(seletor).get_attribute("href")
+            resposta = pagina.request.get(f"{servidor}/{endereco}")
+            assert resposta.ok, f"{endereco} respondeu {resposta.status}"
+        assert pagina.title() == "nextup · sua próxima atração"
+
+    def test_nenhum_travessao_no_texto_da_tela(self, navegador, servidor):
+        """Pedido do Gabriel (30/10/2026): o travessão no meio da frase sai de todos os
+        textos. O "—" sozinho, que diz "sem fila medida", fica."""
+        pagina = abrir(navegador, servidor)
+        _localizar(pagina)  # abre o painel: a lista também é texto da tela
+        texto_do_painel = pagina.locator("#painel-filas").inner_text()
+        _fechar_filas(pagina)
+        pagina.click("#passo-destaque .botao-ja-fui")  # mostra o "desfazer"
+
+        texto = pagina.evaluate(
+            "() => document.title + '\\n' + document.body.innerText + '\\n' + "
+            "[...document.querySelectorAll('[aria-label], [title]')]"
+            ".map((e) => (e.getAttribute('aria-label') || '') + ' ' + (e.title || ''))"
+            ".join('\\n')"
+        )
+        frases = [
+            linha
+            for linha in [*texto.splitlines(), *texto_do_painel.splitlines()]
+            if "—" in linha and linha.strip() != "—"
+        ]
+        assert not frases, f"travessão em texto: {frases}"

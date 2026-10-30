@@ -1036,9 +1036,15 @@ function mostrarEsqueleto() {
  * visitante está seria repetir justamente o erro que o NextUp existe para evitar.
  */
 function mostrarPanoramaDoParque(dados) {
+  desenharPanorama(dados);
+  // Depois de desenhar, porque conta o que foi desenhado — e o desenho tem três
+  // saídas antecipadas (lista vazia), em que o número certo é zero.
+  atualizarContagemDeFilas();
+}
+
+function desenharPanorama(dados) {
   estado.ultimoPanorama = dados;
   desenharPasso();
-  atualizarContagemDeFilas(dados.available);
   el.tituloLista.textContent = dados.park_name;
   // O modo fica no DOM, e não só na cabeça de quem leu o código: a lista tem dois
   // significados muito diferentes — "as menores filas" e "o que compensa mais" —
@@ -1115,7 +1121,7 @@ function criarItemSimples(item) {
 function renderizar(dados) {
   renderizarLista(dados);
   desenharPasso();
-  atualizarContagemDeFilas(dados.available);
+  atualizarContagemDeFilas();
 }
 
 function renderizarLista(dados) {
@@ -1986,9 +1992,14 @@ function jaFuiPeloCartao(attractionId, nome) {
   }, DESFAZER_MS);
 }
 
-/** O número no botão do painel: quantas atrações há lá dentro. */
-function atualizarContagemDeFilas(disponiveis) {
-  el.todasFilasN.textContent = disponiveis > 0 ? ` · ${disponiveis}` : "";
+/* O número no botão do painel: quantas atrações há lá dentro.
+ *
+ * Contado na lista desenhada, e não em `available`: o painel mostra as oito
+ * primeiras, e a barra dizia "· 26" sobre um painel de oito (29/10/2026). É a
+ * lição nº 3 ao contrário — o número tem de ser o do que está na tela. */
+function atualizarContagemDeFilas() {
+  const n = el.lista.querySelectorAll(":scope > .item").length;
+  el.todasFilasN.textContent = n > 0 ? ` · ${n}` : "";
 }
 
 /* A tendência, na linha da conta.
@@ -2277,12 +2288,21 @@ async function alternarHistorico(item, attractionId) {
   }
 }
 
+/* No fuso do PARQUE, como a hora de entrada do cartão. Antes saía no fuso do
+ * celular: num aparelho brasileiro, "Dado da fonte às 22:41" convivia na mesma
+ * tela com "entra às 21:51", uma hora de diferença sem explicação. */
 function formatarHora(iso) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const opcoes = { hour: "2-digit", minute: "2-digit" };
+  try {
+    return new Date(iso).toLocaleTimeString("pt-BR", {
+      ...opcoes,
+      timeZone: estado.fusoDoParque,
+    });
+  } catch {
+    // Fuso desconhecido: a hora do aparelho é melhor que nenhuma.
+    return new Date(iso).toLocaleTimeString("pt-BR", opcoes);
+  }
 }
 
 /** Impede que um nome vindo da API seja interpretado como HTML.
