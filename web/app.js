@@ -451,20 +451,21 @@ function posicionarRotulos() {
 
 /* Acende no mapa o número do item da lista sob o ponteiro (computador).
  *
- * A lista e os marcadores saem da mesma ordem (`desenharMapa(visiveis)`), então a
- * posição do item é a `ordem` do marcador. Antes do ranking os marcadores não têm
- * ordem, e nada acende — não há número para ligar.
+ * Vale para a lista do parque e para a dos alvos: o item acende o pino da mesma
+ * atração, se ela estiver no mapa. Antes do ranking os marcadores não têm número,
+ * e nada acende — não há número para ligar.
  */
 function realcarNoMapa(evento) {
   const anterior = mapa.getContainer().querySelector(".pino--realce");
   anterior?.classList.remove("pino--realce");
   if (evento.type === "mouseleave") return;
 
-  const item = evento.target.closest(".item");
-  if (!item) return;
-  const ordem = [...el.lista.children].indexOf(item);
+  // Pela atração, e não pela posição na lista: com "Das minhas" os pinos são os
+  // dos alvos, e a terceira da lista do parque não é mais o pino 3.
+  const id = evento.target.closest(".item")?.querySelector("[data-atracao]")?.dataset.atracao;
+  if (!id) return;
   camadaAtracoes.eachLayer((marcador) => {
-    if (marcador.options.ordem === ordem) {
+    if (marcador.options.atracao === id) {
       marcador.getElement()?.querySelector(".pino")?.classList.add("pino--realce");
     }
   });
@@ -539,6 +540,7 @@ function desenharMapa(recomendacoes) {
       // não pode ficar escondida atrás de uma opção pior.
       zIndexOffset: (recomendacoes.length - indice) * 10,
       ordem: indice,
+      atracao: item.attraction.id,
       raio: indice < NOMES_NO_MAPA ? 15 : 12,
     })
       .bindPopup(`<strong>${indice + 1}. ${escapar(item.attraction.name)}</strong><br>
@@ -1446,9 +1448,14 @@ function renderizarLista(dados) {
   estado.alternativas = fonte.slice(1, 1 + ALTERNATIVAS_NO_CARTAO);
 
   el.lista.innerHTML = visiveis.map((item) => criarItem(item, idDaMelhor)).join("");
-  desenharMapa(visiveis);
+  // O mapa mostra o conjunto do CARTÃO: com "Das minhas", os alvos, numerados na
+  // ordem deles. Antes ficavam os números do parque, e a rota até o alvo terminava
+  // num lugar sem pino nenhum (Gabriel, 30/10/2026). O 1 é o fim da rota; o 2 e o
+  // 3 são os da linha "Ou então".
+  const noMapa = estado.origemDoDestaque === "alvos" ? dosAlvos : visiveis;
+  desenharMapa(noMapa);
   desenharRota();
-  enquadrarResposta(visiveis);
+  enquadrarResposta(noMapa);
 
   el.atualizado.textContent = `Dado da fonte às ${formatarHora(dados.data_updated_at)}.`;
   el.atualizado.hidden = false;
@@ -2748,8 +2755,10 @@ function iniciar() {
     estado.criterio = CARTAO.salvar(evento.target.value);
     if (estado.ultimoRanking) renderizar(estado.ultimoRanking);
   });
-  el.lista.addEventListener("mouseover", realcarNoMapa);
-  el.lista.addEventListener("mouseleave", realcarNoMapa);
+  for (const lista of [el.lista, el.listaAlvos]) {
+    lista.addEventListener("mouseover", realcarNoMapa);
+    lista.addEventListener("mouseleave", realcarNoMapa);
+  }
   el.btnFecharFilas.addEventListener("click", () => el.painelFilas.close());
 
   el.passoDestaque.addEventListener("click", (evento) => {

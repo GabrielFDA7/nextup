@@ -3123,3 +3123,79 @@ class TestFrescor:
     def test_aparece_tambem_sem_posicao(self, navegador, servidor):
         pagina = abrir(navegador, servidor, com_gps=False, relogio=LOGO_DEPOIS_DA_FIXTURE)
         expect(pagina.locator("#frescor")).to_contain_text("Ao vivo")
+
+
+class TestAlvosNoMapa:
+    """Com "Das minhas", o mapa mostra os alvos numerados (Gabriel, 30/10/2026).
+
+    Antes ficavam os números do parque, e a rota até o alvo terminava num lugar sem
+    pino. Na fixture: Space Mountain (50 min) vem antes de Big Thunder (68).
+    """
+
+    def test_os_pinos_sao_os_alvos_e_o_1_e_o_fim_da_rota(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        _com_alvos(pagina, "Space Mountain", "Big Thunder")
+        _com_cartao(pagina)
+
+        pagina.get_by_text("Das minhas").click()
+
+        expect(pagina.locator("#mapa .pino")).to_have_count(2)
+        assert pagina.evaluate(
+            """() => {
+              let primeiro;
+              camadaAtracoes.eachLayer((m) => { if (m.options.ordem === 0) primeiro = m; });
+              const destino = estado.destaque.attraction;
+              const p = primeiro.getLatLng();
+              return p.lat === destino.latitude && p.lng === destino.longitude
+                && primeiro.getElement().textContent.trim().startsWith('1');
+            }"""
+        ), "o pino 1 não está no fim da rota"
+
+    def test_de_volta_ao_parque_voltam_os_numeros_do_parque(self, navegador, servidor):
+        pagina = abrir(navegador, servidor)
+        _com_alvos(pagina, "Space Mountain", "Big Thunder")
+        _com_cartao(pagina)
+        pagina.get_by_text("Das minhas").click()
+        expect(pagina.locator("#mapa .pino")).to_have_count(2)
+
+        pagina.get_by_text("Melhor do parque").click()
+
+        expect(pagina.locator("#mapa .pino")).to_have_count(8)
+
+    def test_no_computador_o_alvo_acende_o_proprio_pino(self, navegador, servidor):
+        pagina = abrir(navegador, servidor, tela=COMPUTADOR)
+        _com_alvos(pagina, "Space Mountain", "Big Thunder")
+        _com_cartao(pagina)
+        pagina.get_by_text("Das minhas").click()
+        expect(pagina.locator("#mapa .pino")).to_have_count(2)
+
+        pagina.locator("#lista-alvos .item", has_text="Big Thunder").hover()
+
+        expect(pagina.locator("#mapa .pino--realce")).to_have_text("2")
+
+
+class TestMarcaNoComputador:
+    """A marca no topo da coluna era coberta por parte do conteúdo ao rolar — e um
+    item "já fui", com opacidade, a deixava transparente (Gabriel, 30/10/2026)."""
+
+    def test_a_marca_fica_por_cima_do_que_rola(self, navegador, servidor):
+        pagina = abrir(navegador, servidor, tela=COMPUTADOR)
+        _com_cartao(pagina)
+        caixa = pagina.locator(".selo-marca").bounding_box()
+        x, y = caixa["x"] + caixa["width"] / 2, caixa["y"] + caixa["height"] / 2
+
+        # O cartão (que cria camada própria) rola para baixo da marca.
+        pagina.mouse.move(200, 600)
+        pagina.mouse.wheel(0, 260)
+        pagina.wait_for_function("window.scrollY > 200")
+
+        # A marca não recebe toque (`pointer-events: none`), e o `elementFromPoint`
+        # a atravessaria; ligá-lo só para a medição é o que deixa ver quem está por cima.
+        por_cima = pagina.evaluate(
+            """([x, y]) => {
+              document.querySelector('.palco__topo').style.pointerEvents = 'auto';
+              return Boolean(document.elementFromPoint(x, y).closest('.palco__topo'));
+            }""",
+            [x, y],
+        )
+        assert por_cima, "o conteúdo da coluna passou por cima da marca"
