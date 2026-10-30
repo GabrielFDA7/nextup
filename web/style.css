@@ -2329,6 +2329,12 @@ body {
 
   .palco {
     position: fixed;
+    /* Acima da coluna. O cabeçalho com a marca mora DENTRO do palco (fixo à
+       esquerda), e o `isolation` o prende à camada do palco: sem prioridade, o que
+       na coluna criava camada própria — o cartão, um item "já fui" (opacidade), um
+       item sob o ponteiro (transform) — passava por cima da marca, e o "já fui" a
+       deixava transparente; o resto passava por baixo (Gabriel, 30/10/2026). */
+    z-index: 1;
     inset: 0 0 0 var(--lateral);
     margin: 0;
     border-radius: 0;
