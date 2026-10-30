@@ -96,6 +96,7 @@ async def listar_destinos(cliente: ClienteThemeParks) -> DestinationsOut:
 )
 async def listar_atracoes(
     cliente: ClienteThemeParks,
+    motor: MotorDoBanco,
     park_id: Annotated[str, Path(description="ID do parque, obtido em `/destinations`.")],
 ) -> ParkAttractionsOut:
     """Como está o parque agora — **sem** precisar saber onde o visitante está.
@@ -107,16 +108,26 @@ async def listar_atracoes(
     Também devolve `bounds`, o retângulo que contém as atrações: é o que permite
     ao mapa enquadrar o parque escolhido em vez de continuar apontando para onde
     estava antes.
+
+    E a popularidade de cada atração, que ordena o catálogo de alvos. Pela regra
+    de `_popularidade`, banco fora do ar não derruba a rota: a faixa sai nula.
     """
     catalogo, ao_vivo = await asyncio.gather(
         cliente.get_park_catalog(park_id),
         cliente.get_live_data(park_id),
     )
+    # Depois do catálogo, e não junto: um ID inventado tem de dar 404 sem antes
+    # gastar uma ida ao banco.
+    popularidade = await _popularidade(motor, park_id)
 
     atualizado_em = max((item.last_updated for item in ao_vivo.live_data), default=None)
 
     return ParkAttractionsOut.from_domain(
-        catalogo, ao_vivo, atualizado_em, curadoria=_curadoria(park_id)
+        catalogo,
+        ao_vivo,
+        atualizado_em,
+        curadoria=_curadoria(park_id),
+        popularidade=popularidade,
     )
 
 

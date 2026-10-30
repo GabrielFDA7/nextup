@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 from nextup.core.geo import bounding_box
 from nextup.core.history import HistorySummary
 from nextup.core.intensity import classify_intensity
+from nextup.core.popularity import AttractionPopularity
 from nextup.core.recommender import Recommendation
 from nextup.core.trends import Trend, TrendAnalysis
 from nextup.models import (
@@ -135,14 +136,21 @@ class PopularityOut(BaseModel):
 
     @classmethod
     def from_domain(cls, recomendacao: Recommendation) -> "PopularityOut | None":
-        if recomendacao.popularity is None:
+        return cls.from_popularity(recomendacao.popularity, recomendacao.queue_minutes)
+
+    @classmethod
+    def from_popularity(
+        cls, popularidade: AttractionPopularity | None, fila_de_agora: int | None
+    ) -> "PopularityOut | None":
+        """A mesma faixa, sem precisar de uma recomendação — para quem não deu posição."""
+        if popularidade is None:
             return None
 
         return cls(
-            tier=recomendacao.popularity.tier.value,
-            average_minutes=recomendacao.popularity.average_minutes,
-            measurements=recomendacao.popularity.measurements,
-            opportunity=recomendacao.is_opportunity,
+            tier=popularidade.tier.value,
+            average_minutes=popularidade.average_minutes,
+            measurements=popularidade.measurements,
+            opportunity=popularidade.is_opportunity(fila_de_agora),
         )
 
 
@@ -278,6 +286,12 @@ class ParkAttractionOut(BaseModel):
     min_height_cm: int | None = Field(default=None, description=_DESCRICAO_ALTURA)
     intensity: str | None = Field(default=None, description=_DESCRICAO_INTENSIDADE)
 
+    #: É o que ordena o catálogo de alvos: quem monta a lista de desejos procura
+    #: primeiro as principais do parque, e a faixa não depende de onde ele está.
+    popularity: PopularityOut | None = Field(
+        default=None, description="Faixa de popularidade, ou nulo sem histórico."
+    )
+
 
 class ParkAttractionsOut(BaseModel):
     """Resposta de `/parks/{id}/attractions`.
@@ -309,9 +323,11 @@ class ParkAttractionsOut(BaseModel):
         ao_vivo: LiveDataResponse,
         data_updated_at: datetime | None,
         curadoria: Curadoria | None = None,
+        popularidade: Mapping[str, AttractionPopularity] | None = None,
     ) -> "ParkAttractionsOut":
         estado_por_id = ao_vivo.by_id()
         atracoes = catalogo.attractions()
+        popularidades = popularidade or {}
 
         saida = []
         disponiveis = 0
@@ -325,6 +341,7 @@ class ParkAttractionsOut(BaseModel):
             estado = estado_por_id.get(atracao.id)
             if estado is not None and estado.is_rankable:
                 disponiveis += 1
+            fila = estado.wait_time_minutes if estado else None
 
             saida.append(
                 ParkAttractionOut(
@@ -333,8 +350,9 @@ class ParkAttractionsOut(BaseModel):
                     latitude=atracao.location.latitude,
                     longitude=atracao.location.longitude,
                     status=str(estado.status) if estado else str(LiveStatus.UNKNOWN),
-                    queue_minutes=estado.wait_time_minutes if estado else None,
+                    queue_minutes=fila,
                     **_dados_curados(atracao.id, curadoria),
+                    popularity=PopularityOut.from_popularity(popularidades.get(atracao.id), fila),
                 )
             )
 

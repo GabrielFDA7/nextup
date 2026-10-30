@@ -290,3 +290,57 @@ class TestCache:
             corpo = (await cliente.get(ROTA)).json()
 
         assert por_id(corpo)[ids[0]]["popularity"]["tier"] == "HEADLINER"
+
+
+ROTA_ATRACOES = f"/api/parks/{DEFAULT_PARK_ID}/attractions"
+
+
+class TestNaRotaDeAtracoes:
+    """A faixa também sai sem posição: é ela que ordena o catálogo de alvos.
+
+    Quem monta a lista de desejos a caminho do parque ainda não deu a posição, e é
+    justamente quem mais precisa achar as principais primeiro (29/10/2026).
+    """
+
+    async def test_a_faixa_chega_sem_posicao(self, api_no_ar, banco):
+        ids = [aid for aid, _ in atracoes_com_fila()]
+        await gravar_historico(banco, {ids[0]: 100} | {aid: 10 for aid in ids[1:]})
+
+        async with httpx.AsyncClient() as conexao, montar_app(conexao, banco) as cliente:
+            corpo = (await cliente.get(ROTA_ATRACOES)).json()
+
+        faixas = {a["id"]: a["popularity"] for a in corpo["attractions"]}
+        assert faixas[ids[0]]["tier"] == "HEADLINER"
+        assert faixas[ids[0]]["average_minutes"] == 100.0
+
+    async def test_a_oportunidade_usa_a_fila_de_agora(self, api_no_ar, banco):
+        """Sem recomendação no meio, a fila de agora tem de vir do `/live`."""
+        com_fila = atracoes_com_fila()
+        alvo, fila_de_agora = min(com_fila, key=lambda p: p[1])
+        media = max(fila_de_agora * 5, 50)
+        await gravar_historico(
+            banco, {alvo: media} | {aid: 10 for aid, _ in com_fila if aid != alvo}
+        )
+
+        async with httpx.AsyncClient() as conexao, montar_app(conexao, banco) as cliente:
+            corpo = (await cliente.get(ROTA_ATRACOES)).json()
+
+        faixa = next(a["popularity"] for a in corpo["attractions"] if a["id"] == alvo)
+        assert faixa["opportunity"] is True
+
+    async def test_sem_banco_a_faixa_sai_nula(self, api_no_ar):
+        async with httpx.AsyncClient() as conexao, montar_app(conexao, None) as cliente:
+            resposta = await cliente.get(ROTA_ATRACOES)
+
+        assert resposta.status_code == 200
+        assert all(a["popularity"] is None for a in resposta.json()["attractions"])
+
+    async def test_banco_fora_do_ar_nao_derruba_o_catalogo(self, api_no_ar, banco):
+        """O catálogo existe para funcionar antes de tudo — sem GPS e sem banco."""
+        await banco.dispose()
+
+        async with httpx.AsyncClient() as conexao, montar_app(conexao, banco) as cliente:
+            resposta = await cliente.get(ROTA_ATRACOES)
+
+        assert resposta.status_code == 200
+        assert len(resposta.json()["attractions"]) == 35
