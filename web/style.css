@@ -1999,6 +1999,83 @@ body {
   font-size: 0.95rem;
 }
 
+/* A chave "Melhor do parque | Das minhas" — os mesmos segmentos do perfil, sobre
+   um fundo translúcido para o degradê do cartão aparecer por trás. */
+.criterio {
+  margin: 14px 0 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.segmentos--cartao {
+  background: rgb(255 255 255 / 55%);
+}
+
+.segmentos--cartao .segmento span {
+  min-height: 40px;
+  color: var(--sobre-cartao);
+}
+
+@media (prefers-color-scheme: dark) {
+  .segmentos--cartao {
+    background: rgb(255 255 255 / 6%);
+  }
+}
+
+/* O plano B: a 2ª e a 3ª, com o total de cada uma. */
+.passo__outras {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--cartao-contorno);
+}
+
+.passo__outras p {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sobre-cartao-suave);
+}
+
+.passo__outras ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.passo__outras li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.92rem;
+}
+
+.passo__outra-nome {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.passo__outras strong {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Some da tela, fica para o leitor de tela. */
+.visualmente-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .passo .tendencia,
 .passo .popularidade {
   margin-top: 10px;

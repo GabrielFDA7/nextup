@@ -45,11 +45,14 @@
       <!-- A lista inteira mora num painel: a tela principal fica só com a resposta.
            O número no botão diz quanto há lá dentro, para ninguém achar que sumiu.
            Fora do mapa e fixo no pé da tela: sobre o mapa, pequeno, ele se perdia
-           no desenho (Gabriel, 28/10/2026); no pé, fica onde o polegar já está. -->
+           no desenho (Gabriel, 28/10/2026); no pé, fica onde o polegar já está.
+           "Outras opções", e não "Todas as filas" (29/10/2026): o painel é o plano B
+           de quem não gostou da sugestão, e "lista de filas" é o que os outros apps
+           já entregam. -->
       <button id="btn-todas-filas" type="button" class="pilula" aria-haspopup="dialog">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"
              stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
-        Todas as filas<span id="todas-filas-n"></span>
+        Outras opções<span id="todas-filas-n"></span>
       </button>
 
       <!-- O cartão que responde a pergunta do app. Três estados: sem posição (pede
@@ -82,6 +85,23 @@
           </button>
           <p class="passo__explica">ou toque no mapa onde você está.</p>
         </div>
+
+        <!-- Melhor do parque ou das minhas (Gabriel, 29/10/2026). Só aparece com
+             alvos marcados. É chave, e não bônus de custo: o número continua sendo
+             o tempo de verdade, e o que muda é o conjunto — às claras. -->
+        <fieldset id="passo-criterio" class="criterio" hidden>
+          <legend class="visualmente-oculto">O que o cartão mostra</legend>
+          <div class="segmentos segmentos--cartao">
+            <label class="segmento">
+              <input type="radio" name="criterio" value="parque" checked />
+              <span>Melhor do parque</span>
+            </label>
+            <label class="segmento">
+              <input type="radio" name="criterio" value="alvos" />
+              <span>Das minhas</span>
+            </label>
+          </div>
+        </fieldset>
 
         <div id="passo-destaque" class="passo__destaque" hidden></div>
 

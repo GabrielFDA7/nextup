@@ -2285,7 +2285,7 @@ class TestPainelDeFilas:
         """Escondida num painel, a lista precisa anunciar que existe."""
         pagina = abrir(navegador, servidor)
         _com_cartao(pagina)
-        expect(pagina.locator("#btn-todas-filas")).to_contain_text("Todas as filas · 26")
+        expect(pagina.locator("#btn-todas-filas")).to_contain_text("Outras opções · 26")
 
     def test_o_botao_fica_fora_do_mapa_e_a_vista(self, navegador, servidor):
         """Sobre o mapa e pequeno, ele se perdia no desenho (Gabriel, 28/10/2026)."""

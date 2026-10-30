@@ -36,6 +36,10 @@ const MOSTRAR_SELETOR_DE_PARQUES = window.NEXTUP_SELETOR_DE_PARQUES === true;
 //: Quanto tempo o "Desfazer" do "Já fui" do cartão fica à mão.
 const DESFAZER_MS = 5000;
 
+//: Quantas colocadas seguintes o cartão cita abaixo da resposta. Duas cabem numa
+//: linha de celular e bastam para "não gostei, e agora?".
+const ALTERNATIVAS_NO_CARTAO = 2;
+
 //: Janela do gráfico. Seis horas cobrem meio dia de parque e cabem em ~72 pontos
 //: com a coleta de 5 minutos — densidade boa para a largura de um celular.
 const HORAS_DE_HISTORICO = 6;
@@ -69,6 +73,14 @@ const estado = {
   ultimoPanorama: null,
   /** A melhor escolha da vez — o destino da rota desenhada no mapa. */
   destaque: null,
+  /** O que o cartão mostra: "parque" (a melhor de todas) ou "alvos" (das minhas). */
+  criterio: "parque",
+  /** De onde veio o destaque: "parque", "alvos" ou "sem-alvos" (pediu e não havia). */
+  origemDoDestaque: "parque",
+  /** A 2ª e a 3ª do mesmo critério do cartão: o plano B sem abrir o painel. */
+  alternativas: [],
+  /** Os quatro cantos do parque, como a API devolve: o "parque inteiro" do mapa. */
+  limitesDoParque: null,
 };
 
 const el = {
@@ -124,6 +136,8 @@ const el = {
   painelFilas: document.getElementById("painel-filas"),
   btnFecharFilas: document.getElementById("btn-fechar-filas"),
   passoSemPosicao: document.getElementById("passo-sem-posicao"),
+  passoTitulo: document.getElementById("passo-titulo"),
+  passoCriterio: document.getElementById("passo-criterio"),
   passoDestaque: document.getElementById("passo-destaque"),
   desfazer: document.getElementById("desfazer"),
   desfazerTexto: document.getElementById("desfazer-texto"),
@@ -990,6 +1004,8 @@ function renderizarLista(dados) {
   // Sem destaque até prova em contrário: numa lista vazia, a rota apontaria para
   // uma atração que já não é resposta de nada.
   estado.destaque = null;
+  estado.origemDoDestaque = "parque";
+  estado.alternativas = [];
   desenharRota();
 
   el.tituloLista.textContent = dados.park_name;
@@ -1057,12 +1073,25 @@ function renderizarLista(dados) {
   // Nem para uma só dos adultos: o destaque responde "para onde vamos agora?" e o
   // grupo inclui a criança. A atração continua na lista, marcada — pelo Rider
   // Switch os adultos ainda vão, revezando. Decisão do Gabriel, Fase 9.
-  const melhorDisponivel = visiveis.find(
-    (r) =>
-      !estado.visitadas.has(r.attraction.id) && !PERFIL.soAdultos(r.attraction, estado.perfil)
-  );
+  const serveAoGrupo = (r) =>
+    !estado.visitadas.has(r.attraction.id) && !PERFIL.soAdultos(r.attraction, estado.perfil);
+  const doParque = visiveis.filter(serveAoGrupo);
+  const melhorDisponivel = doParque[0];
   const idDaMelhor = melhorDisponivel ? melhorDisponivel.attraction.id : null;
-  estado.destaque = melhorDisponivel || null;
+
+  // A etiqueta da lista continua sendo do ranking; quem muda com a chave é o
+  // cartão. Dos alvos, a recomendação inteira e não `visiveis`: alvo escapa do
+  // filtro, como na seção "Você veio por estas".
+  const dosAlvos = dados.recommendations.filter(
+    (r) => estado.alvos.has(r.attraction.id) && serveAoGrupo(r)
+  );
+  const querAlvos = estado.criterio === "alvos" && estado.alvos.size > 0;
+  // Pedir as marcadas sem nenhuma disponível não pode esvaziar o cartão: ele cai
+  // para a melhor do parque e diz por quê.
+  const fonte = querAlvos && dosAlvos.length > 0 ? dosAlvos : doParque;
+  estado.origemDoDestaque = querAlvos ? (dosAlvos.length > 0 ? "alvos" : "sem-alvos") : "parque";
+  estado.destaque = fonte[0] || null;
+  estado.alternativas = fonte.slice(1, 1 + ALTERNATIVAS_NO_CARTAO);
 
   el.lista.innerHTML = visiveis.map((item) => criarItem(item, idDaMelhor)).join("");
   desenharMapa(visiveis);
@@ -1703,6 +1732,15 @@ function desenharPasso() {
   const temPosicao = Boolean(estado.posicao);
   el.passoSemPosicao.hidden = temPosicao;
 
+  // A chave só existe com alvos marcados: sem eles, "das minhas" seria uma opção
+  // que não leva a lugar nenhum.
+  el.passoCriterio.hidden = !temPosicao || estado.alvos.size === 0;
+  el.passoCriterio.querySelector(`input[value='${estado.criterio}']`).checked = true;
+  el.passoTitulo.textContent =
+    estado.destaque && estado.origemDoDestaque === "alvos"
+      ? "Próxima da sua lista"
+      : "Seu próximo passo";
+
   if (!temPosicao || !estado.destaque) {
     // Esvaziar, e não só esconder: o esqueleto do carregamento ficaria lá dentro,
     // e numa falha da API o cartão "carregaria" para sempre se reaparecesse.
@@ -1730,13 +1768,20 @@ function criarPasso(item) {
   const total = Math.round(item.total_minutes);
 
   const perfilAtivo = estado.perfil.alturaCm !== null || estado.perfil.intensidade !== "tudo";
+  const criterio = {
+    alvos: "A menor soma de caminhada e fila entre as que você veio fazer.",
+    // Pediu as marcadas e nenhuma está disponível: dizer, em vez de trocar o
+    // critério calado — o visitante leria a sugestão como uma das dele.
+    "sem-alvos": "Nenhuma das suas está disponível agora. Esta é a melhor do parque.",
+    parque: perfilAtivo
+      ? "A menor soma de caminhada e fila entre as que servem para o seu grupo."
+      : "A menor soma de caminhada e fila do parque agora.",
+  }[estado.origemDoDestaque];
   const porque =
-    criarTendencia(item.trend) + criarPopularidade(item.popularity) ||
-    `<p class="passo__porque">${
-      perfilAtivo
-        ? "A menor soma de caminhada e fila entre as que servem para o seu grupo."
-        : "A menor soma de caminhada e fila do parque agora."
-    }</p>`;
+    estado.origemDoDestaque === "sem-alvos"
+      ? `<p class="passo__porque">${criterio}</p>`
+      : criarTendencia(item.trend) + criarPopularidade(item.popularity) ||
+        `<p class="passo__porque">${criterio}</p>`;
 
   const intensidade = NOME_DA_INTENSIDADE[a.intensity];
   const selo = intensidade ? `<span class="passo__selo">${intensidade}</span>` : "";
@@ -1757,11 +1802,30 @@ function criarPasso(item) {
     </p>
     ${porque}
     ${selo}
+    ${criarAlternativas(estado.alternativas)}
     <button type="button" class="botao-ja-fui" data-atracao="${escapar(a.id)}"
             data-nome="${escapar(a.name)}">
       ${ICONE.check} Já fui
     </button>
   `;
+}
+
+/* A 2ª e a 3ª, numa linha: o plano B de quem não gostou da sugestão, sem abrir o
+ * painel (29/10/2026). Mesmo critério do cartão — com "Das minhas", as seguintes
+ * também são das marcadas. */
+function criarAlternativas(alternativas) {
+  if (alternativas.length === 0) return "";
+
+  const itens = alternativas
+    .map(
+      (r) => `
+        <li>
+          <span class="passo__outra-nome">${escapar(r.attraction.name)}</span>
+          <strong>${Math.round(r.total_minutes)} min</strong>
+        </li>`
+    )
+    .join("");
+  return `<div class="passo__outras"><p>Ou então</p><ul>${itens}</ul></div>`;
 }
 
 /** A hora em que o visitante entra na atração, no fuso do PARQUE. */
@@ -2133,6 +2197,7 @@ function iniciar() {
   // O perfil também vem antes de qualquer desenho, pelo mesmo motivo.
   estado.perfil = PERFIL.ler();
   atualizarResumoDoPerfil();
+  estado.criterio = CARTAO.ler();
 
   // Carrega o parque padrão já na abertura: o app passa a mostrar algo útil
   // antes de qualquer permissão de GPS.
@@ -2284,6 +2349,10 @@ function iniciar() {
   el.btnAlturaMais.addEventListener("click", () => definirAltura(Number(el.altura.value) + 1));
 
   el.btnTodasFilas.addEventListener("click", () => el.painelFilas.showModal());
+  el.passoCriterio.addEventListener("change", (evento) => {
+    estado.criterio = CARTAO.salvar(evento.target.value);
+    if (estado.ultimoRanking) renderizar(estado.ultimoRanking);
+  });
   el.lista.addEventListener("mouseover", realcarNoMapa);
   el.lista.addEventListener("mouseleave", realcarNoMapa);
   el.btnFecharFilas.addEventListener("click", () => el.painelFilas.close());

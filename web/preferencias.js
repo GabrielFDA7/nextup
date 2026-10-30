@@ -330,3 +330,29 @@ const ALVOS = (() => {
 
   return { doParque, alternar, limpar };
 })();
+
+/* O que o cartão do próximo passo mostra: a melhor do parque ou a melhor das
+ * marcadas como alvo (Gabriel, 29/10/2026).
+ *
+ * O padrão é o parque: até aqui o cartão sempre foi o ranking, e quem nunca tocou
+ * na chave não pode ver a resposta mudar de critério sozinha. Global, como os
+ * filtros — é um jeito de usar o app, não um fato do Magic Kingdom.
+ */
+const CARTAO = (() => {
+  const CHAVE = "nextup:cartao";
+  const CRITERIOS = ["parque", "alvos"];
+
+  function ler() {
+    const { criterio } = ARMAZENAMENTO.ler(CHAVE);
+    // Valor desconhecido volta ao padrão, pelo mesmo motivo das faixas órfãs dos
+    // filtros: uma versão futura pode renomear, e o cartão não pode travar nele.
+    return CRITERIOS.includes(criterio) ? criterio : "parque";
+  }
+
+  function salvar(criterio) {
+    ARMAZENAMENTO.escrever(CHAVE, { criterio });
+    return criterio;
+  }
+
+  return { ler, salvar };
+})();
