@@ -58,6 +58,10 @@ const PASSO_MINIMO_M = 25;
 //: um quarteirão, ela confunde mais do que ajuda.
 const PRECISAO_MAXIMA_M = 100;
 
+//: Quanto dura a saída do cartão depois de um "Já fui". Curta o bastante para não
+//: parecer espera; longa o bastante para o olho ver o "Feito!".
+const SAIDA_DO_CARTAO_MS = 380;
+
 //: Quantas colocadas seguintes o cartão cita abaixo da resposta. Duas cabem numa
 //: linha de celular e bastam para "não gostei, e agora?".
 const ALTERNATIVAS_NO_CARTAO = 2;
@@ -2124,7 +2128,16 @@ function desenharPasso() {
   if (chave !== ultimoPasso || el.passoDestaque.hidden) {
     el.passoDestaque.innerHTML = html;
     ultimoPasso = chave;
+    if (estado.animarEntradaDoPasso) {
+      el.passoDestaque.classList.add("passo__destaque--entrando");
+      el.passoDestaque.addEventListener(
+        "animationend",
+        () => el.passoDestaque.classList.remove("passo__destaque--entrando"),
+        { once: true }
+      );
+    }
   }
+  estado.animarEntradaDoPasso = false;
   el.passoDestaque.hidden = false;
 }
 
@@ -2225,7 +2238,35 @@ let temporizadorDesfazer;
  * O cartão troca de atração na hora — é o que torna o botão útil —, e por isso
  * mesmo um toque errado de quem usa o celular com uma mão só passaria sem volta:
  * quando ele percebe, a atração já saiu da tela. */
+/* "Já fui" pelo cartão, com uma pequena cerimônia (30/10/2026): o botão confirma,
+ * a atração sai para a esquerda, e a próxima entra pela direita. Sem ela, o cartão
+ * trocava de nome num piscar, e o visitante não tinha certeza de que o toque pegou.
+ *
+ * Quem pediu menos movimento ao sistema troca na hora, como antes. */
 function jaFuiPeloCartao(attractionId, nome) {
+  if (cartaoSaindo) return;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    concluirJaFui(attractionId, nome);
+    return;
+  }
+
+  cartaoSaindo = true;
+  const botao = el.passoDestaque.querySelector(".botao-ja-fui");
+  if (botao) botao.innerHTML = `${ICONE.check} Feito!`;
+  el.passoDestaque.classList.add("passo__destaque--feito");
+
+  setTimeout(() => {
+    cartaoSaindo = false;
+    el.passoDestaque.classList.remove("passo__destaque--feito");
+    estado.animarEntradaDoPasso = true;
+    concluirJaFui(attractionId, nome);
+  }, SAIDA_DO_CARTAO_MS);
+}
+
+/** Entre o toque e a troca: um segundo toque nesse meio-tempo seria marcar a próxima. */
+let cartaoSaindo = false;
+
+function concluirJaFui(attractionId, nome) {
   alternarVisitada(attractionId);
 
   el.desfazerTexto.textContent = `“${nome}” marcada como feita hoje.`;

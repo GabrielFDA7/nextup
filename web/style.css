@@ -76,6 +76,9 @@
   /* Tendência da fila: verde e vermelho carregam significado de produto — caindo
      é boa notícia, subindo é má — e por isso ficam fora da paleta pastel. */
   --verde-tendencia: #0f766e;
+  /* A tinta sobre o verde do "Feito!": branco no claro, escura no escuro, onde o
+     verde clareia. */
+  --sobre-verde: #ffffff;
   --vermelho-tendencia: #ad4519;
 
   /* As duas parcelas do custo, com cor própria: azul caminha, rosa espera. São
@@ -184,6 +187,7 @@
 
     /* Clareados: os tons do tema claro perdem contraste sobre fundo escuro. */
     --verde-tendencia: #8fe3b6;
+    --sobre-verde: #0e1527;
     --vermelho-tendencia: #ffb48c;
 
     --caminhada: #a9d3ff;
@@ -2227,6 +2231,55 @@ body {
 .botao-ja-fui svg {
   width: 18px;
   height: 18px;
+}
+
+/* "Já fui" no cartão (30/10/2026): o botão confirma em verde ("Feito!"), a atração
+   sai para a esquerda, e a próxima entra pela direita. O conteúdo espera um terço
+   do tempo antes de sair, para o olho ver a confirmação primeiro. */
+.passo__destaque--feito > :not(.botao-ja-fui) {
+  animation: passo-sair 380ms ease-in forwards;
+}
+
+.passo__destaque--feito .botao-ja-fui {
+  color: var(--sobre-verde);
+  background: var(--verde-tendencia);
+  border-color: var(--verde-tendencia);
+  animation: ja-fui-confirma 380ms ease-out;
+}
+
+.passo__destaque--entrando > * {
+  animation: passo-entrar 300ms ease-out;
+}
+
+@keyframes passo-sair {
+  35% {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+}
+
+@keyframes ja-fui-confirma {
+  40% {
+    transform: scale(1.04);
+  }
+}
+
+@keyframes passo-entrar {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .passo__destaque--feito > *,
+  .passo__destaque--entrando > * {
+    animation: none;
+  }
 }
 
 .passo .posicao {
