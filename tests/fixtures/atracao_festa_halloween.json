@@ -1,0 +1,9 @@
+{
+  "id": "52ac3730-b955-452a-a7cc-17e3b06182ac",
+  "name": "Trick-or-Treat Locations at Mickey's Not-So-Scary Halloween Party",
+  "entityType": "ATTRACTION",
+  "externalId": "17511582;entityType=Attraction",
+  "parentId": "75ea578a-adc8-4116-a54d-dccb60765ef9",
+  "slug": null,
+  "location": {"longitude": -81.5784311924997, "latitude": 28.420965290619}
+}

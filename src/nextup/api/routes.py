@@ -40,6 +40,7 @@ from nextup.config import (
     TREND_WINDOW_MINUTES,
 )
 from nextup.core.history import summarize
+from nextup.core.listing import restrict_to_listing
 from nextup.core.popularity import AttractionPopularity, classify
 from nextup.core.recommender import recommend
 from nextup.core.trends import TrendAnalysis, analyze, analyze_many
@@ -147,6 +148,7 @@ async def listar_atracoes(
         cliente.get_park_catalog(park_id),
         cliente.get_live_data(park_id),
     )
+    catalogo = restrict_to_listing(catalogo, _listagem(park_id))
     # Depois do catálogo, e não junto: um ID inventado tem de dar 404 sem antes
     # gastar uma ida ao banco.
     popularidade = await _popularidade(motor, park_id)
@@ -260,6 +262,7 @@ async def recomendar(
         cliente.get_park_catalog(park_id),
         cliente.get_live_data(park_id),
     )
+    catalogo = restrict_to_listing(catalogo, _listagem(park_id))
 
     # As duas leituras do histórico também são independentes, e nenhuma pode
     # derrubar a recomendação — ver `_tendencias` e `_popularidade`.
@@ -287,6 +290,12 @@ async def recomendar(
     return RecommendationsOut.from_domain(
         catalogo, recomendacoes, limit, atualizado_em, curadoria=_curadoria(park_id)
     )
+
+
+def _listagem(park_id: str) -> set[str] | None:
+    """As atrações da listagem oficial do parque, conferidas ou não. Ver `core/listing.py`."""
+    curadoria = load_curation(park_id)
+    return {a.id for a in curadoria.attractions} if curadoria else None
 
 
 def _curadoria(park_id: str) -> dict[str, CuratedAttraction] | None:
