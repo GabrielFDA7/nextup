@@ -16,9 +16,9 @@
 > caminhada (7.3) e popularidade (7.4). A última fecha o ciclo da Fase 6 — é a primeira
 > feature construída **sobre o histórico que nós mesmos coletamos**, e não sobre a API.
 >
-> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **906
-> testes**: 726 na suíte rápida (272 do roteiro, a maioria instâncias aleatórias
-> conferidas contra força bruta) e 180 de interface em navegador.
+> **Todas as seis fases do roadmap original estão entregues**, mais a Fase 7. **937
+> testes**: 745 na suíte rápida (272 do roteiro, a maioria instâncias aleatórias
+> conferidas contra força bruta) e 192 de interface em navegador.
 >
 > **Fase 9 — Perfil do visitante: iniciada (27/10/2026).** Nasceu de uma crítica do
 > Gabriel: ver a fila não resolve nada que a fonte já não resolva. O app passa a saber
@@ -2063,18 +2063,45 @@ nenhum teste reclame. Corrigido, com um teste por achado:
 6. O aviso do `pytest-asyncio` que aparecia em toda execução: a configuração ficou
    explícita, igual ao padrão de hoje.
 
-**Achado e não corrigido — esperando decisão:**
+**Achados que esperavam decisão — resolvidos no mesmo dia**, a pedido do Gabriel
+("isso deve ser implementado urgentemente; a sensação deve ser de atualidade"):
 
-- **As filas não se atualizam sozinhas.** Ao abrir e ao localizar, o app busca as filas
-  uma vez; depois só o botão "Atualizar", que no celular mora dentro do painel. A
-  posição também é lida uma vez (`getCurrentPosition`), então o ranking não acompanha
-  quem anda pelo parque. A fonte atualiza a cada ~5 min e o nosso cache é de 60 s.
-- Cabeçalho `Cache-Control` nos arquivos estáticos: sem ele, quem já abriu o app pode ver
-  a versão anterior por um tempo depois de cada publicação.
-- Validação do `park_id` na API (achado da revisão de segurança de 29/10).
-- A fonte lista atrações de festa ("Allergy Request Trick-or-Treating Experience…") como
-  atração comum: 37 no catálogo ao vivo contra 35 da fixture. Caem no fim do catálogo,
-  em "Sem histórico suficiente".
+#### Tempo real ✅ *30/10/2026*
+
+Até aqui o app buscava as filas uma vez, ao abrir e ao localizar, e lia o GPS uma vez
+(`getCurrentPosition`). Quem andava pelo parque via o ranking de onde estava ao abrir, e
+fila de meia hora atrás, sem aviso nenhum.
+
+- **O GPS acompanha** (`watchPosition`). O ponto e a rota andam a cada leitura; o ranking
+  só é refeito quando o visitante anda **25 m** desde o último, porque menos que isso some
+  no arredondamento e o GPS oscila 10–20 m com a pessoa parada. Leitura pior que 100 m de
+  precisão é ignorada. Andar **não** reenquadra o mapa — a chave do enquadramento passou
+  a ser a versão da posição escolhida, e não a coordenada.
+- **Tocar no mapa para de seguir o GPS**: é uma correção, e o GPS não pode desfazê-la no
+  segundo seguinte. A linha da posição ganha "Usar o GPS" para voltar.
+- **As filas se renovam sozinhas a cada 2 min** (a fonte atualiza a cada ~5, o cache do
+  servidor dura 1). Um relógio de 30 s confere; com a aba escondida não renova nada, e ao
+  voltar renova na hora.
+- **A renovação é silenciosa**: sem o esqueleto de carregamento, que faria a tela piscar,
+  e, se falhar, a tela **fica** com o que tinha — uma oscilação do 4G não apaga uma
+  resposta boa. Espera o visitante fechar o painel ou o gráfico que abriu.
+- **O indicador de frescor**, no topo do cartão: "Ao vivo · filas medidas há 2 min". A
+  idade é a da **medição da fonte**, não a da nossa busca. Três estados, e ele nunca finge:
+  ao vivo (ponto verde pulsando), fonte parada há mais de 15 min (o normal de madrugada) e
+  sem conexão. Fica fora do anúncio do leitor de tela (`aria-live="off"`), como a hora de
+  entrada, que agora anda sozinha; o cartão só é redesenhado quando muda de verdade.
+
+#### Proteção da fonte e do visitante ✅ *30/10/2026*
+
+- **`park_id` validado.** Formato UUID (199 de 199 parques da fonte) com 422, e a lista de
+  parques com 404 — mas só a do cache, que o coletor aquece: buscá-la a cada pedido poria
+  uma chamada à fonte em todo pedido, o contrário do que se quer.
+- **`Cache-Control: no-cache` na tela.** "Pergunte antes de usar a cópia", e não "não
+  guarde": o `ETag` faz a resposta de "nada mudou" sair com poucos bytes.
+- **O catálogo é a listagem oficial** (`core/listing.py`): as duas entradas da festa de
+  Halloween saem. Dois critérios foram testados nos dados e descartados — sem `slug` (TRON
+  e Tiana também não têm) e sem fila (apagaria o Castelo e atrações em reforma). A
+  curadoria, montada sobre a listagem pública, separou exatamente as duas.
 
 **Um bug introduzido e pego no caminho.** Guardar a referência das trilhas para o limite
 do mapa fez criá-las antes da casca, e o grupo do Leaflet pinta pela ordem de criação, não
@@ -2516,6 +2543,9 @@ Conceitos novos, registrados conforme aparecem no projeto.
 | 30/10/2026 | Favicon é o logo em miniatura (SVG + PNG + ícone do iPhone); título da aba "nextup · sua próxima atração" | Não havia ícone (404 a cada visita). O logo em letra minúscula, como o selo |
 | 30/10/2026 | Sem travessão no meio de frase em todo texto da tela; o "—" de "sem fila" fica | Pedido do Gabriel. Vigiado por teste que lê o texto inteiro da página |
 | 30/10/2026 | O número da barra conta o que está no painel; horas da tela sempre no fuso do parque | A barra dizia 26 sobre oito itens; "Dado da fonte" saía uma hora à frente de "entra às" num celular brasileiro |
+| 30/10/2026 | GPS acompanha (`watchPosition`); ranking refeito a cada 25 m andados; tocar no mapa para de seguir | A posição era lida uma vez, e o ranking ficava preso a onde o visitante abriu o app. 25 m: menos some no arredondamento, e o GPS oscila 10–20 m parado |
+| 30/10/2026 | Filas renovadas sozinhas a cada 2 min, em silêncio, com indicador de frescor pela idade da medição da fonte | "A sensação deve ser de atualidade" (Gabriel). Silenciosa porque piscar a cada 2 min e apagar a tela numa falha do 4G seriam piores que dado velho |
+| 30/10/2026 | `park_id` validado (UUID + lista de parques do cache); `Cache-Control: no-cache` na tela; catálogo restrito à listagem oficial | Revisão de segurança de 29/10 e varredura de 30/10. A lista de parques só do cache, aquecida pelo coletor, para não pôr uma chamada à fonte em todo pedido |
 | 29/10/2026 | Monetização: validar antes de cobrar; se cobrar, B2B com consultores e agências é o caminho preferido | É o público que já paga por esse serviço, e o app segue gratuito e sem conta para o visitante. Bloqueio a resolver antes: termos de uso comercial da ThemeParks.wiki, não encontrados |
 
 ---
